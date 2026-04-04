@@ -8,14 +8,17 @@ import {
   FileType,
   File,
   FileCode,
+  Sparkles
 } from "lucide-react";
 import type { FileNode } from "../types";
 
 interface FileTreeProps {
   nodes: FileNode[];
   activeFilePath: string | null;
+  selectedSourcePaths: string[];
   onFileSelect: (node: FileNode) => void;
   onContextMenu: (e: React.MouseEvent, node: FileNode) => void;
+  onToggleSource: (node: FileNode) => void;
   depth?: number;
 }
 
@@ -29,7 +32,6 @@ function getFileIcon(extension: string | null) {
       return <FileType size={15} className="text-red-400" />;
     case "txt":
     case "text":
-    case "log":
       return <FileText size={15} className="text-shell-text-secondary" />;
     case "rs":
     case "py":
@@ -37,17 +39,7 @@ function getFileIcon(extension: string | null) {
     case "ts":
     case "tsx":
     case "jsx":
-    case "java":
-    case "c":
-    case "cpp":
-    case "html":
-    case "css":
       return <FileCode size={15} className="text-green-400" />;
-    case "json":
-    case "yaml":
-    case "yml":
-    case "toml":
-      return <FileCode size={15} className="text-yellow-400" />;
     default:
       return <File size={15} className="text-shell-text-muted" />;
   }
@@ -56,18 +48,23 @@ function getFileIcon(extension: string | null) {
 function TreeNode({
   node,
   activeFilePath,
+  selectedSourcePaths,
   onFileSelect,
   onContextMenu,
+  onToggleSource,
   depth = 0,
 }: {
   node: FileNode;
   activeFilePath: string | null;
+  selectedSourcePaths: string[];
   onFileSelect: (node: FileNode) => void;
   onContextMenu: (e: React.MouseEvent, node: FileNode) => void;
+  onToggleSource: (node: FileNode) => void;
   depth: number;
 }) {
   const [isOpen, setIsOpen] = useState(depth < 1);
   const isActive = activeFilePath === node.path;
+  const isSelectedSource = selectedSourcePaths.includes(node.path);
 
   const handleClick = useCallback(() => {
     if (node.is_dir) {
@@ -77,20 +74,12 @@ function TreeNode({
     }
   }, [node, onFileSelect]);
 
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      onContextMenu(e, node);
-    },
-    [node, onContextMenu]
-  );
-
   return (
     <div>
       <motion.div
         className={`
           flex items-center gap-1.5 py-[5px] pr-3 cursor-pointer select-none
-          rounded-md transition-colors duration-150
+          rounded-md transition-colors duration-150 group
           ${isActive
             ? "bg-shell-accent/10 text-shell-accent"
             : "text-shell-text-secondary hover:bg-shell-surface-hover hover:text-shell-text"
@@ -98,16 +87,12 @@ function TreeNode({
         `}
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
         onClick={handleClick}
-        onContextMenu={handleContextMenu}
+        onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, node); }}
         whileTap={{ scale: 0.98 }}
       >
         {node.is_dir ? (
           <>
-            <motion.div
-              initial={false}
-              animate={{ rotate: isOpen ? 90 : 0 }}
-              transition={{ duration: 0.15 }}
-            >
+            <motion.div animate={{ rotate: isOpen ? 90 : 0 }}>
               <ChevronRight size={14} className="text-shell-text-muted flex-shrink-0" />
             </motion.div>
             {isOpen ? (
@@ -122,16 +107,26 @@ function TreeNode({
             {getFileIcon(node.extension)}
           </>
         )}
-        <span className="truncate text-[12.5px] font-medium">{node.name}</span>
+        <span className="truncate text-[12.5px] font-medium flex-1">{node.name}</span>
+        
+        {!node.is_dir && (
+            <button
+                onClick={(e) => { e.stopPropagation(); onToggleSource(node); }}
+                className={`p-1 rounded hover:bg-shell-accent/20 transition-all cursor-pointer 
+                ${isSelectedSource ? "text-shell-accent opacity-100" : "text-shell-text-muted opacity-0 group-hover:opacity-100"}`}
+                title="Use as AI source"
+            >
+                <Sparkles size={12} className={isSelectedSource ? "fill-shell-accent/20" : ""} />
+            </button>
+        )}
       </motion.div>
 
-      <AnimatePresence initial={false}>
+      <AnimatePresence>
         {node.is_dir && isOpen && node.children && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
             style={{ overflow: "hidden" }}
           >
             {node.children.map((child) => (
@@ -139,8 +134,10 @@ function TreeNode({
                 key={child.path}
                 node={child}
                 activeFilePath={activeFilePath}
+                selectedSourcePaths={selectedSourcePaths}
                 onFileSelect={onFileSelect}
                 onContextMenu={onContextMenu}
+                onToggleSource={onToggleSource}
                 depth={depth + 1}
               />
             ))}
@@ -154,18 +151,12 @@ function TreeNode({
 export default function FileTree({
   nodes,
   activeFilePath,
+  selectedSourcePaths,
   onFileSelect,
   onContextMenu,
+  onToggleSource,
   depth = 0,
 }: FileTreeProps) {
-  if (nodes.length === 0) {
-    return (
-      <div className="px-4 py-6 text-center text-shell-text-muted text-xs">
-        No files found in this directory.
-      </div>
-    );
-  }
-
   return (
     <div className="py-1">
       {nodes.map((node) => (
@@ -173,8 +164,10 @@ export default function FileTree({
           key={node.path}
           node={node}
           activeFilePath={activeFilePath}
+          selectedSourcePaths={selectedSourcePaths}
           onFileSelect={onFileSelect}
           onContextMenu={onContextMenu}
+          onToggleSource={onToggleSource}
           depth={depth}
         />
       ))}

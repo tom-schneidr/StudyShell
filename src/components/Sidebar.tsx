@@ -3,6 +3,7 @@ import {
   FolderSearch,
   RefreshCw,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import FileTree from "./FileTree";
 import type { FileNode } from "../types";
@@ -12,10 +13,12 @@ interface SidebarProps {
   fileTree: FileNode[];
   loading: boolean;
   activeFilePath: string | null;
+  selectedSourcePaths: string[];
   onSelectRoot: () => void;
   onRefresh: () => void;
   onFileSelect: (node: FileNode) => void;
   onContextMenu: (e: React.MouseEvent, node: FileNode) => void;
+  onToggleSource: (node: FileNode) => void;
 }
 
 export default function Sidebar({
@@ -23,10 +26,12 @@ export default function Sidebar({
   fileTree,
   loading,
   activeFilePath,
+  selectedSourcePaths,
   onSelectRoot,
   onRefresh,
   onFileSelect,
   onContextMenu,
+  onToggleSource,
 }: SidebarProps) {
   const rootName = rootPath ? rootPath.split(/[/\\]/).pop() : null;
 
@@ -90,8 +95,10 @@ export default function Sidebar({
           <FileTree
             nodes={fileTree}
             activeFilePath={activeFilePath}
+            selectedSourcePaths={selectedSourcePaths}
             onFileSelect={onFileSelect}
             onContextMenu={onContextMenu}
+            onToggleSource={onToggleSource}
           />
         ) : (
           <div className="px-4 py-12 text-center">

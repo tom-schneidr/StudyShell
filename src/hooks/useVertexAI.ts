@@ -7,7 +7,7 @@ export function useVertexAI() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [model, setModel] = useState<VertexModel>("gemini-2.5-flash");
+  const [model, setModel] = useState<VertexModel>("gemini-3-flash");
   const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
 
   // Check if Vertex AI is configured

@@ -1,41 +1,41 @@
-
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
+use std::path::Path;
+use base64::{Engine as _, engine::general_purpose};
 
-/// Available Gemini models
+/// Available Gemini models (Updated for April 2026)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[allow(dead_code)]
 pub enum GeminiModel {
+    #[serde(rename = "gemini-3-flash-preview")]
+    Flash3,
+    #[serde(rename = "gemini-3.1-pro-preview")]
+    Pro31,
     #[serde(rename = "gemini-2.5-pro")]
     Pro25,
     #[serde(rename = "gemini-2.5-flash")]
     Flash25,
-    #[serde(rename = "gemini-2.5-flash-lite")]
-    FlashLite25,
-    #[serde(rename = "gemini-3-flash")]
-    Flash3,
 }
 
 #[allow(dead_code)]
 impl GeminiModel {
     pub fn as_str(&self) -> &str {
         match self {
+            GeminiModel::Flash3 => "gemini-3-flash-preview",
+            GeminiModel::Pro31 => "gemini-3.1-pro-preview",
             GeminiModel::Pro25 => "gemini-2.5-pro",
             GeminiModel::Flash25 => "gemini-2.5-flash",
-            GeminiModel::FlashLite25 => "gemini-2.5-flash-lite",
-            GeminiModel::Flash3 => "gemini-3-flash",
         }
     }
 }
 
 impl Default for GeminiModel {
     fn default() -> Self {
-        GeminiModel::Flash25
+        GeminiModel::Flash3
     }
 }
 
-/// State for the Vertex AI client
 pub struct VertexState {
     pub project_id: Mutex<Option<String>>,
     pub location: Mutex<String>,
@@ -45,9 +45,8 @@ pub struct VertexState {
 impl VertexState {
     pub fn new() -> Self {
         let project_id = std::env::var("PROJECT_ID").ok();
-        // Gemini 2.5+ models require 'global' location on Vertex AI
+        // Gemini 2.5/3 models use 'global' location for automatic routing
         let location = std::env::var("VERTEX_LOCATION").unwrap_or_else(|_| "global".to_string());
-
         Self {
             project_id: Mutex::new(project_id),
             location: Mutex::new(location),
@@ -56,7 +55,6 @@ impl VertexState {
     }
 }
 
-/// Response from Vertex AI
 #[derive(Debug, Deserialize)]
 struct VertexResponse {
     candidates: Option<Vec<Candidate>>,
@@ -83,114 +81,81 @@ struct VertexError {
     message: String,
 }
 
-/// Internal helper to call the Vertex AI Gemini API
+#[derive(Serialize)]
+#[serde(untagged)]
+enum RequestPart {
+    Text { text: String },
+    InlineData {
+        #[serde(rename = "inlineData")]
+        inline_data: InlineData,
+    },
+}
+
+#[derive(Serialize)]
+struct InlineData {
+    #[serde(rename = "mimeType")]
+    mime_type: String,
+    data: String,
+}
+
 async fn call_gemini(
     state: &VertexState,
     model: &str,
     system_prompt: &str,
-    user_prompt: &str,
+    parts: Vec<RequestPart>,
 ) -> Result<String, String> {
-    let project_id = state
-        .project_id
-        .lock()
-        .map_err(|e| e.to_string())?
-        .clone()
-        .ok_or_else(|| "PROJECT_ID not configured. Set it in .env file.".to_string())?;
+    let project_id = state.project_id.lock().unwrap().clone()
+        .ok_or_else(|| "PROJECT_ID not configured.".to_string())?;
+    let location = state.location.lock().unwrap().clone();
 
-    let location = state.location.lock().map_err(|e| e.to_string())?.clone();
+    let provider = gcp_auth::provider().await
+        .map_err(|e| format!("Auth error: {}. Use 'gcloud auth application-default login'.", e))?;
+    let token = provider.token(&["https://www.googleapis.com/auth/cloud-platform"]).await
+        .map_err(|e| format!("Token error: {}", e))?;
 
-    // Get auth token
-    let provider = gcp_auth::provider()
-        .await
-        .map_err(|e| format!("Failed to get auth provider: {}. Run `gcloud auth application-default login` first.", e))?;
-
-    let scopes = &["https://www.googleapis.com/auth/cloud-platform"];
-    let token = provider
-        .token(scopes)
-        .await
-        .map_err(|e| format!("Failed to get auth token: {}", e))?;
-
-    // Build the API URL — 'global' uses a different hostname pattern
+    // Most 2026 models support the global endpoint
     let url = if location == "global" {
-        format!(
-            "https://aiplatform.googleapis.com/v1/projects/{}/locations/{}/publishers/google/models/{}:generateContent",
-            project_id, location, model
-        )
+        format!("https://aiplatform.googleapis.com/v1/projects/{}/locations/{}/publishers/google/models/{}:generateContent", project_id, location, model)
     } else {
-        format!(
-            "https://{}-aiplatform.googleapis.com/v1/projects/{}/locations/{}/publishers/google/models/{}:generateContent",
-            location, project_id, location, model
-        )
+        format!("https://{}-aiplatform.googleapis.com/v1/projects/{}/locations/{}/publishers/google/models/{}:generateContent", location, project_id, location, model)
     };
 
     let body = serde_json::json!({
-        "contents": [
-            {
-                "role": "user",
-                "parts": [{"text": user_prompt}]
-            }
-        ],
-        "systemInstruction": {
-            "parts": [{"text": system_prompt}]
-        },
-        "generationConfig": {
-            "temperature": 0.4,
-            "maxOutputTokens": 8192,
-        }
+        "contents": [{ "role": "user", "parts": parts }],
+        "systemInstruction": { "parts": [{"text": system_prompt}] },
+        "generationConfig": { "temperature": 0.4, "maxOutputTokens": 8192 }
     });
 
-    let response = state
-        .client
-        .post(&url)
-        .bearer_auth(token.as_str())
+    let resp = state.client.post(url)
+        .header("Authorization", format!("Bearer {}", token.as_str()))
         .json(&body)
-        .send()
-        .await
-        .map_err(|e| format!("Request failed: {}", e))?;
+        .send().await
+        .map_err(|e| e.to_string())?;
 
-    let status = response.status();
-    let response_text = response
-        .text()
-        .await
-        .map_err(|e| format!("Failed to read response: {}", e))?;
+    let text = resp.text().await.map_err(|e| e.to_string())?;
+    let vertex_resp: VertexResponse = serde_json::from_str(&text).map_err(|e| format!("Parse error: {}. Raw: {}", e, text))?;
 
-    if !status.is_success() {
-        return Err(format!("API error ({}): {}", status, response_text));
+    if let Some(err) = vertex_resp.error {
+        return Err(err.message);
     }
 
-    // Parse response - handle both single response and array response
-    let text = if response_text.trim_start().starts_with('[') {
-        // Streaming response returns an array
-        let responses: Vec<VertexResponse> =
-            serde_json::from_str(&response_text).map_err(|e| format!("Parse error: {}", e))?;
-        responses
-            .iter()
-            .filter_map(|r| {
-                r.candidates.as_ref()?.first()?.content.as_ref()?.parts.as_ref()?.first()?.text.as_ref()
-            })
-            .cloned()
-            .collect::<Vec<_>>()
-            .join("")
-    } else {
-        let response: VertexResponse =
-            serde_json::from_str(&response_text).map_err(|e| format!("Parse error: {}", e))?;
-        if let Some(err) = response.error {
-            return Err(format!("API error: {}", err.message));
+    if let Some(candidates) = vertex_resp.candidates {
+        if let Some(candidate) = candidates.first() {
+            if let Some(content) = &candidate.content {
+                if let Some(parts) = &content.parts {
+                    if let Some(part) = parts.first() {
+                        if let Some(text) = &part.text {
+                            return Ok(text.clone());
+                        }
+                    }
+                }
+            }
         }
-        response
-            .candidates
-            .and_then(|c| c.into_iter().next())
-            .and_then(|c| c.content)
-            .and_then(|c| c.parts)
-            .and_then(|p| p.into_iter().next())
-            .and_then(|p| p.text)
-            .ok_or_else(|| "Empty response from API".to_string())?
-    };
+    }
 
-    Ok(text)
+    Err("No response from AI".to_string())
 }
 
-/// Send a chat message to the AI with context
 #[tauri::command]
 pub async fn chat_with_ai(
     state: tauri::State<'_, VertexState>,
@@ -198,83 +163,78 @@ pub async fn chat_with_ai(
     context: Option<String>,
     model: String,
 ) -> Result<String, String> {
-    let system_prompt = "You are StudyShell AI, an intelligent academic assistant. You help students understand their course materials, summarize content, create study guides, and answer questions about their files. Be concise, clear, and academically rigorous. Use markdown formatting in your responses.";
+    let mut parts = Vec::new();
+    if let Some(ctx) = context {
+        parts.push(RequestPart::Text { text: format!("Context (Reference Material):\n---\n{}\n---\n", ctx) });
+    }
+    parts.push(RequestPart::Text { text: message });
 
-    let user_prompt = if let Some(ctx) = context {
-        format!(
-            "Context from the currently open file:\n---\n{}\n---\n\nUser question: {}",
-            ctx, message
-        )
-    } else {
-        message
-    };
-
-    call_gemini(&state, &model, system_prompt, &user_prompt).await
+    call_gemini(&state, &model, "You are StudyShell AI, a professional academic assistant. Support markdown in all responses.", parts).await
 }
 
-/// Summarize the content of multiple files
 #[tauri::command]
 pub async fn summarize_files(
     state: tauri::State<'_, VertexState>,
     paths: Vec<String>,
     model: String,
 ) -> Result<String, String> {
-    let mut file_contents = Vec::new();
-
-    for path in &paths {
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| format!("Failed to read {}: {}", path, e))?;
-        let filename = std::path::Path::new(path)
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy();
-        file_contents.push(format!("### File: {}\n{}", filename, content));
+    let mut parts = Vec::new();
+    for path_str in paths {
+        let path = Path::new(&path_str);
+        if let Ok(data) = std::fs::read(path) {
+            let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+            if extension == "pdf" {
+                parts.push(RequestPart::InlineData {
+                    inline_data: InlineData {
+                        mime_type: "application/pdf".to_string(),
+                        data: general_purpose::STANDARD.encode(data),
+                    }
+                });
+            } else {
+                if let Ok(text) = String::from_utf8(data) {
+                    parts.push(RequestPart::Text { text: format!("File: {}\n---\n{}\n---\n", path_str, text) });
+                }
+            }
+        }
     }
 
-    let combined = file_contents.join("\n\n---\n\n");
-    let system_prompt = "You are an academic summarization engine. Given the content of multiple files from a student's coursework, create a comprehensive summary in Markdown format. Include: key concepts, important definitions, main arguments, and connections between the files. Structure the summary with clear headings and bullet points.";
-    let user_prompt = format!(
-        "Please summarize the following {} files:\n\n{}",
-        paths.len(),
-        combined
-    );
+    parts.push(RequestPart::Text { text: "Provide a structured academic summary of the attached materials.".to_string() });
 
-    call_gemini(&state, &model, system_prompt, &user_prompt).await
+    call_gemini(&state, &model, "You are an expert academic summarizer.", parts).await
 }
 
-/// Generate a study guide from multiple files
 #[tauri::command]
 pub async fn generate_study_guide(
     state: tauri::State<'_, VertexState>,
     paths: Vec<String>,
     model: String,
 ) -> Result<String, String> {
-    let mut file_contents = Vec::new();
-
-    for path in &paths {
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| format!("Failed to read {}: {}", path, e))?;
-        let filename = std::path::Path::new(path)
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy();
-        file_contents.push(format!("### File: {}\n{}", filename, content));
+    let mut parts = Vec::new();
+    for path_str in paths {
+        let path = Path::new(&path_str);
+        if let Ok(data) = std::fs::read(path) {
+            let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+            if extension == "pdf" {
+                parts.push(RequestPart::InlineData {
+                    inline_data: InlineData {
+                        mime_type: "application/pdf".to_string(),
+                        data: general_purpose::STANDARD.encode(data),
+                    }
+                });
+            } else {
+                if let Ok(text) = String::from_utf8(data) {
+                    parts.push(RequestPart::Text { text: format!("Content: {}\n---\n{}\n---\n", path_str, text) });
+                }
+            }
+        }
     }
 
-    let combined = file_contents.join("\n\n---\n\n");
-    let system_prompt = "You are an expert academic tutor. Given course materials, create a comprehensive study guide in Markdown format. Include:\n1. **Key Topics** — List and explain main topics\n2. **Core Concepts** — Define important terms and concepts\n3. **Summary Notes** — Concise notes for each topic\n4. **Review Questions** — Practice questions to test understanding\n5. **Key Formulas/Theorems** — If applicable\n6. **Study Tips** — Specific advice for mastering this material";
-    let user_prompt = format!(
-        "Create a study guide from the following {} files:\n\n{}",
-        paths.len(),
-        combined
-    );
+    parts.push(RequestPart::Text { text: "Create a detailed study guide from these materials.".to_string() });
 
-    call_gemini(&state, &model, system_prompt, &user_prompt).await
+    call_gemini(&state, &model, "You are an expert at creating study materials.", parts).await
 }
 
-/// Check if Vertex AI is configured
 #[tauri::command]
-pub fn check_vertex_config(state: tauri::State<'_, VertexState>) -> Result<bool, String> {
-    let project_id = state.project_id.lock().map_err(|e| e.to_string())?;
-    Ok(project_id.is_some())
+pub fn check_vertex_config(state: tauri::State<'_, VertexState>) -> bool {
+    state.project_id.lock().unwrap().is_some()
 }

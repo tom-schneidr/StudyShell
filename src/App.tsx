@@ -1,4 +1,12 @@
 import { useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+    MessageSquareText, 
+    Files, 
+    PanelLeft, 
+    PanelRight, 
+    Sparkles 
+} from "lucide-react";
 import Sidebar from "./components/Sidebar";
 import Editor from "./components/Editor";
 import ChatPanel from "./components/ChatPanel";
@@ -19,7 +27,12 @@ export default function App() {
   const [binaryLoading, setBinaryLoading] = useState(false);
   const [notebookData, setNotebookData] = useState<NotebookData | null>(null);
 
-  // PDF Sessions (In-memory persistent only during app lifetime)
+  // AI & Chat state
+  const [showChatPanel, setShowChatPanel] = useState(true);
+  const [selectedSources, setSelectedSources] = useState<FileNode[]>([]);
+  const [sidebarWidth, setSidebarWidth] = useState(280);
+  const [chatWidth, setChatWidth] = useState(400);
+
   const [pdfAnnotations, setPdfAnnotations] = useState<Record<string, any>>({});
 
   // Context menu state
@@ -29,8 +42,6 @@ export default function App() {
     node: FileNode | null;
     visible: boolean;
   }>({ x: 0, y: 0, node: null, visible: false });
-
-  const [showChatPanel] = useState(true);
 
   // Reset all file state
   const resetFileState = useCallback(() => {
@@ -97,6 +108,16 @@ export default function App() {
     [fs, resetFileState]
   );
 
+  // Toggle multi-source selection
+  const handleToggleSource = useCallback((node: FileNode) => {
+    setSelectedSources(prev => {
+        if (prev.find(s => s.path === node.path)) {
+            return prev.filter(s => s.path !== node.path);
+        }
+        return [...prev, node];
+    });
+  }, []);
+
   // Save a file
   const handleSaveFile = useCallback(
     async (path: string, content: string) => {
@@ -135,24 +156,24 @@ export default function App() {
     setContextMenu((prev) => ({ ...prev, visible: false }));
   }, []);
 
-  // Collect all text file paths in a directory
+  // Collect all file paths recursively (including subfolders)
   const collectFilePaths = useCallback((node: FileNode): string[] => {
     const paths: string[] = [];
-    if (node.is_dir && node.children) {
-      for (const child of node.children) {
-        if (!child.is_dir) {
-          const ft = getFileType(child.extension);
-          if (ft === "markdown" || ft === "text") {
-            paths.push(child.path);
-          }
+    
+    const traverse = (current: FileNode) => {
+        if (current.is_dir && current.children) {
+            for (const child of current.children) {
+                traverse(child);
+            }
+        } else if (!current.is_dir) {
+            const ft = getFileType(current.extension);
+            if (ft === "markdown" || ft === "text" || ft === "pdf") {
+                paths.push(current.path);
+            }
         }
-      }
-    } else if (!node.is_dir) {
-      const ft = getFileType(node.extension);
-      if (ft === "markdown" || ft === "text") {
-        paths.push(node.path);
-      }
-    }
+    };
+
+    traverse(node);
     return paths;
   }, []);
 
@@ -211,38 +232,126 @@ export default function App() {
   }, [activeFile, fileContent, ai]);
 
   return (
-    <div className="h-screen w-screen flex overflow-hidden relative">
+    <div className="h-screen w-screen flex bg-shell-bg overflow-hidden relative text-shell-text select-none">
       <div className="bg-glow" />
 
-      <div className="w-[280px] flex-shrink-0 z-10">
-        <Sidebar
-          rootPath={fs.rootPath}
-          fileTree={fs.fileTree}
-          loading={fs.loading}
-          activeFilePath={activeFile?.path || null}
-          onSelectRoot={fs.selectRootFolder}
-          onRefresh={() => fs.refreshTree()}
-          onFileSelect={handleFileSelect}
-          onContextMenu={handleContextMenu}
-        />
+      {/* Activity Bar (VS Code style) */}
+      <div className="w-12 flex-shrink-0 bg-shell-surface border-r border-shell-border flex flex-col items-center py-4 gap-4 z-50">
+        <button 
+            onClick={() => {}} // Could be home/dashboard
+            className="p-2 rounded-lg text-shell-accent bg-shell-accent/10"
+        >
+            <Sparkles size={20} />
+        </button>
+        <button 
+            onClick={() => setSidebarWidth(sidebarWidth > 0 ? 0 : 280)}
+            className={`p-2 rounded-lg transition-colors ${sidebarWidth > 0 ? "text-shell-text bg-shell-surface-hover" : "text-shell-text-muted hover:text-shell-text"}`}
+        >
+            <Files size={20} />
+        </button>
+        <div className="flex-1" />
+        <button 
+            onClick={() => setShowChatPanel(!showChatPanel)}
+            className={`p-2 rounded-lg transition-colors ${showChatPanel ? "text-shell-accent bg-shell-accent/10" : "text-shell-text-muted hover:text-shell-text"}`}
+        >
+            <MessageSquareText size={20} />
+        </button>
       </div>
 
-      <div className="flex-1 min-w-0 z-10">
-        <Editor
-          activeFile={activeFile}
-          fileContent={fileContent}
-          binaryData={binaryData}
-          binaryLoading={binaryLoading}
-          notebookData={notebookData}
-          pdfAnnotations={activeFile ? pdfAnnotations[activeFile.path] : null}
-          onSaveFile={handleSaveFile}
-          onCloseFile={handleCloseFile}
-          onUpdatePdfAnnotations={handleUpdatePdfAnnotations}
-        />
+      {/* Resizable Sidebar */}
+      {sidebarWidth > 0 && (
+          <div 
+            className="flex-shrink-0 z-10 relative group h-full border-r border-shell-border shadow-2xl"
+            style={{ width: sidebarWidth }}
+          >
+            <Sidebar
+              rootPath={fs.rootPath}
+              fileTree={fs.fileTree}
+              loading={fs.loading}
+              activeFilePath={activeFile?.path || null}
+              selectedSourcePaths={selectedSources.map(s => s.path)}
+              onSelectRoot={fs.selectRootFolder}
+              onRefresh={() => fs.refreshTree()}
+              onFileSelect={handleFileSelect}
+              onContextMenu={handleContextMenu}
+              onToggleSource={handleToggleSource}
+            />
+            {/* Sidebar Resize Handle */}
+            <div 
+              onMouseDown={() => {
+                  const handleMove = (e: MouseEvent) => setSidebarWidth(Math.max(150, Math.min(e.clientX - 48, 600)));
+                  const handleUp = () => {
+                      window.removeEventListener("mousemove", handleMove);
+                      window.removeEventListener("mouseup", handleUp);
+                  };
+                  window.addEventListener("mousemove", handleMove);
+                  window.addEventListener("mouseup", handleUp);
+              }}
+              className="absolute right-0 top-0 bottom-0 w-1 hover:bg-shell-accent/40 cursor-col-resize transition-colors z-50"
+            />
+          </div>
+      )}
+
+      {/* Main Content Area */}
+      <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden bg-shell-bg">
+        {/* Top Header - Collapsible Toggles */}
+        <div className="h-10 border-b border-shell-border bg-shell-surface/30 flex items-center justify-between px-3">
+          <button 
+            onClick={() => setSidebarWidth(sidebarWidth > 0 ? 0 : 280)}
+            className="p-1.5 rounded hover:bg-shell-surface-hover text-shell-text-muted"
+          >
+            <PanelLeft size={16} />
+          </button>
+          
+          <div className="text-[11px] font-medium text-shell-text-muted uppercase tracking-widest truncate">
+            {activeFile?.name || "StudyShell"}
+          </div>
+
+          <button 
+            onClick={() => setShowChatPanel(!showChatPanel)}
+            className="p-1.5 rounded hover:bg-shell-surface-hover text-shell-text-muted"
+          >
+            <PanelRight size={16} />
+          </button>
+        </div>
+
+        <div className="flex-1 min-h-0 relative">
+          <Editor
+            activeFile={activeFile}
+            fileContent={fileContent}
+            binaryData={binaryData}
+            binaryLoading={binaryLoading}
+            notebookData={notebookData}
+            pdfAnnotations={activeFile ? pdfAnnotations[activeFile.path] : null}
+            onSaveFile={handleSaveFile}
+            onCloseFile={handleCloseFile}
+            onUpdatePdfAnnotations={handleUpdatePdfAnnotations}
+          />
+        </div>
       </div>
 
+      {/* AI Assistant Side Panel */}
       {showChatPanel && (
-        <div className="w-[350px] flex-shrink-0 z-10">
+        <div 
+          className="flex-shrink-0 z-10 relative group h-full border-l border-shell-border bg-shell-surface/50"
+          style={{ width: chatWidth }}
+        >
+          {/* Chat Resize Handle */}
+          <div 
+            onMouseDown={() => {
+                const handleMove = (e: MouseEvent) => {
+                    const newW = window.innerWidth - e.clientX;
+                    setChatWidth(Math.max(300, Math.min(newW, 800)));
+                };
+                const handleUp = () => {
+                    window.removeEventListener("mousemove", handleMove);
+                    window.removeEventListener("mouseup", handleUp);
+                };
+                window.addEventListener("mousemove", handleMove);
+                window.addEventListener("mouseup", handleUp);
+            }}
+            className="absolute left-0 top-0 bottom-0 w-1 hover:bg-shell-accent/40 cursor-col-resize transition-colors z-50"
+          />
           <ChatPanel
             messages={ai.messages}
             loading={ai.loading}
@@ -250,10 +359,12 @@ export default function App() {
             model={ai.model}
             activeFileName={activeFile?.name || null}
             activeFileContent={fileContent}
+            selectedSources={selectedSources}
             onSendMessage={ai.sendMessage}
             onModelChange={ai.setModel}
             onClearChat={ai.clearChat}
             onSummarizeCurrentFile={handleSummarizeCurrentFile}
+            onRemoveSource={(path: string) => setSelectedSources(prev => prev.filter(s => s.path !== path))}
           />
         </div>
       )}

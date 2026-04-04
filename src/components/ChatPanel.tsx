@@ -1,17 +1,18 @@
-import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Send,
-  Sparkles,
-  Loader2,
+  X,
   Trash2,
-  ChevronDown,
+  Sparkles,
+  Send,
+  Loader2,
   AlertCircle,
-  FileText,
   Bot,
   User,
+  ChevronDown
 } from "lucide-react";
-import type { ChatMessage, VertexModel } from "../types";
+import type { FileNode, ChatMessage, VertexModel } from "../types";
+import { modelLabels } from "../types";
+import { useState, useRef, useEffect, useCallback } from "react";
 
 interface ChatPanelProps {
   messages: ChatMessage[];
@@ -20,10 +21,12 @@ interface ChatPanelProps {
   model: VertexModel;
   activeFileName: string | null;
   activeFileContent: string | null;
+  selectedSources: FileNode[];
   onSendMessage: (message: string, context?: string) => void;
   onModelChange: (model: VertexModel) => void;
   onClearChat: () => void;
   onSummarizeCurrentFile: () => void;
+  onRemoveSource: (path: string) => void;
 }
 
 export default function ChatPanel({
@@ -33,27 +36,25 @@ export default function ChatPanel({
   model,
   activeFileName,
   activeFileContent,
+  selectedSources,
   onSendMessage,
   onModelChange,
   onClearChat,
-  onSummarizeCurrentFile,
+  onRemoveSource,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [showModelPicker, setShowModelPicker] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Auto-resize textarea
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.style.height = "auto";
-      inputRef.current.style.height =
-        Math.min(inputRef.current.scrollHeight, 120) + "px";
+      inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + "px";
     }
   }, [input]);
 
@@ -63,86 +64,47 @@ export default function ChatPanel({
     setInput("");
   }, [input, loading, onSendMessage, activeFileContent]);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        handleSend();
-      }
-    },
-    [handleSend]
-  );
-
-  const modelLabels: Record<VertexModel, string> = {
-    "gemini-2.5-pro": "Gemini 2.5 Pro",
-    "gemini-2.5-flash": "Gemini 2.5 Flash",
-    "gemini-2.5-flash-lite": "Gemini 2.5 Flash Lite",
-    "gemini-3-flash": "Gemini 3 Flash (Preview)",
-  };
-
   return (
-    <div className="h-full flex flex-col bg-shell-surface border-l border-shell-border">
-      {/* Header */}
-      <div className="flex-shrink-0 px-4 py-3 border-b border-shell-border">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-emerald-500 to-cyan-500
-              flex items-center justify-center">
-              <Sparkles size={12} className="text-white" />
+    <div className="h-full w-full flex flex-col bg-shell-surface overflow-hidden">
+      {/* Header - Modern with Padding */}
+      <div className="flex-shrink-0 px-5 py-4 border-b border-shell-border bg-shell-bg/50">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+              <Sparkles size={16} className="text-white" />
             </div>
-            <h2 className="text-sm font-semibold text-shell-text">
-              AI Assistant
-            </h2>
+            <div>
+              <h2 className="text-[13px] font-bold text-shell-text tracking-tight">AI Assistant</h2>
+              <p className="text-[10px] text-shell-text-muted font-medium uppercase tracking-wider">Multimodal Agent</p>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={onClearChat}
-              className="p-1.5 rounded-md text-shell-text-muted hover:text-shell-text
-                hover:bg-shell-surface-hover transition-colors cursor-pointer"
-              title="Clear chat"
-            >
-              <Trash2 size={13} />
-            </button>
-          </div>
+          <button onClick={onClearChat} className="p-2 rounded-lg text-shell-text-muted hover:text-red-400 hover:bg-red-400/10 transition-all cursor-pointer">
+            <Trash2 size={15} />
+          </button>
         </div>
 
-        {/* Model Selector */}
-        <div className="relative mt-2">
+        <div className="relative">
           <button
             onClick={() => setShowModelPicker(!showModelPicker)}
-            className="w-full flex items-center justify-between px-2.5 py-1.5
-              rounded-md bg-shell-bg border border-shell-border text-[11.5px]
-              text-shell-text-secondary hover:text-shell-text transition-colors cursor-pointer"
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-shell-bg border border-shell-border text-[11.5px] text-shell-text-secondary hover:text-shell-text transition-all cursor-pointer"
           >
-            <span>{modelLabels[model]}</span>
-            <ChevronDown size={12} />
+            <span className="font-medium">{modelLabels[model]}</span>
+            <ChevronDown size={14} className={`transition-transform ${showModelPicker ? "rotate-180" : ""}`} />
           </button>
 
           <AnimatePresence>
             {showModelPicker && (
               <motion.div
-                className="absolute top-full left-0 right-0 mt-1 z-50 glass rounded-lg overflow-hidden
-                  shadow-xl shadow-black/30"
-                initial={{ opacity: 0, y: -4 }}
+                initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.12 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute top-full left-0 right-0 mt-2 z-50 glass rounded-xl border border-shell-border shadow-2xl overflow-hidden"
               >
-                {(
-                  Object.entries(modelLabels) as [VertexModel, string][]
-                ).map(([key, label]) => (
+                {(Object.entries(modelLabels) as [VertexModel, string][]).map(([key, label]) => (
                   <button
                     key={key}
-                    onClick={() => {
-                      onModelChange(key);
-                      setShowModelPicker(false);
-                    }}
-                    className={`w-full px-3 py-2 text-left text-[12px] transition-colors cursor-pointer
-                      ${
-                        model === key
-                          ? "bg-shell-accent/10 text-shell-accent"
-                          : "text-shell-text-secondary hover:bg-shell-surface-hover hover:text-shell-text"
-                      }`}
+                    onClick={() => { onModelChange(key); setShowModelPicker(false); }}
+                    className={`w-full px-4 py-2.5 text-left text-[12px] transition-colors hover:bg-shell-accent/10 hover:text-shell-accent ${model === key ? "text-shell-accent bg-shell-accent/5 font-semibold" : "text-shell-text-secondary"}`}
                   >
                     {label}
                   </button>
@@ -152,177 +114,92 @@ export default function ChatPanel({
           </AnimatePresence>
         </div>
 
-        {/* Context indicator */}
-        {activeFileName && (
-          <div className="mt-2 flex items-center gap-1.5 px-2 py-1 rounded-md
-            bg-shell-accent/5 border border-shell-accent/10">
-            <FileText size={11} className="text-shell-accent" />
-            <span className="text-[10.5px] text-shell-accent truncate">
-              Context: {activeFileName}
-            </span>
+        {selectedSources.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-4">
+            {selectedSources.map(s => (
+              <div key={s.path} className="flex items-center gap-2 px-2.5 py-1 bg-shell-accent/10 border border-shell-accent/20 rounded-full text-[10px] text-shell-accent font-medium">
+                <span className="truncate max-w-[120px]">{s.name}</span>
+                <button onClick={() => onRemoveSource(s.path)} className="p-0.5 hover:text-white transition-colors cursor-pointer">
+                  <X size={10} />
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+      {/* Messages - Fixed Margins */}
+      <div className="flex-1 overflow-y-auto px-5 py-6 custom-scrollbar space-y-6 bg-shell-bg/20">
         {messages.length === 0 ? (
-          <EmptyChatState
-            hasFile={!!activeFileName}
-            onSummarize={onSummarizeCurrentFile}
-          />
+          <div className="flex flex-col items-center justify-center h-full text-center px-10 animate-in fade-in zoom-in-95 duration-500">
+            <div className="w-16 h-16 rounded-3xl bg-shell-accent/10 flex items-center justify-center mb-6 shadow-inner">
+              <Bot size={32} className="text-shell-accent/40" />
+            </div>
+            <h3 className="text-base font-bold text-shell-text mb-2">How can I help you today?</h3>
+            <p className="text-[12px] text-shell-text-muted leading-relaxed max-w-[240px]">
+              Upload PDFs or notes as sources and ask questions to prepare for your exams.
+            </p>
+          </div>
         ) : (
           messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} />
-          ))
-        )}
-
-        {loading && (
-          <motion.div
-            className="flex items-start gap-2"
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-emerald-500/20 to-cyan-500/20
-              flex items-center justify-center flex-shrink-0 mt-0.5">
-              <Bot size={12} className="text-emerald-400" />
-            </div>
-            <div className="glass-subtle rounded-xl rounded-tl-sm px-3 py-2.5">
-              <div className="flex items-center gap-2 text-shell-text-muted text-xs">
-                <Loader2 size={12} className="animate-spin" />
-                Thinking...
+            <div key={msg.id} className={`flex gap-4 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+              <div className={`flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center shadow-sm ${
+                msg.role === "user" ? "bg-shell-accent text-white" : "bg-shell-surface border border-shell-border text-shell-accent"
+              }`}>
+                {msg.role === "user" ? <User size={16} /> : <Bot size={16} />}
+              </div>
+              <div className={`max-w-[88%] rounded-2xl px-5 py-3.5 text-[13px] leading-[1.6] shadow-sm animate-in slide-in-from-bottom-2 duration-300 ${
+                msg.role === "user" ? "bg-shell-accent text-white rounded-tr-none" : "bg-shell-surface text-shell-text border border-shell-border rounded-tl-none shadow-black/10"
+              }`}>
+                {msg.content}
               </div>
             </div>
-          </motion.div>
+          ))
         )}
-
-        {error && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg
-            bg-shell-error/10 border border-shell-error/20 text-shell-error text-xs">
-            <AlertCircle size={13} />
-            {error}
-          </div>
-        )}
-
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick Actions */}
-      {activeFileName && messages.length === 0 && (
-        <div className="flex-shrink-0 px-3 pb-2">
-          <button
-            onClick={onSummarizeCurrentFile}
-            disabled={loading}
-            className="w-full px-3 py-2 rounded-lg text-[12px] font-medium
-              bg-shell-accent/10 text-shell-accent border border-shell-accent/20
-              hover:bg-shell-accent/20 transition-colors disabled:opacity-50 cursor-pointer"
-          >
-            <Sparkles size={12} className="inline mr-1.5" />
-            Summarize this file
-          </button>
-        </div>
-      )}
+      {/* Control / Status Area - Pinned and Clear */}
+      <div className="flex-shrink-0 p-5 bg-shell-bg border-t border-shell-border shadow-[0_-10px_40px_rgba(0,0,0,0.2)]">
+        {error && (
+          <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-400 text-[11px] font-medium leading-normal">
+            <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
 
-      {/* Input */}
-      <div className="flex-shrink-0 px-3 pb-3 pt-1">
-        <div className="flex items-end gap-2 glass rounded-xl p-2">
+        <div className="relative">
           <textarea
             ref={inputRef}
+            rows={1}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask about your study materials..."
-            rows={1}
-            className="flex-1 bg-transparent text-[12.5px] text-shell-text
-              placeholder-shell-text-muted resize-none outline-none min-h-[28px] max-h-[120px]
-              py-1 px-1"
+            onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                }
+            }}
+            placeholder="Type your question..."
+            className="w-full bg-shell-surface border border-shell-border rounded-2xl pl-5 pr-14 py-4
+              text-[13px] text-shell-text placeholder:text-shell-text-muted focus:outline-none
+              focus:ring-2 focus:ring-shell-accent/40 focus:border-shell-accent transition-all resize-none shadow-inner"
           />
-          <motion.button
+          <button
             onClick={handleSend}
             disabled={!input.trim() || loading}
-            className="p-2 rounded-lg bg-shell-accent text-white
-              disabled:opacity-30 disabled:cursor-not-allowed
-              hover:bg-shell-accent-hover transition-colors flex-shrink-0 cursor-pointer"
-            whileTap={{ scale: 0.95 }}
+            className="absolute right-3 top-[10px] p-2.5 rounded-xl bg-shell-accent 
+              text-white shadow-xl shadow-shell-accent/20 hover:bg-shell-accent-hover 
+              active:scale-95 disabled:opacity-30 transition-all cursor-pointer"
           >
-            <Send size={13} />
-          </motion.button>
+            {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+          </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function MessageBubble({ message }: { message: ChatMessage }) {
-  const isUser = message.role === "user";
-
-  return (
-    <motion.div
-      className={`flex items-start gap-2 ${isUser ? "flex-row-reverse" : ""}`}
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-    >
-      <div
-        className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5
-          ${
-            isUser
-              ? "bg-shell-accent/15"
-              : "bg-gradient-to-br from-emerald-500/20 to-cyan-500/20"
-          }`}
-      >
-        {isUser ? (
-          <User size={12} className="text-shell-accent" />
-        ) : (
-          <Bot size={12} className="text-emerald-400" />
-        )}
-      </div>
-
-      <div
-        className={`max-w-[85%] rounded-xl px-3 py-2.5 text-[12.5px] leading-relaxed
-          ${
-            isUser
-              ? "bg-shell-accent/15 text-shell-text rounded-tr-sm"
-              : "glass-subtle text-shell-text rounded-tl-sm"
-          }`}
-      >
-        <div className="whitespace-pre-wrap break-words">{message.content}</div>
-        <div
-          className={`text-[9.5px] mt-1.5 ${
-            isUser ? "text-shell-accent/50 text-right" : "text-shell-text-muted"
-          }`}
-        >
-          {message.timestamp.toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
+        <div className="mt-3 flex justify-center">
+            <span className="px-2 py-0.5 rounded bg-shell-surface-hover text-[9px] text-shell-text-muted font-bold uppercase tracking-widest border border-shell-border/40">
+                {modelLabels[model]} Ready
+            </span>
         </div>
-      </div>
-    </motion.div>
-  );
-}
-
-function EmptyChatState({
-  hasFile,
-}: {
-  hasFile: boolean;
-  onSummarize?: () => void;
-}) {
-  return (
-    <div className="h-full flex items-center justify-center">
-      <div className="text-center px-4">
-        <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-gradient-to-br from-emerald-500/10 to-cyan-500/10
-          border border-shell-border flex items-center justify-center">
-          <Sparkles size={20} className="text-emerald-400/50" />
-        </div>
-        <p className="text-[12.5px] text-shell-text-secondary font-medium mb-1">
-          AI Assistant
-        </p>
-        <p className="text-[11.5px] text-shell-text-muted leading-relaxed max-w-[220px]">
-          {hasFile
-            ? "Ask questions about the currently opened file, or use the summary button below."
-            : "Open a file to provide context for the AI assistant."}
-        </p>
       </div>
     </div>
   );

@@ -1,0 +1,377 @@
+@import "tailwindcss";
+
+/* ===== StudyShell Design System ===== */
+
+@theme {
+  /* Core Palette - Slate-950 Dark Theme */
+  --color-shell-bg: #0a0c10;
+  --color-shell-surface: #111318;
+  --color-shell-surface-hover: #191c24;
+  --color-shell-surface-active: #1e2230;
+  --color-shell-border: #1e2230;
+  --color-shell-border-subtle: #151820;
+  --color-shell-text: #e8eaf0;
+  --color-shell-text-secondary: #8b90a0;
+  --color-shell-text-muted: #555a6e;
+  --color-shell-accent: #6c8aff;
+  --color-shell-accent-hover: #8ba3ff;
+  --color-shell-accent-glow: rgba(108, 138, 255, 0.15);
+  --color-shell-success: #4ade80;
+  --color-shell-warning: #fbbf24;
+  --color-shell-error: #f87171;
+
+  /* Glass Effect */
+  --color-glass-bg: rgba(17, 19, 24, 0.75);
+  --color-glass-border: rgba(255, 255, 255, 0.06);
+  --color-glass-highlight: rgba(255, 255, 255, 0.03);
+
+  /* Font */
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Spacing */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+}
+
+/* ===== Base Styles ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--color-shell-bg);
+  color: var(--color-shell-text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-shell-border);
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-shell-text-muted);
+}
+
+/* ===== Selection ===== */
+::selection {
+  background: var(--color-shell-accent);
+  color: white;
+}
+
+/* ===== Focus Ring ===== */
+:focus-visible {
+  outline: 2px solid var(--color-shell-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ===== Glassmorphism Utilities ===== */
+.glass {
+  background: var(--color-glass-bg);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--color-glass-border);
+}
+
+.glass-subtle {
+  background: rgba(17, 19, 24, 0.45);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  border: 1px solid var(--color-glass-border);
+}
+
+.glass-highlight {
+  background: linear-gradient(
+    135deg,
+    var(--color-glass-highlight) 0%,
+    transparent 50%
+  );
+}
+
+/* ===== Animated Background Glow ===== */
+.bg-glow {
+  position: fixed;
+  top: -200px;
+  left: -200px;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(
+    circle,
+    rgba(108, 138, 255, 0.08) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: 0;
+  animation: glow-drift 20s ease-in-out infinite alternate;
+}
+
+@keyframes glow-drift {
+  0% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(100px, 150px);
+  }
+  100% {
+    transform: translate(-50px, 100px);
+  }
+}
+
+/* ===== TipTap Editor ===== */
+.tiptap-editor .ProseMirror {
+  min-height: 100%;
+  padding: 2rem;
+  outline: none;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--color-shell-text);
+}
+
+.tiptap-editor .ProseMirror h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  margin: 1.5rem 0 0.75rem;
+  color: var(--color-shell-text);
+  letter-spacing: -0.02em;
+}
+
+.tiptap-editor .ProseMirror h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 1.25rem 0 0.5rem;
+  color: var(--color-shell-text);
+  letter-spacing: -0.01em;
+}
+
+.tiptap-editor .ProseMirror h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 1rem 0 0.5rem;
+  color: var(--color-shell-text);
+}
+
+.tiptap-editor .ProseMirror p {
+  margin: 0.5rem 0;
+}
+
+.tiptap-editor .ProseMirror ul,
+.tiptap-editor .ProseMirror ol {
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.tiptap-editor .ProseMirror li {
+  margin: 0.25rem 0;
+}
+
+.tiptap-editor .ProseMirror code {
+  background: var(--color-shell-surface-hover);
+  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  color: var(--color-shell-accent);
+}
+
+.tiptap-editor .ProseMirror pre {
+  background: var(--color-shell-bg);
+  border: 1px solid var(--color-shell-border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin: 0.75rem 0;
+  overflow-x: auto;
+}
+
+.tiptap-editor .ProseMirror pre code {
+  background: none;
+  padding: 0;
+  color: var(--color-shell-text);
+  font-size: 0.875rem;
+}
+
+.tiptap-editor .ProseMirror blockquote {
+  border-left: 3px solid var(--color-shell-accent);
+  padding-left: 1rem;
+  margin: 0.75rem 0;
+  color: var(--color-shell-text-secondary);
+}
+
+.tiptap-editor .ProseMirror hr {
+  border: none;
+  border-top: 1px solid var(--color-shell-border);
+  margin: 1.5rem 0;
+}
+
+.tiptap-editor .ProseMirror strong {
+  font-weight: 600;
+  color: var(--color-shell-text);
+}
+
+.tiptap-editor .ProseMirror a {
+  color: var(--color-shell-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ===== Animations ===== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-subtle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-shell-surface) 25%,
+    var(--color-shell-surface-hover) 50%,
+    var(--color-shell-surface) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ===== Notebook HTML Output (DataFrames, etc.) ===== */
+.notebook-html-output table {
+  border-collapse: collapse;
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+
+.notebook-html-output th,
+.notebook-html-output td {
+  padding: 4px 10px;
+  border: 1px solid var(--color-shell-border);
+  text-align: left;
+}
+
+.notebook-html-output th {
+  background: var(--color-shell-surface-hover);
+  font-weight: 600;
+  color: var(--color-shell-text-secondary);
+}
+
+.notebook-html-output tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ===== Custom Scrollbar for PDF Viewport ===== */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-shell-border);
+  border: 2px solid var(--color-shell-bg);
+  border-radius: 99px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-shell-text-muted);
+}
+
+/* ===== React PDF Standard Styles ===== */
+.react-pdf__Page {
+  position: relative;
+  display: block;
+}
+
+.react-pdf__Page__textContent {
+  position: absolute !important;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  user-select: text;
+  z-index: 1;
+  opacity: 0;
+}
+
+/* Enable text selection only in Select mode */
+.select-mode .react-pdf__Page__textContent {
+  pointer-events: auto;
+}
+
+.drawing-active .react-pdf__Page__textContent {
+  pointer-events: none !important;
+}
+
+/* Ensure text is selectable ONLY when specifically asked */
+.react-pdf__Page__textContent span {
+  pointer-events: auto;
+}
+
+.react-pdf__Page__annotations {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.react-pdf__Page__canvas {
+  display: block;
+  max-width: 100%;
+}

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { ChatMessage, VertexModel } from "../types";
 import { generateId } from "../types";
@@ -7,10 +7,17 @@ export function useVertexAI() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [model, setModel] = useState<VertexModel>("gemini-3-flash");
+  const [model, setModel] = useState<VertexModel>("gemini-3-flash-preview");
+  const [useSearch, setUseSearch] = useState(false);
   const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
 
   // Check if Vertex AI is configured
+  useEffect(() => {
+    invoke<boolean>("check_vertex_config")
+      .then(setIsConfigured)
+      .catch(() => setIsConfigured(false));
+  }, []);
+
   const checkConfig = useCallback(async () => {
     try {
       const configured = await invoke<boolean>("check_vertex_config");
@@ -24,23 +31,26 @@ export function useVertexAI() {
 
   // Send a chat message
   const sendMessage = useCallback(
-    async (message: string, context?: string) => {
-      const userMessage: ChatMessage = {
+    async (content: string, context?: string) => {
+      if (!content.trim()) return;
+
+      const userMsg: ChatMessage = {
         id: generateId(),
         role: "user",
-        content: message,
+        content: content,
         timestamp: new Date(),
       };
 
-      setMessages((prev) => [...prev, userMessage]);
+      setMessages((prev) => [...prev, userMsg]);
       setLoading(true);
       setError(null);
 
       try {
         const response = await invoke<string>("chat_with_ai", {
-          message,
+          message: content,
           context: context || null,
           model,
+          useSearch,
         });
 
         const assistantMessage: ChatMessage = {
@@ -64,51 +74,65 @@ export function useVertexAI() {
         setLoading(false);
       }
     },
-    [model]
+    [model, useSearch]
   );
 
-  // Summarize files
+  // Summarize multiple files
   const summarizeFiles = useCallback(
-    async (paths: string[]): Promise<string> => {
+    async (paths: string[]) => {
       setLoading(true);
       setError(null);
       try {
-        const result = await invoke<string>("summarize_files", {
-          paths,
+        const response = await invoke<string>("summarize_files", { 
+          paths, 
           model,
+          useSearch
         });
-        return result;
-      } catch (e) {
-        const err = `Summarization failed: ${e}`;
-        setError(err);
-        throw new Error(err);
+        const assistantMsg: ChatMessage = {
+          id: generateId(),
+          role: "assistant",
+          content: response,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, assistantMsg]);
+        return response;
+      } catch (err) {
+        setError(typeof err === "string" ? err : "Summarization failed");
+        throw err;
       } finally {
         setLoading(false);
       }
     },
-    [model]
+    [model, useSearch]
   );
 
   // Generate study guide
   const generateStudyGuide = useCallback(
-    async (paths: string[]): Promise<string> => {
+    async (paths: string[]) => {
       setLoading(true);
       setError(null);
       try {
-        const result = await invoke<string>("generate_study_guide", {
-          paths,
+        const response = await invoke<string>("generate_study_guide", { 
+          paths, 
           model,
+          useSearch
         });
-        return result;
-      } catch (e) {
-        const err = `Study guide generation failed: ${e}`;
-        setError(err);
-        throw new Error(err);
+        const assistantMsg: ChatMessage = {
+          id: generateId(),
+          role: "assistant",
+          content: response,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, assistantMsg]);
+        return response;
+      } catch (err) {
+        setError(typeof err === "string" ? err : "Study guide generation failed");
+        throw err;
       } finally {
         setLoading(false);
       }
     },
-    [model]
+    [model, useSearch]
   );
 
   // Clear chat history
@@ -122,10 +146,12 @@ export function useVertexAI() {
     loading,
     error,
     model,
+    useSearch,
     isConfigured,
-    setModel,
-    checkConfig,
     sendMessage,
+    setModel,
+    setUseSearch,
+    checkConfig,
     summarizeFiles,
     generateStudyGuide,
     clearChat,

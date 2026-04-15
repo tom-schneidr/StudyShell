@@ -103,6 +103,7 @@ async fn call_gemini(
     model: &str,
     system_prompt: &str,
     parts: Vec<RequestPart>,
+    use_search: bool,
 ) -> Result<String, String> {
     let project_id = state.project_id.lock().unwrap().clone()
         .ok_or_else(|| "PROJECT_ID not configured.".to_string())?;
@@ -120,11 +121,17 @@ async fn call_gemini(
         format!("https://{}-aiplatform.googleapis.com/v1/projects/{}/locations/{}/publishers/google/models/{}:generateContent", location, project_id, location, model)
     };
 
-    let body = serde_json::json!({
+    let mut body = serde_json::json!({
         "contents": [{ "role": "user", "parts": parts }],
         "systemInstruction": { "parts": [{"text": system_prompt}] },
         "generationConfig": { "temperature": 0.4, "maxOutputTokens": 8192 }
     });
+
+    if use_search {
+        body["tools"] = serde_json::json!([{
+            "google_search": {}
+        }]);
+    }
 
     let resp = state.client.post(url)
         .header("Authorization", format!("Bearer {}", token.as_str()))
@@ -162,6 +169,7 @@ pub async fn chat_with_ai(
     message: String,
     context: Option<String>,
     model: String,
+    use_search: bool,
 ) -> Result<String, String> {
     let mut parts = Vec::new();
     if let Some(ctx) = context {
@@ -169,7 +177,7 @@ pub async fn chat_with_ai(
     }
     parts.push(RequestPart::Text { text: message });
 
-    call_gemini(&state, &model, "You are StudyShell AI, a professional academic assistant. Support markdown in all responses.", parts).await
+    call_gemini(&state, &model, "You are StudyShell AI, a professional academic assistant. Support markdown in all responses.", parts, use_search).await
 }
 
 #[tauri::command]
@@ -177,6 +185,7 @@ pub async fn summarize_files(
     state: tauri::State<'_, VertexState>,
     paths: Vec<String>,
     model: String,
+    use_search: bool,
 ) -> Result<String, String> {
     let mut parts = Vec::new();
     for path_str in paths {
@@ -200,7 +209,7 @@ pub async fn summarize_files(
 
     parts.push(RequestPart::Text { text: "Provide a structured academic summary of the attached materials.".to_string() });
 
-    call_gemini(&state, &model, "You are an expert academic summarizer.", parts).await
+    call_gemini(&state, &model, "You are an expert academic summarizer.", parts, use_search).await
 }
 
 #[tauri::command]
@@ -208,6 +217,7 @@ pub async fn generate_study_guide(
     state: tauri::State<'_, VertexState>,
     paths: Vec<String>,
     model: String,
+    use_search: bool,
 ) -> Result<String, String> {
     let mut parts = Vec::new();
     for path_str in paths {
@@ -231,7 +241,7 @@ pub async fn generate_study_guide(
 
     parts.push(RequestPart::Text { text: "Create a detailed study guide from these materials.".to_string() });
 
-    call_gemini(&state, &model, "You are an expert at creating study materials.", parts).await
+    call_gemini(&state, &model, "You are an expert at creating study materials.", parts, use_search).await
 }
 
 #[tauri::command]

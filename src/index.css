@@ -410,3 +410,83 @@ body,
   box-shadow: 0 15px 50px -12px rgba(0, 0, 0, 0.7);
   border-color: var(--color-shell-accent) !important;
 }
+/* ===== AI Markdown Styles ===== */
+.ai-markdown {
+  line-height: 1.6;
+  font-size: 13.5px;
+  color: var(--color-shell-text);
+}
+
+.ai-markdown h1, 
+.ai-markdown h2, 
+.ai-markdown h3 {
+  color: var(--color-shell-text);
+  font-weight: 700;
+  margin-top: 1.25rem;
+  margin-bottom: 0.75rem;
+  letter-spacing: -0.01em;
+}
+
+.ai-markdown h1 { font-size: 1.25rem; border-bottom: 1px solid var(--color-shell-border); padding-bottom: 0.5rem; }
+.ai-markdown h2 { font-size: 1.1rem; }
+.ai-markdown h3 { font-size: 1rem; }
+
+.ai-markdown p {
+  margin-bottom: 0.75rem;
+}
+
+.ai-markdown ul, 
+.ai-markdown ol {
+  padding-left: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.ai-markdown li {
+  margin-bottom: 0.4rem;
+}
+
+.ai-markdown ul { list-style-type: disc; }
+.ai-markdown ol { list-style-type: decimal; }
+
+.ai-markdown code {
+  background: var(--color-shell-surface-hover);
+  color: var(--color-shell-accent);
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.ai-markdown pre {
+  background: var(--color-shell-surface);
+  border: 1px solid var(--color-shell-border);
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+  overflow-x: auto;
+}
+
+.ai-markdown pre code {
+  background: none;
+  padding: 0;
+  color: var(--color-shell-text-secondary);
+}
+
+.ai-markdown blockquote {
+  border-left: 3px solid var(--color-shell-accent);
+  padding-left: 1rem;
+  color: var(--color-shell-text-secondary);
+  font-style: italic;
+  margin: 1rem 0;
+}
+
+.ai-markdown strong {
+  color: var(--color-shell-text);
+  font-weight: 600;
+}
+
+.ai-markdown a {
+  color: var(--color-shell-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

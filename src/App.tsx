@@ -235,33 +235,10 @@ export default function App() {
     <div className="h-screen w-screen flex bg-shell-bg overflow-hidden relative text-shell-text select-none">
       <div className="bg-glow" />
 
-      {/* Activity Bar (VS Code style) */}
-      <div className="w-12 flex-shrink-0 bg-shell-surface border-r border-shell-border flex flex-col items-center py-4 gap-4 z-50">
-        <button 
-            onClick={() => {}} // Could be home/dashboard
-            className="p-2 rounded-lg text-shell-accent bg-shell-accent/10"
-        >
-            <Sparkles size={20} />
-        </button>
-        <button 
-            onClick={() => setSidebarWidth(sidebarWidth > 0 ? 0 : 280)}
-            className={`p-2 rounded-lg transition-colors ${sidebarWidth > 0 ? "text-shell-text bg-shell-surface-hover" : "text-shell-text-muted hover:text-shell-text"}`}
-        >
-            <Files size={20} />
-        </button>
-        <div className="flex-1" />
-        <button 
-            onClick={() => setShowChatPanel(!showChatPanel)}
-            className={`p-2 rounded-lg transition-colors ${showChatPanel ? "text-shell-accent bg-shell-accent/10" : "text-shell-text-muted hover:text-shell-text"}`}
-        >
-            <MessageSquareText size={20} />
-        </button>
-      </div>
-
       {/* Resizable Sidebar */}
       {sidebarWidth > 0 && (
           <div 
-            className="flex-shrink-0 z-10 relative group h-full border-r border-shell-border shadow-2xl"
+            className="flex-shrink-0 z-10 relative group h-full border-r border-shell-border bg-shell-surface/30 shadow-2xl overflow-hidden"
             style={{ width: sidebarWidth }}
           >
             <Sidebar
@@ -275,11 +252,12 @@ export default function App() {
               onFileSelect={handleFileSelect}
               onContextMenu={handleContextMenu}
               onToggleSource={handleToggleSource}
+              onCollapse={() => setSidebarWidth(0)}
             />
             {/* Sidebar Resize Handle */}
             <div 
               onMouseDown={() => {
-                  const handleMove = (e: MouseEvent) => setSidebarWidth(Math.max(150, Math.min(e.clientX - 48, 600)));
+                  const handleMove = (e: MouseEvent) => setSidebarWidth(Math.max(150, Math.min(e.clientX, 600)));
                   const handleUp = () => {
                       window.removeEventListener("mousemove", handleMove);
                       window.removeEventListener("mouseup", handleUp);
@@ -293,26 +271,36 @@ export default function App() {
       )}
 
       {/* Main Content Area */}
-      <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden bg-shell-bg">
-        {/* Top Header - Collapsible Toggles */}
-        <div className="h-10 border-b border-shell-border bg-shell-surface/30 flex items-center justify-between px-3">
-          <button 
-            onClick={() => setSidebarWidth(sidebarWidth > 0 ? 0 : 280)}
-            className="p-1.5 rounded hover:bg-shell-surface-hover text-shell-text-muted"
-          >
-            <PanelLeft size={16} />
-          </button>
-          
-          <div className="text-[11px] font-medium text-shell-text-muted uppercase tracking-widest truncate">
-            {activeFile?.name || "StudyShell"}
+      <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden bg-shell-bg relative">
+        {/* Subtle Panel Controls - Blending into the Header */}
+        <div className="h-10 border-b border-shell-border bg-shell-surface/10 flex items-center justify-between px-2">
+          <div className="flex items-center gap-1">
+            {sidebarWidth === 0 && (
+                <button 
+                  onClick={() => setSidebarWidth(280)}
+                  className="p-1.5 rounded-lg text-shell-text-muted hover:text-shell-accent hover:bg-shell-accent/10 transition-all cursor-pointer"
+                  title="Open Explorer"
+                >
+                  <Files size={16} />
+                </button>
+            )}
+            <div className="flex items-center gap-2 text-[10px] ml-2 font-bold text-shell-text-muted uppercase tracking-[0.2em] truncate">
+              <span className="w-1 h-1 rounded-full bg-shell-accent/30" />
+              {activeFile?.name || "STUDYSHELL"}
+            </div>
           </div>
 
-          <button 
-            onClick={() => setShowChatPanel(!showChatPanel)}
-            className="p-1.5 rounded hover:bg-shell-surface-hover text-shell-text-muted"
-          >
-            <PanelRight size={16} />
-          </button>
+          <div className="flex items-center gap-1">
+            {!showChatPanel && (
+                <button 
+                  onClick={() => setShowChatPanel(true)}
+                  className="p-1.5 rounded-lg text-shell-text-muted hover:text-shell-accent hover:bg-shell-accent/10 transition-all cursor-pointer"
+                  title="Open AI Assistant"
+                >
+                  <MessageSquareText size={16} />
+                </button>
+            )}
+          </div>
         </div>
 
         <div className="flex-1 min-h-0 relative">
@@ -333,7 +321,7 @@ export default function App() {
       {/* AI Assistant Side Panel */}
       {showChatPanel && (
         <div 
-          className="flex-shrink-0 z-10 relative group h-full border-l border-shell-border bg-shell-surface/50"
+          className="flex-shrink-0 z-10 relative group h-full border-l border-shell-border bg-shell-surface/40 overflow-hidden"
           style={{ width: chatWidth }}
         >
           {/* Chat Resize Handle */}
@@ -341,7 +329,7 @@ export default function App() {
             onMouseDown={() => {
                 const handleMove = (e: MouseEvent) => {
                     const newW = window.innerWidth - e.clientX;
-                    setChatWidth(Math.max(300, Math.min(newW, 800)));
+                    setChatWidth(Math.max(250, Math.min(newW, 800)));
                 };
                 const handleUp = () => {
                     window.removeEventListener("mousemove", handleMove);
@@ -357,14 +345,17 @@ export default function App() {
             loading={ai.loading}
             error={ai.error}
             model={ai.model}
+            useSearch={ai.useSearch}
             activeFileName={activeFile?.name || null}
             activeFileContent={fileContent}
             selectedSources={selectedSources}
             onSendMessage={ai.sendMessage}
             onModelChange={ai.setModel}
+            onSearchChange={ai.setUseSearch}
             onClearChat={ai.clearChat}
             onSummarizeCurrentFile={handleSummarizeCurrentFile}
             onRemoveSource={(path: string) => setSelectedSources(prev => prev.filter(s => s.path !== path))}
+            onCollapse={() => setShowChatPanel(false)}
           />
         </div>
       )}

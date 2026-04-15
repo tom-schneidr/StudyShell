@@ -3,7 +3,7 @@ import {
   FolderSearch,
   RefreshCw,
   Loader2,
-  Sparkles,
+  ChevronLeft
 } from "lucide-react";
 import FileTree from "./FileTree";
 import type { FileNode } from "../types";
@@ -19,6 +19,7 @@ interface SidebarProps {
   onFileSelect: (node: FileNode) => void;
   onContextMenu: (e: React.MouseEvent, node: FileNode) => void;
   onToggleSource: (node: FileNode) => void;
+  onCollapse: () => void;
 }
 
 export default function Sidebar({
@@ -32,44 +33,55 @@ export default function Sidebar({
   onFileSelect,
   onContextMenu,
   onToggleSource,
+  onCollapse,
 }: SidebarProps) {
   const rootName = rootPath ? rootPath.split(/[/\\]/).pop() : null;
 
   return (
-    <div className="h-full flex flex-col bg-shell-surface border-r border-shell-border">
-      {/* Header */}
-      <div className="flex-shrink-0 px-4 py-3 border-b border-shell-border">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-shell-accent to-purple-500 flex items-center justify-center">
-              <span className="text-white text-[10px] font-bold">S</span>
+    <div className="h-full flex flex-col bg-shell-surface border-r border-shell-border overflow-hidden">
+      {/* Header - Modern Academic Spacing */}
+      <div className="flex-shrink-0 px-5 pt-8 pb-4 border-b border-shell-border">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-shell-accent to-purple-500 flex items-center justify-center shadow-lg shadow-shell-accent/20">
+              <span className="text-white text-[12px] font-black">S</span>
             </div>
-            <h1 className="text-sm font-semibold text-shell-text tracking-tight">
-              StudyShell
+            <h1 className="text-[15px] font-bold text-shell-text tracking-tight uppercase">
+              Explorer
             </h1>
           </div>
-          {rootPath && (
+          <div className="flex items-center gap-1">
+            {rootPath && (
+                <button
+                onClick={onRefresh}
+                className="p-1.5 rounded-md text-shell-text-muted hover:text-shell-text
+                    hover:bg-shell-surface-hover transition-colors duration-150 cursor-pointer"
+                title="Refresh file tree"
+                >
+                <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+                </button>
+            )}
             <button
-              onClick={onRefresh}
-              className="p-1.5 rounded-md text-shell-text-muted hover:text-shell-text
+                onClick={onCollapse}
+                className="p-1.5 rounded-md text-shell-text-muted hover:text-shell-text
                 hover:bg-shell-surface-hover transition-colors duration-150 cursor-pointer"
-              title="Refresh file tree"
+                title="Collapse Sidebar"
             >
-              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+                <ChevronLeft size={16} />
             </button>
-          )}
+          </div>
         </div>
 
         <motion.button
           onClick={onSelectRoot}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg
-            text-[12.5px] font-medium transition-all duration-200 cursor-pointer
+          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl
+            text-[12.5px] font-semibold transition-all duration-200 cursor-pointer
             bg-shell-accent/10 text-shell-accent border border-shell-accent/20
-            hover:bg-shell-accent/20 hover:border-shell-accent/30"
+            hover:bg-shell-accent/20 hover:border-shell-accent/30 shadow-sm"
           whileTap={{ scale: 0.97 }}
         >
-          <FolderSearch size={15} />
-          {rootPath ? "Change Root Folder" : "Select Root Folder"}
+          <FolderSearch size={16} />
+          {rootPath ? "Change Folder" : "Select Root"}
         </motion.button>
       </div>
 

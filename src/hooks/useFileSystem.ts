@@ -23,6 +23,7 @@ export function useFileSystem() {
       });
 
       if (selected && typeof selected === "string") {
+        await invoke("stop_watching");
         setRootPath(selected);
         await refreshTree(selected);
         // Start watching the directory
@@ -169,6 +170,9 @@ export function useFileSystem() {
       if (unlistenRef.current) {
         unlistenRef.current();
       }
+      void invoke("stop_watching").catch((error) => {
+        console.error("Failed to stop watcher:", error);
+      });
     };
   }, [rootPath, refreshTree]);
 

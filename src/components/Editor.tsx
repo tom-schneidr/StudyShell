@@ -153,6 +153,13 @@ export default function Editor({
             <button
               key={tab.path}
               onClick={() => onSelectTab(tab)}
+              onMouseDown={(event) => {
+                if (event.button === 1) {
+                  event.preventDefault();
+                  onCloseTab(tab.path);
+                }
+              }}
+              title={`${tab.name} (middle-click to close)`}
               className={`group flex items-center gap-2 px-4 py-2.5 min-w-0 max-w-[200px] flex-shrink-0 relative transition-colors ${
                 isActive ? "bg-shell-surface text-shell-text" : "bg-shell-bg text-shell-text-muted hover:bg-shell-surface-hover hover:text-shell-text"
               }`}

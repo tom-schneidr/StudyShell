@@ -4,7 +4,7 @@ const MIME_EXTENSION_MAP: Record<string, string> = {
 };
 
 export function extensionFromImageMimeType(mimeType: string): string {
-  const normalized = mimeType.trim().toLowerCase();
+  const normalized = mimeType.trim().toLowerCase().split(";")[0]?.trim() ?? "";
   if (!normalized) {
     return "png";
   }

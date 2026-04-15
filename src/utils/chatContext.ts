@@ -32,12 +32,15 @@ export function truncateChatContextContent(content: string, maxChars: number): s
 export function buildChatContext(sections: ChatContextSection[]): string | undefined {
   const renderedSections: string[] = [];
   let remainingChars = MAX_CONTEXT_CHARS;
+  const seenPaths = new Set<string>();
 
   for (const section of sections) {
     const normalized = section.content.trim();
-    if (!normalized) {
+    if (!normalized || seenPaths.has(section.path)) {
       continue;
     }
+
+    seenPaths.add(section.path);
 
     const header = `${section.label}\nPath: ${section.path}\n---\n`;
     const footer = "\n---";

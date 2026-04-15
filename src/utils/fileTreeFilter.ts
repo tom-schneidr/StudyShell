@@ -22,8 +22,13 @@ export function filterFileTree(nodes: FileNode[], query: string): FileNode[] {
 
   for (const node of nodes) {
     if (node.is_dir) {
+      if (matchesNode(node, normalizedQuery)) {
+        filteredNodes.push(node);
+        continue;
+      }
+
       const filteredChildren = filterFileTree(node.children ?? [], normalizedQuery);
-      if (matchesNode(node, normalizedQuery) || filteredChildren.length > 0) {
+      if (filteredChildren.length > 0) {
         filteredNodes.push({
           ...node,
           children: filteredChildren,

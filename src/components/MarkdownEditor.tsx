@@ -17,6 +17,7 @@ import {
   Redo,
   Eye,
   PenLine,
+  ListTree,
 } from "lucide-react";
 import { useToast } from "./ToastProvider";
 import {
@@ -24,6 +25,7 @@ import {
   buildPastedImageFilename,
   insertTextAtSelection,
 } from "../utils/markdownAssets";
+import { getMarkdownHeadingOffset, parseMarkdownHeadings } from "../utils/markdownHeadings";
 
 interface MarkdownEditorProps {
   content: string;
@@ -53,6 +55,12 @@ export default function MarkdownEditor({
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef(content);
   const isInitialLoadRef = useRef(true);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const markdownHeadings = useMemo(
+    () => (isMarkdown ? parseMarkdownHeadings(rawContent) : []),
+    [isMarkdown, rawContent],
+  );
 
   // Convert markdown to HTML for TipTap
   const htmlContent = useMemo(() => {
@@ -116,6 +124,31 @@ export default function MarkdownEditor({
       editor.setEditable(false);
     }
   }, [isEditMode]);
+
+  useEffect(() => {
+    if (!isMarkdown || isEditMode || !previewContainerRef.current) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      const headingElements = previewContainerRef.current?.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6");
+      if (!headingElements) {
+        return;
+      }
+
+      headingElements.forEach((element, index) => {
+        const heading = markdownHeadings[index];
+        if (!heading) {
+          element.removeAttribute("id");
+          return;
+        }
+
+        element.id = heading.id;
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [isEditMode, isMarkdown, markdownHeadings, rawContent]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -191,6 +224,26 @@ export default function MarkdownEditor({
       toast.error(error instanceof Error ? error.message : "Failed to paste image.");
     }
   }, [filePath, isEditMode, isMarkdown, onSaveAsset, scheduleSave, toast]);
+
+  const handleHeadingSelect = useCallback((line: number, headingId: string) => {
+    if (isEditMode) {
+      const textarea = textareaRef.current;
+      if (!textarea) {
+        return;
+      }
+
+      const offset = getMarkdownHeadingOffset(rawContent, line);
+      const lineHeight = Number.parseFloat(window.getComputedStyle(textarea).lineHeight || "24");
+
+      textarea.focus();
+      textarea.setSelectionRange(offset, offset);
+      textarea.scrollTop = Math.max((line - 1) * lineHeight - textarea.clientHeight / 3, 0);
+      return;
+    }
+
+    const target = previewContainerRef.current?.querySelector<HTMLElement>(`#${headingId}`);
+    target?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [isEditMode, rawContent]);
 
   const toggleMode = () => {
     if (isEditMode && isMarkdown) {
@@ -380,20 +433,48 @@ export default function MarkdownEditor({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        {isEditMode && isMarkdown ? (
-          /* Raw markdown source editor */
-          <textarea
-            value={rawContent}
-            onChange={(e) => handleRawChange(e.target.value)}
-            onPaste={handlePaste}
-            className="w-full h-full bg-transparent text-shell-text text-[13px] leading-[1.8]
-              font-mono p-8 outline-none resize-none"
-            spellCheck={false}
-          />
-        ) : (
-          /* Rendered preview (TipTap) */
-          <EditorContent editor={editor} className="h-full" />
+      <div className="flex-1 min-h-0 flex">
+        <div ref={previewContainerRef} className="flex-1 min-w-0 overflow-y-auto">
+          {isEditMode && isMarkdown ? (
+            <textarea
+              ref={textareaRef}
+              value={rawContent}
+              onChange={(e) => handleRawChange(e.target.value)}
+              onPaste={handlePaste}
+              className="w-full h-full bg-transparent text-shell-text text-[13px] leading-[1.8]
+                font-mono p-8 outline-none resize-none"
+              spellCheck={false}
+            />
+          ) : (
+            <EditorContent editor={editor} className="h-full" />
+          )}
+        </div>
+
+        {isMarkdown && markdownHeadings.length > 0 && (
+          <aside className="hidden xl:flex w-64 flex-shrink-0 flex-col border-l border-shell-border bg-shell-bg/30">
+            <div className="px-4 py-3 border-b border-shell-border">
+              <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-shell-text-muted">
+                <ListTree size={13} />
+                <span>Contents</span>
+              </div>
+              <p className="mt-1 text-[11px] text-shell-text-secondary">
+                {markdownHeadings.length} heading{markdownHeadings.length === 1 ? "" : "s"}
+              </p>
+            </div>
+            <div className="flex-1 overflow-y-auto px-2 py-3 custom-scrollbar">
+              {markdownHeadings.map((heading) => (
+                <button
+                  key={heading.id}
+                  onClick={() => handleHeadingSelect(heading.line, heading.id)}
+                  className="w-full rounded-lg px-3 py-2 text-left text-[12px] text-shell-text-secondary hover:bg-shell-surface hover:text-shell-text transition-colors cursor-pointer"
+                  style={{ paddingLeft: `${Math.max(heading.level - 1, 0) * 14 + 12}px` }}
+                  title={`Jump to ${heading.text}`}
+                >
+                  <span className="line-clamp-2">{heading.text}</span>
+                </button>
+              ))}
+            </div>
+          </aside>
         )}
       </div>
     </div>

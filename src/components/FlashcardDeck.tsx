@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, X, Trophy, RefreshCcw } from "lucide-react";
 import Flashcard from "./Flashcard";
@@ -40,6 +40,43 @@ export default function FlashcardDeck({ cards, onClose, title = "Flashcard Sessi
     setIsFlipped(false);
     setCompleted(false);
   };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+
+      if (completed) {
+        if (event.key.toLowerCase() === "r") {
+          event.preventDefault();
+          reset();
+        }
+        return;
+      }
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        handleNext();
+        return;
+      }
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        handlePrev();
+        return;
+      }
+
+      if (event.key === " " || event.key === "Enter") {
+        event.preventDefault();
+        setIsFlipped((prev) => !prev);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [completed, onClose, currentIndex, cards.length]);
 
   if (cards.length === 0) {
     return (

@@ -11,6 +11,7 @@ import {
   Sparkles
 } from "lucide-react";
 import type { FileNode } from "../types";
+import { canSelectSource } from "../utils/sourceSelection";
 
 interface FileTreeProps {
   nodes: FileNode[];
@@ -69,6 +70,7 @@ function TreeNode({
   const isActive = activeFilePath === node.path;
   const isSelectedSource = selectedSourcePaths.includes(node.path);
   const isExpanded = forceExpandAll || isOpen;
+  const canUseAsSource = canSelectSource(node);
 
   const handleClick = useCallback(() => {
     if (node.is_dir) {
@@ -116,7 +118,7 @@ function TreeNode({
         )}
         <span className="truncate text-[12.5px] font-medium flex-1">{node.name}</span>
         
-        {!node.is_dir && (
+        {!node.is_dir && canUseAsSource && (
             <button
                 onClick={(e) => { e.stopPropagation(); onToggleSource(node); }}
                 className={`p-1 rounded hover:bg-shell-accent/20 transition-all cursor-pointer 

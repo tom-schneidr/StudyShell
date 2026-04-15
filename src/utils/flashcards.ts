@@ -24,6 +24,7 @@ export function parseFlashcardsResponse(response: string): FlashcardCard[] {
     throw new Error("AI response was not a flashcard array.");
   }
 
+  const seenCards = new Set<string>();
   const cards = parsed.flatMap((entry) => {
     if (!entry || typeof entry !== "object") {
       return [];
@@ -36,6 +37,12 @@ export function parseFlashcardsResponse(response: string): FlashcardCard[] {
       return [];
     }
 
+    const key = `${front}\u0000${back}`;
+    if (seenCards.has(key)) {
+      return [];
+    }
+
+    seenCards.add(key);
     return [{ front, back }];
   });
 

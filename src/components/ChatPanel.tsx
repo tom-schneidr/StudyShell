@@ -18,6 +18,7 @@ import {
 import type { FileNode, ChatMessage, VertexModel } from "../types";
 import { modelLabels } from "../types";
 import { getChatPlaceholder, vertexConfigGuidance } from "../utils/aiConfig";
+import { canClearSelectedSources, getSelectedSourcesSummary } from "../utils/sourceSelection";
 
 interface ChatPanelProps {
   messages: ChatMessage[];
@@ -36,6 +37,7 @@ interface ChatPanelProps {
   onSummarizeCurrentFile: () => void;
   onGenerateFlashcards: () => void;
   onRemoveSource: (path: string) => void;
+  onClearSources: () => void;
   onCollapse: () => void;
 }
 
@@ -56,12 +58,14 @@ export default function ChatPanel({
   onSummarizeCurrentFile,
   onGenerateFlashcards,
   onRemoveSource,
+  onClearSources,
   onCollapse,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [showModelPicker, setShowModelPicker] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const modelPickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -74,9 +78,37 @@ export default function ChatPanel({
     }
   }, [input]);
 
+  useEffect(() => {
+    if (!showModelPicker) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!modelPickerRef.current?.contains(event.target as Node)) {
+        setShowModelPicker(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowModelPicker(false);
+      }
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown, true);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown, true);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showModelPicker]);
+
   const aiUnavailable = isConfigured !== true;
   const checkingConfiguration = isConfigured === null;
   const inputDisabled = loading || aiUnavailable;
+  const showClearSources = canClearSelectedSources(selectedSources.length);
+  const selectedSourcesSummary = getSelectedSourcesSummary(selectedSources.length);
 
   const handleSend = useCallback(() => {
     if (!input.trim() || inputDisabled) return;
@@ -137,9 +169,10 @@ export default function ChatPanel({
             </div>
           )}
 
-          <div className="relative">
+          <div ref={modelPickerRef} className="relative">
             <button
               onClick={() => setShowModelPicker(!showModelPicker)}
+              aria-expanded={showModelPicker}
               className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-shell-bg border border-shell-border text-[11.5px] text-shell-text-secondary hover:text-shell-text transition-all cursor-pointer"
             >
               <span className="font-medium">{modelLabels[model]}</span>
@@ -208,16 +241,31 @@ export default function ChatPanel({
         </div>
 
         {selectedSources.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-4 max-h-[80px] overflow-y-auto pr-1 custom-scrollbar">
-            {selectedSources.map((source) => (
-              <div key={source.path} className="flex items-center gap-2 px-2.5 py-1 bg-shell-accent/10 border border-shell-accent/20 rounded-full text-[10px] text-shell-accent font-medium">
-                <span className="truncate max-w-[120px]">{source.name}</span>
-                <button onClick={() => onRemoveSource(source.path)} className="p-0.5 hover:text-emerald-400 transition-colors cursor-pointer">
-                  <X size={10} />
+          <>
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-shell-text-muted">
+                {selectedSourcesSummary}
+              </p>
+              {showClearSources && (
+                <button
+                  onClick={onClearSources}
+                  className="text-[10px] font-bold uppercase tracking-[0.18em] text-shell-text-muted hover:text-shell-accent transition-colors cursor-pointer"
+                >
+                  Clear Sources
                 </button>
-              </div>
-            ))}
-          </div>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2 mt-2 max-h-[80px] overflow-y-auto pr-1 custom-scrollbar">
+              {selectedSources.map((source) => (
+                <div key={source.path} className="flex items-center gap-2 px-2.5 py-1 bg-shell-accent/10 border border-shell-accent/20 rounded-full text-[10px] text-shell-accent font-medium">
+                  <span className="truncate max-w-[120px]">{source.name}</span>
+                  <button onClick={() => onRemoveSource(source.path)} className="p-0.5 hover:text-emerald-400 transition-colors cursor-pointer">
+                    <X size={10} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 

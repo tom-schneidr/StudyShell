@@ -2,6 +2,27 @@ export function detectPathSeparator(path: string): "/" | "\\" {
   return path.includes("\\") ? "\\" : "/";
 }
 
+export function getPathBaseName(path: string): string {
+  const trimmed = path.replace(/[/\\]+$/, "");
+  if (!trimmed) {
+    return path;
+  }
+
+  const lastSlash = Math.max(trimmed.lastIndexOf("\\"), trimmed.lastIndexOf("/"));
+  return lastSlash >= 0 ? trimmed.slice(lastSlash + 1) : trimmed;
+}
+
+export function getPathExtension(path: string): string | null {
+  const baseName = getPathBaseName(path);
+  const dotIndex = baseName.lastIndexOf(".");
+
+  if (dotIndex <= 0 || dotIndex === baseName.length - 1) {
+    return null;
+  }
+
+  return baseName.slice(dotIndex + 1);
+}
+
 export function getParentPath(path: string): string {
   const lastSlash = Math.max(path.lastIndexOf("\\"), path.lastIndexOf("/"));
   return lastSlash >= 0 ? path.slice(0, lastSlash) : path;
@@ -42,4 +63,29 @@ export function remapPathPrefix(
   }
 
   return `${newPrefix}${path.slice(oldPrefix.length)}`;
+}
+
+export function getRelativePathFromRoot(path: string, rootPath: string): string {
+  if (path === rootPath) {
+    return ".";
+  }
+
+  if (!isSameOrDescendantPath(path, rootPath)) {
+    return path;
+  }
+
+  return path.slice(rootPath.length).replace(/^[/\\]/, "");
+}
+
+export function buildExportCopyFilename(path: string): string {
+  const baseName = getPathBaseName(path);
+  if (!baseName) {
+    return "annotated.pdf";
+  }
+
+  if (/\.pdf$/i.test(baseName)) {
+    return baseName.replace(/\.pdf$/i, "_annotated.pdf");
+  }
+
+  return `${baseName}_annotated.pdf`;
 }

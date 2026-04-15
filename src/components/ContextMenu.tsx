@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FilePlus2, FileText, BookOpen, FolderPlus, Trash2, Pencil } from "lucide-react";
+import { FilePlus2, FileText, BookOpen, FolderPlus, Trash2, Pencil, Copy } from "lucide-react";
 import type { FileNode } from "../types";
+import { clampFloatingPosition } from "../utils/floatingPosition";
 
 interface ContextMenuProps {
   x: number;
@@ -12,6 +13,7 @@ interface ContextMenuProps {
   onCreateNote: (node: FileNode) => void;
   onCreateFolder: (node: FileNode) => void;
   onRename: (node: FileNode) => void;
+  onCopyPath: (node: FileNode) => void;
   onDelete: (node: FileNode) => void;
   onGenerateSummary: (node: FileNode) => void;
   onCreateStudyGuide: (node: FileNode) => void;
@@ -26,6 +28,7 @@ export default function ContextMenu({
   onCreateNote,
   onCreateFolder,
   onRename,
+  onCopyPath,
   onDelete,
   onGenerateSummary,
   onCreateStudyGuide,
@@ -56,6 +59,17 @@ export default function ContextMenu({
 
   if (!node) return null;
 
+  const menuPosition = visible
+    ? clampFloatingPosition(
+        { x, y },
+        {
+          width: menuRef.current?.offsetWidth ?? 220,
+          height: menuRef.current?.offsetHeight ?? 320,
+        },
+        { width: window.innerWidth, height: window.innerHeight },
+      )
+    : { x, y };
+
   const menuItems = [
     {
       icon: <FilePlus2 size={14} />,
@@ -78,6 +92,14 @@ export default function ContextMenu({
       label: "Rename",
       onClick: () => {
         onRename(node);
+        onClose();
+      },
+    },
+    {
+      icon: <Copy size={14} />,
+      label: "Copy Path",
+      onClick: () => {
+        onCopyPath(node);
         onClose();
       },
     },
@@ -116,7 +138,7 @@ export default function ContextMenu({
         <motion.div
           ref={menuRef}
           className="fixed z-[9999] glass-layer-2 rounded-lg overflow-hidden shadow-2xl shadow-black/60 min-w-[200px]"
-          style={{ left: x, top: y }}
+          style={{ left: menuPosition.x, top: menuPosition.y }}
           initial={{ opacity: 0, scale: 0.92, y: -4 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.92, y: -4 }}

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, AlertCircle, Info, X } from "lucide-react";
+import { hasDuplicateToast } from "../utils/toasts";
 
 type ToastType = "success" | "error" | "info";
 
@@ -31,7 +32,22 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const addToast = useCallback((type: ToastType, message: string) => {
     const id = Date.now().toString() + Math.random().toString(36).substring(2);
-    setToasts((prev) => [...prev, { id, type, message }]);
+    const nextToast = { id, type, message };
+    let shouldScheduleRemoval = false;
+
+    setToasts((prev) => {
+      if (hasDuplicateToast(prev, nextToast)) {
+        return prev;
+      }
+
+      shouldScheduleRemoval = true;
+      return [...prev, nextToast];
+    });
+
+    if (!shouldScheduleRemoval) {
+      return;
+    }
+
     setTimeout(() => {
       removeToast(id);
     }, 4000);

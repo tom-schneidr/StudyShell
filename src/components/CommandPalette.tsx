@@ -4,8 +4,15 @@ import {
   Search, 
   Command, 
   ChevronRight,
-  Zap
+  Zap,
+  Lock
 } from "lucide-react";
+import {
+  commandMatchesQuery,
+  getDefaultCommandIndex,
+  getNextEnabledCommandIndex,
+  hasCommandPaletteMatches,
+} from "../utils/commandPalette";
 
 export interface CommandItem {
   id: string;
@@ -14,6 +21,7 @@ export interface CommandItem {
   icon: React.ReactNode;
   category: string;
   shortcut?: string;
+  disabled?: boolean;
   onSelect: () => void;
 }
 
@@ -25,38 +33,42 @@ interface CommandPaletteProps {
 
 export default function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOpen) {
       setQuery("");
-      setSelectedIndex(0);
+      setSelectedIndex(getDefaultCommandIndex(commands));
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [isOpen]);
+  }, [commands, isOpen]);
 
-  const filteredCommands = commands.filter(cmd => 
-    cmd.label.toLowerCase().includes(query.toLowerCase()) ||
-    cmd.category.toLowerCase().includes(query.toLowerCase())
-  );
+  const filteredCommands = commands.filter((cmd) => commandMatchesQuery(cmd, query));
+  const hasMatches = hasCommandPaletteMatches(filteredCommands.length);
 
   useEffect(() => {
-    setSelectedIndex(0);
-  }, [query]);
+    setSelectedIndex(getDefaultCommandIndex(filteredCommands));
+  }, [filteredCommands]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
       onClose();
     } else if (e.key === "ArrowDown") {
+      if (!hasMatches) {
+        return;
+      }
       e.preventDefault();
-      setSelectedIndex(prev => (prev + 1) % filteredCommands.length);
+      setSelectedIndex((prev) => getNextEnabledCommandIndex(filteredCommands, prev, 1));
     } else if (e.key === "ArrowUp") {
+      if (!hasMatches) {
+        return;
+      }
       e.preventDefault();
-      setSelectedIndex(prev => (prev - 1 + filteredCommands.length) % filteredCommands.length);
+      setSelectedIndex((prev) => getNextEnabledCommandIndex(filteredCommands, prev, -1));
     } else if (e.key === "Enter") {
-      if (filteredCommands[selectedIndex]) {
+      if (selectedIndex >= 0 && filteredCommands[selectedIndex] && !filteredCommands[selectedIndex].disabled) {
         filteredCommands[selectedIndex].onSelect();
         onClose();
       }
@@ -117,15 +129,19 @@ export default function CommandPalette({ isOpen, onClose, commands }: CommandPal
                   <button
                     key={cmd.id}
                     onClick={() => {
+                      if (cmd.disabled) {
+                        return;
+                      }
                       cmd.onSelect();
                       onClose();
                     }}
                     onMouseEnter={() => setSelectedIndex(index)}
+                    disabled={cmd.disabled}
                     className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-all ${
                       index === selectedIndex 
                         ? "bg-shell-accent/10 border-l-2 border-shell-accent" 
                         : "border-l-2 border-transparent"
-                    }`}
+                    } ${cmd.disabled ? "opacity-50 cursor-not-allowed" : ""}`}
                   >
                     <div className={`p-2 rounded-xl scale-95 ${index === selectedIndex ? "bg-shell-accent/20 text-shell-accent" : "bg-shell-surface text-shell-text-muted"}`}>
                       {cmd.icon}
@@ -147,7 +163,11 @@ export default function CommandPalette({ isOpen, onClose, commands }: CommandPal
                         </p>
                       )}
                     </div>
+                    {cmd.disabled ? (
+                      <Lock size={14} className="flex-shrink-0 text-shell-text-muted" />
+                    ) : (
                     <ChevronRight size={14} className={`flex-shrink-0 transition-opacity ${index === selectedIndex ? "opacity-100 text-shell-accent" : "opacity-0"}`} />
+                    )}
                   </button>
                 ))
               ) : (
@@ -167,7 +187,7 @@ export default function CommandPalette({ isOpen, onClose, commands }: CommandPal
                     <span>to select</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="px-1.5 py-0.5 rounded bg-shell-surface border border-shell-border">↑↓</span>
+                    <span className="px-1.5 py-0.5 rounded bg-shell-surface border border-shell-border">Up/Down</span>
                     <span>to navigate</span>
                   </div>
                </div>

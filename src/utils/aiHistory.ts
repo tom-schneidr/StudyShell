@@ -34,7 +34,14 @@ export function serializeChatHistory(messages: ChatMessage[]): string {
 }
 
 export function deserializeChatHistory(raw: string): ChatMessage[] {
-  const parsed = JSON.parse(raw) as unknown;
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    return [];
+  }
+
   if (!Array.isArray(parsed)) {
     return [];
   }

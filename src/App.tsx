@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import Sidebar from "./components/Sidebar";
 import Editor from "./components/Editor";
 import ChatPanel from "./components/ChatPanel";
@@ -45,7 +45,20 @@ import {
   joinPath,
   remapPathPrefix,
 } from "./utils/pathUtils";
-import { removeFileNodesWithinPath } from "./utils/fileState";
+import {
+  collectFilePaths as collectWorkspaceFilePaths,
+  filterFileNodesByPaths,
+  filterRecordByPaths,
+  removeFileNodesWithinPath,
+} from "./utils/fileState";
+import { buildWorkspaceCommandTarget } from "./utils/commandPalette";
+import {
+  deserializeRecentFiles,
+  filterRecentFilesForWorkspace,
+  normalizeRecentFiles,
+  serializeRecentFiles,
+} from "./utils/recentFiles";
+import { normalizeSelectedSources } from "./utils/sourceSelection";
 import {
   buildPdfAnnotationSidecarPath,
   parsePdfAnnotationData,
@@ -67,7 +80,7 @@ export default function App() {
   const [recentFiles, setRecentFiles] = useState<FileNode[]>(() => {
     try {
       const stored = localStorage.getItem("recentFiles");
-      if (stored) return JSON.parse(stored);
+      if (stored) return deserializeRecentFiles(stored);
     } catch {}
     return [];
   });
@@ -127,6 +140,8 @@ export default function App() {
     setNotebookData(null);
   }, []);
 
+  const liveFilePaths = useMemo(() => collectWorkspaceFilePaths(fs.fileTree), [fs.fileTree]);
+
   // Open a file
   const handleFileSelect = useCallback(
     async (node: FileNode) => {
@@ -141,8 +156,12 @@ export default function App() {
 
       setRecentFiles(prev => {
         const filtered = prev.filter(t => t.path !== node.path);
-        const next = [node, ...filtered].slice(0, 5);
-        localStorage.setItem("recentFiles", JSON.stringify(next));
+        const next = filterRecentFilesForWorkspace(
+          normalizeRecentFiles([node, ...filtered]),
+          fs.rootPath,
+          new Set([...liveFilePaths, node.path]),
+        );
+        localStorage.setItem("recentFiles", serializeRecentFiles(next));
         return next;
       });
 
@@ -216,7 +235,7 @@ export default function App() {
         }
       }
     },
-    [fs, resetFileState]
+    [fs, liveFilePaths, resetFileState]
   );
 
   // Toggle multi-source selection
@@ -225,7 +244,7 @@ export default function App() {
         if (prev.find(s => s.path === node.path)) {
             return prev.filter(s => s.path !== node.path);
         }
-        return [...prev, node];
+        return normalizeSelectedSources([...prev, node]);
     });
   }, []);
 
@@ -251,6 +270,11 @@ export default function App() {
       return filtered;
     });
   }, [activeFile, handleFileSelect, resetFileState]);
+
+  const handleClearRecentFiles = useCallback(() => {
+    setRecentFiles([]);
+    localStorage.setItem("recentFiles", serializeRecentFiles([]));
+  }, []);
 
   // Save a file
   const handleSaveFile = useCallback(
@@ -325,6 +349,32 @@ export default function App() {
     };
   }, [activeFile, handleCloseTab, fs, toast]);
 
+  useEffect(() => {
+    if (activeFile && !liveFilePaths.has(activeFile.path)) {
+      setActiveFile(null);
+      resetFileState();
+    }
+
+    setOpenTabs((prev) => filterFileNodesByPaths(prev, liveFilePaths));
+    setSelectedSources((prev) => filterFileNodesByPaths(prev, liveFilePaths));
+    setPdfAnnotations((prev) => filterRecordByPaths(prev, liveFilePaths));
+
+    const filteredPersisted = filterRecordByPaths(lastPersistedPdfAnnotationsRef.current, liveFilePaths);
+    if (Object.keys(filteredPersisted).length !== Object.keys(lastPersistedPdfAnnotationsRef.current).length) {
+      lastPersistedPdfAnnotationsRef.current = filteredPersisted;
+    }
+
+    setRecentFiles((prev) => {
+      const next = filterRecentFilesForWorkspace(prev, fs.rootPath, liveFilePaths);
+      localStorage.setItem("recentFiles", serializeRecentFiles(next));
+      return next;
+    });
+  }, [activeFile, fs.rootPath, liveFilePaths, resetFileState]);
+
+  const workspaceCommandTarget = buildWorkspaceCommandTarget(activeFile, fs.rootPath, fs.fileTree);
+  const canCreateInWorkspace = workspaceCommandTarget !== null;
+  const canSummarizeActiveFile = Boolean(activeFile && fileContent);
+
   // Define global commands
   const globalCommands: CommandItem[] = [
     {
@@ -332,16 +382,30 @@ export default function App() {
       label: "New Markdown Note",
       category: "Files",
       icon: <FilePlus2 size={16} />,
-      description: "Create a new note in the current folder",
-      onSelect: () => activeFile && handleCreateNote(activeFile),
+      description: canCreateInWorkspace
+        ? "Create a new note in the active folder or workspace root"
+        : "Select a workspace first",
+      disabled: !workspaceCommandTarget,
+      onSelect: () => {
+        if (workspaceCommandTarget) {
+          void handleCreateNote(workspaceCommandTarget);
+        }
+      },
     },
     {
       id: "new-folder",
       label: "New Folder",
       category: "Files",
       icon: <FolderPlus size={16} />,
-      description: "Create a new directory",
-      onSelect: () => activeFile && handleCreateFolder(activeFile),
+      description: canCreateInWorkspace
+        ? "Create a folder in the active folder or workspace root"
+        : "Select a workspace first",
+      disabled: !workspaceCommandTarget,
+      onSelect: () => {
+        if (workspaceCommandTarget) {
+          void handleCreateFolder(workspaceCommandTarget);
+        }
+      },
     },
     {
       id: "toggle-sidebar",
@@ -381,11 +445,26 @@ export default function App() {
       onSelect: () => ai.clearChat(),
     },
     {
+      id: "clear-recent-files",
+      label: "Clear Recent Files",
+      category: "Files",
+      icon: <Trash2 size={16} />,
+      description: recentFiles.length > 0 ? "Reset the current workspace recent list" : "No recent files to clear",
+      disabled: recentFiles.length === 0,
+      onSelect: handleClearRecentFiles,
+    },
+    {
       id: "summarize-file",
       label: "Summarize Active File",
       category: "AI",
       icon: <Sparkles size={16} />,
-      onSelect: () => activeFile && ai.sendMessage(`Summarize the file ${activeFile.name}`),
+      description: canSummarizeActiveFile ? "Send the open file to the AI assistant" : "Open a text file first",
+      disabled: !canSummarizeActiveFile,
+      onSelect: () => {
+        if (canSummarizeActiveFile) {
+          handleSummarizeCurrentFile();
+        }
+      },
     }
   ];
 
@@ -437,6 +516,16 @@ export default function App() {
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu((prev) => ({ ...prev, visible: false }));
   }, []);
+
+  const handleCopyPath = useCallback(async (node: FileNode) => {
+    try {
+      await navigator.clipboard.writeText(node.path);
+      toast.success(`${node.is_dir ? "Folder" : "File"} path copied.`);
+    } catch (error) {
+      console.error("Failed to copy path:", error);
+      toast.error("Failed to copy path.");
+    }
+  }, [toast]);
 
   const handleCreateNote = useCallback(
     async (node: FileNode) => {
@@ -594,8 +683,12 @@ export default function App() {
 
       setOpenTabs((prev) => removeFileNodesWithinPath(prev, deleteTarget.path));
       setRecentFiles((prev) => {
-        const next = removeFileNodesWithinPath(prev, deleteTarget.path);
-        localStorage.setItem("recentFiles", JSON.stringify(next));
+        const next = filterRecentFilesForWorkspace(
+          removeFileNodesWithinPath(prev, deleteTarget.path),
+          fs.rootPath,
+          liveFilePaths,
+        );
+        localStorage.setItem("recentFiles", serializeRecentFiles(next));
         return next;
       });
 
@@ -812,6 +905,7 @@ export default function App() {
               activeFilePath={activeFile?.path || null}
               selectedSourcePaths={selectedSources.map(s => s.path)}
               recentFiles={recentFiles}
+              onClearRecentFiles={handleClearRecentFiles}
               onSelectRoot={fs.selectRootFolder}
               onRefresh={() => fs.refreshTree()}
               onFileSelect={handleFileSelect}
@@ -927,7 +1021,8 @@ export default function App() {
             onClearChat={ai.clearChat}
             onSummarizeCurrentFile={handleSummarizeCurrentFile}
             onGenerateFlashcards={handleGenerateFlashcards}
-            onRemoveSource={(path: string) => setSelectedSources(prev => prev.filter(s => s.path !== path))}
+            onRemoveSource={(path: string) => setSelectedSources(prev => normalizeSelectedSources(prev.filter(s => s.path !== path)))}
+            onClearSources={() => setSelectedSources([])}
             onCollapse={() => setShowChatPanel(false)}
           />
         </div>
@@ -942,6 +1037,7 @@ export default function App() {
         onCreateNote={handleCreateNote}
         onCreateFolder={handleCreateFolder}
         onRename={handleRenameRequest}
+        onCopyPath={handleCopyPath}
         onDelete={handleDeleteRequest}
         onGenerateSummary={handleGenerateSummary}
         onCreateStudyGuide={handleCreateStudyGuide}

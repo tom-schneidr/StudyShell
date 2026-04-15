@@ -30,7 +30,11 @@ export function normalizeDirectoryName(rawName: string): string {
 }
 
 function sanitizeEntryName(rawName: string): string {
-  return rawName.replace(INVALID_WINDOWS_CHARS, "-").replace(/\s+/g, " ").trim();
+  return rawName
+    .replace(INVALID_WINDOWS_CHARS, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[. ]+$/g, "");
 }
 
 export function listChildNamesForDirectory(

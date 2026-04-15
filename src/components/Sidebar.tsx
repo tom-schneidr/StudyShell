@@ -11,12 +11,20 @@ import {
   Clock,
   File
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import FileTree from "./FileTree";
 import SearchPanel from "./SearchPanel";
 import type { DirectoryStats, FileNode } from "../types";
 import { formatBytes } from "../types";
+import { formatFilesystemError } from "../utils/filesystemErrors";
 import { filterFileTree } from "../utils/fileTreeFilter";
+import { getPathBaseName } from "../utils/pathUtils";
+import {
+  DEFAULT_SIDEBAR_TAB,
+  formatSearchTabBadge,
+  parseSidebarTab,
+  type SidebarTab,
+} from "../utils/sidebarState";
 
 interface SidebarProps {
   rootPath: string | null;
@@ -28,6 +36,7 @@ interface SidebarProps {
   activeFilePath: string | null;
   selectedSourcePaths: string[];
   recentFiles: FileNode[];
+  onClearRecentFiles: () => void;
   onSelectRoot: () => void;
   onRefresh: () => void;
   onFileSelect: (node: FileNode) => void;
@@ -45,10 +54,11 @@ export default function Sidebar({
   directoryStats,
   loading,
   statsLoading,
-  // error,
+  error,
   activeFilePath,
   selectedSourcePaths,
   recentFiles,
+  onClearRecentFiles,
   onSelectRoot,
   onRefresh,
   onFileSelect,
@@ -59,14 +69,29 @@ export default function Sidebar({
   onCollapse,
   onSearch,
 }: SidebarProps) {
-  const [activeTab, setActiveTab] = useState<"explorer" | "search">("explorer");
+  const [activeTab, setActiveTab] = useState<SidebarTab>(() => {
+    try {
+      return parseSidebarTab(localStorage.getItem("sidebarActiveTab"));
+    } catch {
+      return DEFAULT_SIDEBAR_TAB;
+    }
+  });
   const [searchQuery, setSearchQuery] = useState("");
-  const rootName = rootPath ? rootPath.split(/[/\\]/).pop() : null;
+  const [searchResultCount, setSearchResultCount] = useState(0);
+  const rootName = rootPath ? getPathBaseName(rootPath) : null;
   const filteredTree = useMemo(
     () => filterFileTree(fileTree, searchQuery),
     [fileTree, searchQuery]
   );
   const hasActiveSearch = searchQuery.trim().length > 0;
+  const formattedError = formatFilesystemError(error);
+  const searchBadge = formatSearchTabBadge(searchResultCount);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("sidebarActiveTab", activeTab);
+    } catch {}
+  }, [activeTab]);
 
   return (
     <div className="h-full flex flex-col bg-shell-surface border-r border-shell-border overflow-hidden">
@@ -160,12 +185,20 @@ export default function Sidebar({
           >
             <Search size={12} />
             Search
+            {searchBadge && (
+              <span className={`min-w-5 rounded-full px-1.5 py-0.5 text-[9px] font-black tracking-normal ${
+                activeTab === "search"
+                  ? "bg-shell-accent/15 text-shell-accent"
+                  : "bg-shell-surface text-shell-text-muted border border-shell-border"
+              }`}>
+                {searchBadge}
+              </span>
+            )}
           </button>
         </div>
       </div>
 
-      {activeTab === "explorer" ? (
-        <>
+      <div className={activeTab === "explorer" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
           {/* Root info */}
           {rootPath && (
             <div className="flex-shrink-0 px-4 py-2 border-b border-shell-border-subtle">
@@ -200,6 +233,17 @@ export default function Sidebar({
                   </button>
                 )}
               </div>
+
+              {formattedError && (
+                <div className="mt-3 rounded-lg border border-shell-error/20 bg-shell-error/10 px-3 py-2">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-shell-error/80">
+                    Explorer Error
+                  </p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-shell-text-secondary">
+                    {formattedError}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -212,28 +256,44 @@ export default function Sidebar({
             ) : rootPath ? (
               filteredTree.length > 0 ? (
                 <>
-                  {!hasActiveSearch && recentFiles.length > 0 && (
+                  {!hasActiveSearch && (
                     <div className="mb-4">
-                      <div className="px-5 py-2 mt-2 flex items-center gap-2 text-[10px] font-bold text-shell-text-muted uppercase tracking-widest">
-                        <Clock size={12} className="opacity-70" />
-                        <span>Recent Files</span>
-                      </div>
-                      <div className="px-2 space-y-0.5">
-                        {recentFiles.map(file => (
+                      <div className="px-5 py-2 mt-2 flex items-center justify-between gap-3 text-[10px] font-bold text-shell-text-muted uppercase tracking-widest">
+                        <div className="flex items-center gap-2">
+                          <Clock size={12} className="opacity-70" />
+                          <span>Recent Files</span>
+                        </div>
+                        {recentFiles.length > 0 && (
                           <button
-                            key={`recent-${file.path}`}
-                            onClick={() => onFileSelect(file)}
-                            className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-left transition-colors cursor-pointer ${
-                              activeFilePath === file.path 
-                                ? "bg-shell-accent/10 text-shell-accent" 
-                                : "text-shell-text-secondary hover:bg-shell-surface hover:text-shell-text"
-                            }`}
+                            onClick={onClearRecentFiles}
+                            className="text-[10px] font-bold uppercase tracking-[0.18em] text-shell-text-muted hover:text-shell-accent transition-colors cursor-pointer"
                           >
-                            <File size={13} className={activeFilePath === file.path ? "text-shell-accent" : "text-shell-text-muted"} />
-                            <span className="text-[12px] truncate">{file.name}</span>
+                            Clear
                           </button>
-                        ))}
+                        )}
                       </div>
+                      {recentFiles.length > 0 ? (
+                        <div className="px-2 space-y-0.5">
+                          {recentFiles.map(file => (
+                            <button
+                              key={`recent-${file.path}`}
+                              onClick={() => onFileSelect(file)}
+                              className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-left transition-colors cursor-pointer ${
+                                activeFilePath === file.path 
+                                  ? "bg-shell-accent/10 text-shell-accent" 
+                                  : "text-shell-text-secondary hover:bg-shell-surface hover:text-shell-text"
+                              }`}
+                            >
+                              <File size={13} className={activeFilePath === file.path ? "text-shell-accent" : "text-shell-text-muted"} />
+                              <span className="text-[12px] truncate">{file.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="mx-4 rounded-xl border border-dashed border-shell-border bg-shell-bg/40 px-4 py-3 text-[11px] leading-relaxed text-shell-text-muted">
+                          Open files in this workspace and they will appear here for quick access.
+                        </div>
+                      )}
                     </div>
                   )}
                   {!hasActiveSearch && (
@@ -276,16 +336,17 @@ export default function Sidebar({
               </div>
             )}
           </div>
-        </>
-      ) : (
-        <div className="flex-1 overflow-hidden">
-          <SearchPanel
-            onSearch={onSearch}
-            onFileSelect={onFileSelect}
-            rootPath={rootPath}
-          />
-        </div>
-      )}
+      </div>
+
+      <div className={activeTab === "search" ? "flex-1 overflow-hidden" : "hidden"}>
+        <SearchPanel
+          onSearch={onSearch}
+          onFileSelect={onFileSelect}
+          rootPath={rootPath}
+          isActive={activeTab === "search"}
+          onResultsChange={setSearchResultCount}
+        />
+      </div>
 
       {/* Footer */}
       <div className="flex-shrink-0 px-4 py-2 border-t border-shell-border">

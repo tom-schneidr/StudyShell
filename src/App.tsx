@@ -1,31 +1,76 @@
-import { useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { 
-    MessageSquareText, 
-    Files, 
-    PanelLeft, 
-    PanelRight, 
-    Sparkles 
-} from "lucide-react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import Sidebar from "./components/Sidebar";
 import Editor from "./components/Editor";
 import ChatPanel from "./components/ChatPanel";
 import ContextMenu from "./components/ContextMenu";
-import { useFileSystem } from "./hooks/useFileSystem";
+import CreationModal from "./components/CreationModal";
+import ConfirmDialog from "./components/ConfirmDialog";
+import FlashcardDeck from "./components/FlashcardDeck";
+import CommandPalette, { CommandItem } from "./components/CommandPalette";
+import DropOverlay from "./components/DropOverlay";
+import { listen } from "@tauri-apps/api/event";
+import { 
+  MessageSquareText, 
+  Files, 
+  FilePlus2, 
+  FolderPlus, 
+  Trash2, 
+  Sidebar as SidebarIcon, 
+  MessageSquare,
+  FolderSearch,
+  RefreshCw,
+  Sparkles
+} from "lucide-react";
+import { useFileSystem } from "./hooks/useFilesystem";
 import { useVertexAI } from "./hooks/useVertexAI";
+import { useToast } from "./components/ToastProvider";
 import type { FileNode, NotebookData } from "./types";
 import { getFileType } from "./types";
+import { buildChatContext, canUseFileAsChatContext } from "./utils/chatContext";
+import { parseFlashcardsResponse, type FlashcardCard } from "./utils/flashcards";
+import {
+  buildDirectoryPath,
+  buildMarkdownNotePath,
+  buildNewMarkdownContent,
+  listChildNamesForDirectory,
+  normalizeDirectoryName,
+  normalizeMarkdownFileName,
+  resolveCreationDirectory,
+  suggestUniqueDirectoryName,
+  suggestUniqueMarkdownFileName,
+} from "./utils/fileCreation";
+import {
+  getParentPath,
+  isSameOrDescendantPath,
+  joinPath,
+  remapPathPrefix,
+} from "./utils/pathUtils";
+import { removeFileNodesWithinPath } from "./utils/fileState";
+import {
+  buildPdfAnnotationSidecarPath,
+  parsePdfAnnotationData,
+  serializePdfAnnotationData,
+} from "./utils/pdfAnnotations";
 
 export default function App() {
   const fs = useFileSystem();
   const ai = useVertexAI();
+  const toast = useToast();
 
   // Active file state
+  const [openTabs, setOpenTabs] = useState<FileNode[]>([]);
   const [activeFile, setActiveFile] = useState<FileNode | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [binaryData, setBinaryData] = useState<Uint8Array | null>(null);
   const [binaryLoading, setBinaryLoading] = useState(false);
   const [notebookData, setNotebookData] = useState<NotebookData | null>(null);
+  const [recentFiles, setRecentFiles] = useState<FileNode[]>(() => {
+    try {
+      const stored = localStorage.getItem("recentFiles");
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return [];
+  });
 
   // AI & Chat state
   const [showChatPanel, setShowChatPanel] = useState(true);
@@ -33,7 +78,16 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = useState(280);
   const [chatWidth, setChatWidth] = useState(400);
 
+  const [flashcardSession, setFlashcardSession] = useState<{
+    isOpen: boolean;
+    cards: FlashcardCard[];
+  }>({
+    isOpen: false,
+    cards: [],
+  });
+
   const [pdfAnnotations, setPdfAnnotations] = useState<Record<string, any>>({});
+  const lastPersistedPdfAnnotationsRef = useRef<Record<string, string>>({});
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -42,6 +96,28 @@ export default function App() {
     node: FileNode | null;
     visible: boolean;
   }>({ x: 0, y: 0, node: null, visible: false });
+
+  // Creation modal state (shared for Create and Rename)
+  const [creationModal, setCreationModal] = useState<{
+    isOpen: boolean;
+    mode: "file" | "folder" | "rename";
+    targetNode: FileNode | null;
+    suggestedName: string;
+  }>({
+    isOpen: false,
+    mode: "file",
+    targetNode: null,
+    suggestedName: "",
+  });
+
+  // Deletion confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<FileNode | null>(null);
+
+  // Command Palette state
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+
 
   // Reset all file state
   const resetFileState = useCallback(() => {
@@ -56,6 +132,20 @@ export default function App() {
     async (node: FileNode) => {
       if (node.is_dir) return;
 
+      setOpenTabs(prev => {
+        if (!prev.find(t => t.path === node.path)) {
+          return [...prev, node];
+        }
+        return prev;
+      });
+
+      setRecentFiles(prev => {
+        const filtered = prev.filter(t => t.path !== node.path);
+        const next = [node, ...filtered].slice(0, 5);
+        localStorage.setItem("recentFiles", JSON.stringify(next));
+        return next;
+      });
+
       setActiveFile(node);
       resetFileState();
 
@@ -68,8 +158,29 @@ export default function App() {
         case "audio": {
           setBinaryLoading(true);
           try {
-            const data = await fs.readFileBinary(node.path);
+            const [data, annotationData] = await Promise.all([
+              fs.readFileBinary(node.path),
+              fileType === "pdf"
+                ? fs.readFile(buildPdfAnnotationSidecarPath(node.path)).catch(() => null)
+                : Promise.resolve(null),
+            ]);
             setBinaryData(data);
+
+            if (fileType === "pdf") {
+              const parsedAnnotations = annotationData ? parsePdfAnnotationData(annotationData) : null;
+
+              setPdfAnnotations((prev) => {
+                const next = { ...prev };
+                if (parsedAnnotations) {
+                  next[node.path] = parsedAnnotations;
+                  lastPersistedPdfAnnotationsRef.current[node.path] = annotationData ?? "";
+                } else {
+                  delete next[node.path];
+                  delete lastPersistedPdfAnnotationsRef.current[node.path];
+                }
+                return next;
+              });
+            }
           } catch (e) {
             console.error("Failed to read binary file:", e);
           } finally {
@@ -118,6 +229,29 @@ export default function App() {
     });
   }, []);
 
+  const handleCloseTab = useCallback((path: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setOpenTabs(prev => {
+      const filtered = prev.filter(t => t.path !== path);
+      if (activeFile?.path === path) {
+        if (filtered.length > 0) {
+          // Prefer opening the previously adjacent tab.
+          const oldIndex = prev.findIndex(t => t.path === path);
+          const nextTab = filtered[Math.min(oldIndex, filtered.length - 1)];
+          // We must trigger file fetch async outside of React setState if we can,
+          // but calling handleFileSelect here creates a stale closure loop easily.
+          // Let's just unset it safely and trust a useEffect to sync or user to click.
+          // Actually, we can just setTimeout to avoid React warnings.
+          setTimeout(() => handleFileSelect(nextTab), 0);
+        } else {
+          setActiveFile(null);
+          resetFileState();
+        }
+      }
+      return filtered;
+    });
+  }, [activeFile, handleFileSelect, resetFileState]);
+
   // Save a file
   const handleSaveFile = useCallback(
     async (path: string, content: string) => {
@@ -130,11 +264,132 @@ export default function App() {
     [fs]
   );
 
-  // Close active file
-  const handleCloseFile = useCallback(() => {
-    setActiveFile(null);
-    resetFileState();
-  }, [resetFileState]);
+  // Keyboard Shortcuts & DND
+  useEffect(() => {
+    // Shortcuts
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+K: Open Command Palette
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        setIsCommandPaletteOpen(true);
+      }
+      // Ctrl+B: Toggle Sidebar
+      if ((e.ctrlKey || e.metaKey) && e.key === "b") {
+        e.preventDefault();
+        setSidebarWidth(prev => (prev === 0 ? 280 : 0));
+      }
+      // Ctrl+J: Toggle Chat
+      if ((e.ctrlKey || e.metaKey) && e.key === "j") {
+        e.preventDefault();
+        setShowChatPanel(prev => !prev);
+      }
+      // Ctrl+W: Close Current Tab
+      if ((e.ctrlKey || e.metaKey) && e.key === "w") {
+        if (activeFile) {
+          e.preventDefault();
+          handleCloseTab(activeFile.path);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    // native drag and drop listeners
+    const unlistenFuncs: Array<() => void> = [];
+    
+    const setupDnd = async () => {
+      unlistenFuncs.push(await listen("tauri://drag-enter", () => setIsDragging(true)));
+      unlistenFuncs.push(await listen("tauri://drag-leave", () => setIsDragging(false)));
+      unlistenFuncs.push(await listen<any>("tauri://drag-drop", async (event) => {
+        setIsDragging(false);
+        const paths = event.payload.paths as string[];
+        if (paths.length > 0 && fs.rootPath) {
+          try {
+            // Import to the currently folder of the active file or root
+            const targetDir = activeFile?.is_dir ? activeFile.path : (activeFile ? resolveCreationDirectory(activeFile) : fs.rootPath);
+            await fs.importFiles(paths, targetDir);
+            toast.success(`Imported ${paths.length} items.`);
+            fs.refreshTree();
+          } catch (err) {
+            toast.error(`Import failed: ${err}`);
+          }
+        }
+      }));
+    };
+
+    setupDnd();
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      unlistenFuncs.forEach(fn => fn());
+    };
+  }, [activeFile, handleCloseTab, fs, toast]);
+
+  // Define global commands
+  const globalCommands: CommandItem[] = [
+    {
+      id: "new-note",
+      label: "New Markdown Note",
+      category: "Files",
+      icon: <FilePlus2 size={16} />,
+      description: "Create a new note in the current folder",
+      onSelect: () => activeFile && handleCreateNote(activeFile),
+    },
+    {
+      id: "new-folder",
+      label: "New Folder",
+      category: "Files",
+      icon: <FolderPlus size={16} />,
+      description: "Create a new directory",
+      onSelect: () => activeFile && handleCreateFolder(activeFile),
+    },
+    {
+      id: "toggle-sidebar",
+      label: "Toggle Sidebar",
+      category: "View",
+      icon: <SidebarIcon size={16} />,
+      shortcut: "Ctrl+B",
+      onSelect: () => setSidebarWidth(prev => (prev === 0 ? 280 : 0)),
+    },
+    {
+      id: "toggle-chat",
+      label: "Toggle AI Assistant",
+      category: "View",
+      icon: <MessageSquare size={16} />,
+      shortcut: "Ctrl+J",
+      onSelect: () => setShowChatPanel(prev => !prev),
+    },
+    {
+      id: "open-workspace",
+      label: "Open Workspace Folder",
+      category: "System",
+      icon: <FolderSearch size={16} />,
+      onSelect: () => fs.selectRootFolder(),
+    },
+    {
+      id: "refresh-tree",
+      label: "Refresh File Tree",
+      category: "System",
+      icon: <RefreshCw size={16} />,
+      onSelect: () => fs.refreshTree(),
+    },
+    {
+      id: "clear-chat",
+      label: "Clear AI Chat History",
+      category: "AI",
+      icon: <Trash2 size={16} />,
+      onSelect: () => ai.clearChat(),
+    },
+    {
+      id: "summarize-file",
+      label: "Summarize Active File",
+      category: "AI",
+      icon: <Sparkles size={16} />,
+      onSelect: () => activeFile && ai.sendMessage(`Summarize the file ${activeFile.name}`),
+    }
+  ];
+
+
 
   // Update PDF annotations globally
   const handleUpdatePdfAnnotations = useCallback((path: string, annotations: any) => {
@@ -143,6 +398,33 @@ export default function App() {
         [path]: annotations
     }));
   }, []);
+
+  useEffect(() => {
+    const annotationEntries = Object.entries(pdfAnnotations);
+    if (annotationEntries.length === 0) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void Promise.all(
+        annotationEntries.map(async ([path, annotations]) => {
+          const serialized = serializePdfAnnotationData(annotations);
+          if (lastPersistedPdfAnnotationsRef.current[path] === serialized) {
+            return;
+          }
+
+          try {
+            await fs.writeFile(buildPdfAnnotationSidecarPath(path), serialized);
+            lastPersistedPdfAnnotationsRef.current[path] = serialized;
+          } catch (error) {
+            console.error(`Failed to persist PDF annotations for ${path}:`, error);
+          }
+        })
+      );
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [pdfAnnotations, fs.writeFile]);
 
   // Context menu handlers
   const handleContextMenu = useCallback(
@@ -155,6 +437,220 @@ export default function App() {
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu((prev) => ({ ...prev, visible: false }));
   }, []);
+
+  const handleCreateNote = useCallback(
+    async (node: FileNode) => {
+      const targetDirectory = resolveCreationDirectory(node);
+      const existingNames = listChildNamesForDirectory(fs.fileTree, targetDirectory, fs.rootPath);
+      const suggestedName = suggestUniqueMarkdownFileName(existingNames, "untitled-note");
+      
+      setCreationModal({
+        isOpen: true,
+        mode: "file",
+        targetNode: node,
+        suggestedName,
+      });
+    },
+    [fs]
+  );
+
+  const handleCreateFolder = useCallback(
+    async (node: FileNode) => {
+      const targetDirectory = resolveCreationDirectory(node);
+      const existingNames = listChildNamesForDirectory(fs.fileTree, targetDirectory, fs.rootPath);
+      const suggestedName = suggestUniqueDirectoryName(existingNames, "untitled-folder");
+      
+      setCreationModal({
+        isOpen: true,
+        mode: "folder",
+        targetNode: node,
+        suggestedName,
+      });
+    },
+    [fs]
+  );
+
+  const handleConfirmCreation = useCallback(
+    async (name: string) => {
+      if (!creationModal.targetNode) return;
+
+      const node = creationModal.targetNode;
+      const targetDirectory = resolveCreationDirectory(node);
+      const existingNames = listChildNamesForDirectory(fs.fileTree, targetDirectory, fs.rootPath);
+
+      try {
+        if (creationModal.mode === "file") {
+          const fileName = suggestUniqueMarkdownFileName(existingNames, name);
+          const notePath = buildMarkdownNotePath(node, fileName);
+          await fs.createFile(notePath, buildNewMarkdownContent(fileName));
+          await fs.refreshTree();
+          await handleFileSelect({
+            name: fileName,
+            path: notePath,
+            is_dir: false,
+            extension: "md",
+            children: null,
+          });
+        } else {
+          const folderName = suggestUniqueDirectoryName(existingNames, name);
+          const folderPath = buildDirectoryPath(node, folderName);
+          await fs.createDirectory(folderPath);
+          await fs.refreshTree();
+        }
+      } catch (error) {
+        console.error(`Failed to create ${creationModal.mode}:`, error);
+        toast.error(`Failed to create ${creationModal.mode}: ${error}`);
+      } finally {
+        setCreationModal(prev => ({ ...prev, isOpen: false }));
+      }
+    },
+    [fs, creationModal, handleFileSelect]
+  );
+
+  // Rename handlers
+  const handleRenameRequest = useCallback((node: FileNode) => {
+    setCreationModal({
+      isOpen: true,
+      mode: "rename",
+      targetNode: node,
+      suggestedName: node.name,
+    });
+  }, []);
+
+  const handleConfirmRename = useCallback(async (newName: string) => {
+    if (!creationModal.targetNode) return;
+    const node = creationModal.targetNode;
+    
+    try {
+      const newPath = joinPath(getParentPath(node.path), newName);
+      
+      await fs.renameEntry(node.path, newPath);
+
+      if (activeFile && isSameOrDescendantPath(activeFile.path, node.path)) {
+        const updatedPath = remapPathPrefix(activeFile.path, node.path, newPath);
+        setActiveFile((prev) => (
+          prev && updatedPath
+            ? { ...prev, path: updatedPath, name: prev.path === node.path ? newName : prev.name }
+            : prev
+        ));
+      }
+
+      setOpenTabs(prev => prev.map(tab => {
+        const updatedPath = remapPathPrefix(tab.path, node.path, newPath);
+        if (updatedPath) {
+          return { ...tab, path: updatedPath, name: tab.path === node.path ? newName : tab.name };
+        }
+        return tab;
+      }));
+
+      setSelectedSources(prev => prev.map(source => {
+        const updatedPath = remapPathPrefix(source.path, node.path, newPath);
+        if (updatedPath) {
+          return { ...source, path: updatedPath, name: source.path === node.path ? newName : source.name };
+        }
+        return source;
+      }));
+
+      setPdfAnnotations((prev) => {
+        const next: Record<string, any> = {};
+        for (const [path, annotations] of Object.entries(prev)) {
+          const updatedPath = remapPathPrefix(path, node.path, newPath);
+          next[updatedPath ?? path] = annotations;
+        }
+        return next;
+      });
+
+      const remappedPersisted: Record<string, string> = {};
+      for (const [path, serialized] of Object.entries(lastPersistedPdfAnnotationsRef.current)) {
+        const updatedPath = remapPathPrefix(path, node.path, newPath);
+        remappedPersisted[updatedPath ?? path] = serialized;
+      }
+      lastPersistedPdfAnnotationsRef.current = remappedPersisted;
+
+      await fs.refreshTree();
+    } catch (e) {
+      console.error("Failed to rename:", e);
+      toast.error(`Failed to rename: ${e}`);
+    } finally {
+      setCreationModal(prev => ({ ...prev, isOpen: false }));
+    }
+  }, [creationModal, activeFile, fs, toast]);
+
+  // Deletion handlers
+  const handleDeleteRequest = useCallback((node: FileNode) => {
+    setDeleteTarget(node);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+
+    try {
+      await fs.deleteEntry(deleteTarget.path, deleteTarget.is_dir);
+
+      if (activeFile && isSameOrDescendantPath(activeFile.path, deleteTarget.path)) {
+        setActiveFile(null);
+        resetFileState();
+      }
+
+      setOpenTabs((prev) => removeFileNodesWithinPath(prev, deleteTarget.path));
+      setRecentFiles((prev) => {
+        const next = removeFileNodesWithinPath(prev, deleteTarget.path);
+        localStorage.setItem("recentFiles", JSON.stringify(next));
+        return next;
+      });
+
+      setSelectedSources(prev =>
+        prev.filter((source) => !isSameOrDescendantPath(source.path, deleteTarget.path))
+      );
+
+      setPdfAnnotations((prev) =>
+        Object.fromEntries(
+          Object.entries(prev).filter(([path]) => !isSameOrDescendantPath(path, deleteTarget.path))
+        )
+      );
+
+      lastPersistedPdfAnnotationsRef.current = Object.fromEntries(
+        Object.entries(lastPersistedPdfAnnotationsRef.current).filter(
+          ([path]) => !isSameOrDescendantPath(path, deleteTarget.path)
+        )
+      );
+
+      await fs.refreshTree();
+    } catch (error) {
+      console.error("Failed to delete:", error);
+      toast.error(`Failed to delete: ${error}`);
+    } finally {
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, activeFile, fs, resetFileState]);
+
+  const handleCreateRootNote = useCallback(() => {
+    if (!fs.rootPath) {
+      return;
+    }
+
+    void handleCreateNote({
+      name: normalizeMarkdownFileName("untitled-note"),
+      path: fs.rootPath,
+      is_dir: true,
+      extension: null,
+      children: fs.fileTree,
+    });
+  }, [fs.rootPath, fs.fileTree, handleCreateNote]);
+
+  const handleCreateRootFolder = useCallback(() => {
+    if (!fs.rootPath) {
+      return;
+    }
+
+    void handleCreateFolder({
+      name: normalizeDirectoryName("untitled-folder"),
+      path: fs.rootPath,
+      is_dir: true,
+      extension: null,
+      children: fs.fileTree,
+    });
+  }, [fs.rootPath, fs.fileTree, handleCreateFolder]);
 
   // Collect all file paths recursively (including subfolders)
   const collectFilePaths = useCallback((node: FileNode): string[] => {
@@ -182,13 +678,12 @@ export default function App() {
     async (node: FileNode) => {
       const paths = collectFilePaths(node);
       if (paths.length === 0) {
-        alert("No text files found to summarize.");
+        toast.info("No text files found to summarize.");
         return;
       }
       try {
         const summary = await ai.summarizeFiles(paths);
-        const dir = node.is_dir ? node.path : node.path.substring(0, node.path.lastIndexOf("\\"));
-        const summaryPath = `${dir}\\summary.md`;
+        const summaryPath = joinPath(resolveCreationDirectory(node), "summary.md");
         await fs.writeFile(summaryPath, summary);
         await fs.refreshTree();
         handleFileSelect({ name: "summary.md", path: summaryPath, is_dir: false, extension: "md", children: null });
@@ -204,13 +699,12 @@ export default function App() {
     async (node: FileNode) => {
       const paths = collectFilePaths(node);
       if (paths.length === 0) {
-        alert("No text files found to create study guide from.");
+        toast.info("No text files found to create study guide from.");
         return;
       }
       try {
         const guide = await ai.generateStudyGuide(paths);
-        const dir = node.is_dir ? node.path : node.path.substring(0, node.path.lastIndexOf("\\"));
-        const guidePath = `${dir}\\study_guide.md`;
+        const guidePath = joinPath(resolveCreationDirectory(node), "study_guide.md");
         await fs.writeFile(guidePath, guide);
         await fs.refreshTree();
         handleFileSelect({ name: "study_guide.md", path: guidePath, is_dir: false, extension: "md", children: null });
@@ -231,6 +725,73 @@ export default function App() {
     }
   }, [activeFile, fileContent, ai]);
 
+  const handleGenerateFlashcards = useCallback(async () => {
+    if (!activeFile || !fileContent) return;
+    
+    const prompt = `Based on the following study material, generate a set of 8-10 high-quality flashcards. 
+    Return ONLY a raw JSON array of objects, where each object has "front" (question/term) and "back" (answer/definition) keys.
+    Material:
+      ${fileContent}`;
+
+    try {
+        const response = await ai.sendMessage(prompt, "You are a specialized study assistant. Return ONLY JSON. No explanations.");
+        if (!response) {
+          toast.error("Failed to generate flashcards.");
+          return;
+        }
+
+        const cards = parseFlashcardsResponse(response);
+        setFlashcardSession({ isOpen: true, cards });
+    } catch (e) {
+        console.error("Flashcard error:", e);
+        toast.error(e instanceof Error ? e.message : "Failed to generate flashcards.");
+    }
+  }, [activeFile, fileContent, ai, toast]);
+
+
+  const handleSendChatMessage = useCallback(
+    async (message: string) => {
+      const seenPaths = new Set<string>();
+      const contextSections: Array<{ label: string; path: string; content: string }> = [];
+
+      if (activeFile && fileContent && canUseFileAsChatContext(activeFile)) {
+        seenPaths.add(activeFile.path);
+        contextSections.push({
+          label: `Active file: ${activeFile.name}`,
+          path: activeFile.path,
+          content: fileContent,
+        });
+      }
+
+      const additionalSources = await Promise.all(
+        selectedSources
+          .filter((source) => !seenPaths.has(source.path) && canUseFileAsChatContext(source))
+          .map(async (source) => {
+            try {
+              const content = await fs.readFile(source.path);
+              seenPaths.add(source.path);
+              return {
+                label: `Selected source: ${source.name}`,
+                path: source.path,
+                content,
+              };
+            } catch (error) {
+              console.error(`Failed to read selected source ${source.path}:`, error);
+              return null;
+            }
+          })
+      );
+
+      const context = buildChatContext([
+        ...contextSections,
+        ...additionalSources.filter((source): source is NonNullable<typeof source> => source !== null),
+      ]);
+
+      await ai.sendMessage(message, context);
+    },
+    [activeFile, fileContent, selectedSources, fs, ai]
+  );
+
   return (
     <div className="h-screen w-screen flex bg-shell-bg overflow-hidden relative text-shell-text select-none">
       <div className="bg-glow" />
@@ -244,15 +805,22 @@ export default function App() {
             <Sidebar
               rootPath={fs.rootPath}
               fileTree={fs.fileTree}
+              directoryStats={fs.directoryStats}
               loading={fs.loading}
+              statsLoading={fs.statsLoading}
+              error={fs.error}
               activeFilePath={activeFile?.path || null}
               selectedSourcePaths={selectedSources.map(s => s.path)}
+              recentFiles={recentFiles}
               onSelectRoot={fs.selectRootFolder}
               onRefresh={() => fs.refreshTree()}
               onFileSelect={handleFileSelect}
               onContextMenu={handleContextMenu}
               onToggleSource={handleToggleSource}
+              onCreateRootNote={handleCreateRootNote}
+              onCreateRootFolder={handleCreateRootFolder}
               onCollapse={() => setSidebarWidth(0)}
+              onSearch={fs.searchFiles}
             />
             {/* Sidebar Resize Handle */}
             <div 
@@ -306,14 +874,17 @@ export default function App() {
         <div className="flex-1 min-h-0 relative">
           <Editor
             activeFile={activeFile}
+            openTabs={openTabs}
             fileContent={fileContent}
             binaryData={binaryData}
             binaryLoading={binaryLoading}
             notebookData={notebookData}
             pdfAnnotations={activeFile ? pdfAnnotations[activeFile.path] : null}
             onSaveFile={handleSaveFile}
-            onCloseFile={handleCloseFile}
+            onSelectTab={handleFileSelect}
+            onCloseTab={handleCloseTab}
             onUpdatePdfAnnotations={handleUpdatePdfAnnotations}
+            onSaveAsset={fs.saveImageAsset}
           />
         </div>
       </div>
@@ -345,15 +916,17 @@ export default function App() {
             loading={ai.loading}
             error={ai.error}
             model={ai.model}
+            isConfigured={ai.isConfigured}
             useSearch={ai.useSearch}
             activeFileName={activeFile?.name || null}
             activeFileContent={fileContent}
             selectedSources={selectedSources}
-            onSendMessage={ai.sendMessage}
+            onSendMessage={handleSendChatMessage}
             onModelChange={ai.setModel}
             onSearchChange={ai.setUseSearch}
             onClearChat={ai.clearChat}
             onSummarizeCurrentFile={handleSummarizeCurrentFile}
+            onGenerateFlashcards={handleGenerateFlashcards}
             onRemoveSource={(path: string) => setSelectedSources(prev => prev.filter(s => s.path !== path))}
             onCollapse={() => setShowChatPanel(false)}
           />
@@ -366,9 +939,55 @@ export default function App() {
         node={contextMenu.node}
         visible={contextMenu.visible}
         onClose={handleCloseContextMenu}
+        onCreateNote={handleCreateNote}
+        onCreateFolder={handleCreateFolder}
+        onRename={handleRenameRequest}
+        onDelete={handleDeleteRequest}
         onGenerateSummary={handleGenerateSummary}
         onCreateStudyGuide={handleCreateStudyGuide}
       />
+
+      <CreationModal
+        isOpen={creationModal.isOpen}
+        mode={creationModal.mode}
+        suggestedName={creationModal.suggestedName}
+        onConfirm={(name) => {
+          if (creationModal.mode === "rename") {
+            handleConfirmRename(name);
+          } else {
+            handleConfirmCreation(name);
+          }
+        }}
+        onCancel={() => setCreationModal(prev => ({ ...prev, isOpen: false }))}
+      />
+
+      <ConfirmDialog
+        isOpen={deleteTarget !== null}
+        title={deleteTarget?.is_dir ? "Delete Folder" : "Delete File"}
+        message={
+          deleteTarget?.is_dir
+            ? "This will permanently delete this folder and all its contents."
+            : "This will permanently delete this file."
+        }
+        detail={deleteTarget?.name}
+        confirmLabel="Delete"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
+      <CommandPalette 
+        isOpen={isCommandPaletteOpen} 
+        onClose={() => setIsCommandPaletteOpen(false)} 
+        commands={globalCommands}
+      />
+      <DropOverlay isVisible={isDragging} />
+
+      {flashcardSession.isOpen && (
+        <FlashcardDeck
+          cards={flashcardSession.cards}
+          title={`Review: ${activeFile?.name}`}
+          onClose={() => setFlashcardSession({ isOpen: false, cards: [] })}
+        />
+      )}
     </div>
   );
 }

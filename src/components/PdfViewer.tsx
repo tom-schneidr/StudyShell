@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import {
   ZoomOut,
@@ -17,7 +17,9 @@ import {
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import PdfInkCanvas from "./PdfInkCanvas";
 import type { PdfAnnotationData, PageAnnotations } from "../types";
-import { useFileSystem } from "../hooks/useFileSystem";
+import { useFileSystem } from "../hooks/useFilesystem";
+import { useToast } from "./ToastProvider";
+import ConfirmDialog from "./ConfirmDialog";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
@@ -30,10 +32,12 @@ interface PdfViewerProps {
 
 export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpdateAnnotations }: PdfViewerProps) {
   const fs = useFileSystem();
+  const toast = useToast();
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState(1);
   const [scale, setScale] = useState(0.8);
   const [error, setError] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   // Editor State
   const [tool, setTool] = useState<"pen" | "highlighter" | "eraser" | "select" | "text">("select");
@@ -65,10 +69,12 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
   };
 
   const clearAllAnnotations = () => {
-    const isConfirmed = window.confirm("Clear all drawings and annotations from this PDF for this session?");
-    if (isConfirmed) {
-      onUpdateAnnotations({ version: 1, pages: {} });
-    }
+    setShowClearConfirm(true);
+  };
+
+  const handleConfirmClear = () => {
+    onUpdateAnnotations({ version: 1, pages: {} });
+    setShowClearConfirm(false);
   };
 
   // The Big One: Save and Overwrite original file
@@ -79,9 +85,9 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
 
       // Overwrite the original file using Tauri FS
       await fs.writeFileBinary(filePath, pdfBytes);
-      alert("Changes saved and file overwritten successfully.");
+      toast.success("Changes saved and file overwritten successfully.");
     } catch (e) {
-      alert(`Save failed: ${e}`);
+      toast.error(`Save failed: ${e}`);
     }
   };
 
@@ -99,7 +105,7 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
       link.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      alert(`Export failed: ${e}`);
+      toast.error(`Export failed: ${e}`);
     }
   };
 
@@ -290,6 +296,16 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
           )}
         </div>
       </div>
+      
+      <ConfirmDialog
+        isOpen={showClearConfirm}
+        title="Clear All Annotations"
+        message="Are you sure you want to clear all drawings, highlights, and text from this PDF?"
+        detail="This will only be saved to disk if you click 'Save Changes' afterwards."
+        confirmLabel="Clear All"
+        onConfirm={handleConfirmClear}
+        onCancel={() => setShowClearConfirm(false)}
+      />
     </div>
   );
 }

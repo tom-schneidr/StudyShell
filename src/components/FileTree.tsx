@@ -19,6 +19,7 @@ interface FileTreeProps {
   onFileSelect: (node: FileNode) => void;
   onContextMenu: (e: React.MouseEvent, node: FileNode) => void;
   onToggleSource: (node: FileNode) => void;
+  forceExpandAll?: boolean;
   depth?: number;
 }
 
@@ -52,6 +53,7 @@ function TreeNode({
   onFileSelect,
   onContextMenu,
   onToggleSource,
+  forceExpandAll = false,
   depth = 0,
 }: {
   node: FileNode;
@@ -60,19 +62,24 @@ function TreeNode({
   onFileSelect: (node: FileNode) => void;
   onContextMenu: (e: React.MouseEvent, node: FileNode) => void;
   onToggleSource: (node: FileNode) => void;
+  forceExpandAll?: boolean;
   depth: number;
 }) {
   const [isOpen, setIsOpen] = useState(depth < 1);
   const isActive = activeFilePath === node.path;
   const isSelectedSource = selectedSourcePaths.includes(node.path);
+  const isExpanded = forceExpandAll || isOpen;
 
   const handleClick = useCallback(() => {
     if (node.is_dir) {
+      if (forceExpandAll) {
+        return;
+      }
       setIsOpen((prev) => !prev);
     } else {
       onFileSelect(node);
     }
-  }, [node, onFileSelect]);
+  }, [node, onFileSelect, forceExpandAll]);
 
   return (
     <div>
@@ -92,10 +99,10 @@ function TreeNode({
       >
         {node.is_dir ? (
           <>
-            <motion.div animate={{ rotate: isOpen ? 90 : 0 }}>
+            <motion.div animate={{ rotate: isExpanded ? 90 : 0 }}>
               <ChevronRight size={14} className="text-shell-text-muted flex-shrink-0" />
             </motion.div>
-            {isOpen ? (
+            {isExpanded ? (
               <FolderOpen size={15} className="text-shell-accent flex-shrink-0" />
             ) : (
               <Folder size={15} className="text-shell-accent/70 flex-shrink-0" />
@@ -122,7 +129,7 @@ function TreeNode({
       </motion.div>
 
       <AnimatePresence>
-        {node.is_dir && isOpen && node.children && (
+        {node.is_dir && isExpanded && node.children && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
@@ -138,6 +145,7 @@ function TreeNode({
                 onFileSelect={onFileSelect}
                 onContextMenu={onContextMenu}
                 onToggleSource={onToggleSource}
+                forceExpandAll={forceExpandAll}
                 depth={depth + 1}
               />
             ))}
@@ -155,6 +163,7 @@ export default function FileTree({
   onFileSelect,
   onContextMenu,
   onToggleSource,
+  forceExpandAll = false,
   depth = 0,
 }: FileTreeProps) {
   return (
@@ -168,6 +177,7 @@ export default function FileTree({
           onFileSelect={onFileSelect}
           onContextMenu={onContextMenu}
           onToggleSource={onToggleSource}
+          forceExpandAll={forceExpandAll}
           depth={depth}
         />
       ))}

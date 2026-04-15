@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { marked } from "marked";
@@ -18,12 +18,19 @@ import {
   Eye,
   PenLine,
 } from "lucide-react";
+import { useToast } from "./ToastProvider";
+import {
+  buildMarkdownImageTag,
+  buildPastedImageFilename,
+  insertTextAtSelection,
+} from "../utils/markdownAssets";
 
 interface MarkdownEditorProps {
   content: string;
   onSave: (content: string) => void;
   filePath: string;
   isMarkdown: boolean;
+  onSaveAsset?: (documentPath: string, filename: string, base64: string) => Promise<string>;
 }
 
 // Configure marked for parsing markdown → HTML
@@ -38,7 +45,9 @@ export default function MarkdownEditor({
   onSave,
   filePath,
   isMarkdown,
+  onSaveAsset,
 }: MarkdownEditorProps) {
+  const toast = useToast();
   const [isEditMode, setIsEditMode] = useState(!isMarkdown);
   const [rawContent, setRawContent] = useState(content);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -117,10 +126,7 @@ export default function MarkdownEditor({
     };
   }, []);
 
-  // Handle raw markdown edits
-  const handleRawChange = (value: string) => {
-    setRawContent(value);
-
+  const scheduleSave = useCallback((value: string) => {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
@@ -131,7 +137,60 @@ export default function MarkdownEditor({
         onSave(value);
       }
     }, 1000);
-  };
+  }, [onSave]);
+
+  // Handle raw markdown edits
+  const handleRawChange = useCallback((value: string) => {
+    setRawContent(value);
+    scheduleSave(value);
+  }, [scheduleSave]);
+
+  const handlePaste = useCallback(async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (!onSaveAsset || !isMarkdown || !isEditMode) return;
+
+    const imageItem = Array.from(e.clipboardData.items).find((item) =>
+      item.type.startsWith("image/"),
+    );
+    if (!imageItem) return;
+
+    const file = imageItem.getAsFile();
+    if (!file) return;
+
+    e.preventDefault();
+
+    const textarea = e.currentTarget;
+    const selectionStart = textarea.selectionStart;
+    const selectionEnd = textarea.selectionEnd;
+    const filename = buildPastedImageFilename(file.type);
+
+    try {
+      const base64 = await readFileAsDataUrl(file);
+      const relativePath = await onSaveAsset(filePath, filename, base64);
+      const markdownLink = buildMarkdownImageTag(filename, relativePath);
+      const nextCaretPosition = selectionStart + markdownLink.length;
+
+      setRawContent((previousContent) => {
+        const nextValue = insertTextAtSelection(
+          previousContent,
+          selectionStart,
+          selectionEnd,
+          markdownLink,
+        );
+        scheduleSave(nextValue);
+        return nextValue;
+      });
+
+      window.requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.setSelectionRange(nextCaretPosition, nextCaretPosition);
+      });
+
+      toast.success("Image pasted into note.");
+    } catch (error) {
+      console.error("Paste failed:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to paste image.");
+    }
+  }, [filePath, isEditMode, isMarkdown, onSaveAsset, scheduleSave, toast]);
 
   const toggleMode = () => {
     if (isEditMode && isMarkdown) {
@@ -327,6 +386,7 @@ export default function MarkdownEditor({
           <textarea
             value={rawContent}
             onChange={(e) => handleRawChange(e.target.value)}
+            onPaste={handlePaste}
             className="w-full h-full bg-transparent text-shell-text text-[13px] leading-[1.8]
               font-mono p-8 outline-none resize-none"
             spellCheck={false}
@@ -338,4 +398,25 @@ export default function MarkdownEditor({
       </div>
     </div>
   );
+}
+
+function readFileAsDataUrl(file: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error("Failed to read pasted image."));
+    };
+
+    reader.onerror = () => {
+      reject(reader.error ?? new Error("Failed to read pasted image."));
+    };
+
+    reader.readAsDataURL(file);
+  });
 }

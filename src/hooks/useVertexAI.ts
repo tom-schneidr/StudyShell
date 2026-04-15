@@ -2,6 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { ChatMessage, VertexModel } from "../types";
 import { generateId } from "../types";
+import { getVertexConfigErrorMessage } from "../utils/aiConfig";
+import { deserializeChatHistory, serializeChatHistory } from "../utils/aiHistory";
+
+const CHAT_HISTORY_STORAGE_KEY = "studyshell.chatHistory";
 
 export function useVertexAI() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -10,13 +14,43 @@ export function useVertexAI() {
   const [model, setModel] = useState<VertexModel>("gemini-3-flash-preview");
   const [useSearch, setUseSearch] = useState(false);
   const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
+  const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
 
-  // Check if Vertex AI is configured
   useEffect(() => {
     invoke<boolean>("check_vertex_config")
       .then(setIsConfigured)
       .catch(() => setIsConfigured(false));
   }, []);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(CHAT_HISTORY_STORAGE_KEY);
+      if (stored) {
+        setMessages(deserializeChatHistory(stored));
+      }
+    } catch {
+      setMessages([]);
+    } finally {
+      setHasLoadedHistory(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedHistory) {
+      return;
+    }
+
+    try {
+      if (messages.length === 0) {
+        window.localStorage.removeItem(CHAT_HISTORY_STORAGE_KEY);
+        return;
+      }
+
+      window.localStorage.setItem(CHAT_HISTORY_STORAGE_KEY, serializeChatHistory(messages));
+    } catch {
+      // Ignore storage failures so the chat UI remains usable.
+    }
+  }, [hasLoadedHistory, messages]);
 
   const checkConfig = useCallback(async () => {
     try {
@@ -29,15 +63,28 @@ export function useVertexAI() {
     }
   }, []);
 
-  // Send a chat message
+  const ensureConfigured = useCallback(async () => {
+    if (isConfigured === true) {
+      return true;
+    }
+
+    const configured = await checkConfig();
+    if (!configured) {
+      setError(getVertexConfigErrorMessage());
+    }
+
+    return configured;
+  }, [checkConfig, isConfigured]);
+
   const sendMessage = useCallback(
     async (content: string, context?: string) => {
-      if (!content.trim()) return;
+      if (!content.trim()) return undefined;
+      if (!(await ensureConfigured())) return undefined;
 
       const userMsg: ChatMessage = {
         id: generateId(),
         role: "user",
-        content: content,
+        content,
         timestamp: new Date(),
       };
 
@@ -61,32 +108,37 @@ export function useVertexAI() {
         };
 
         setMessages((prev) => [...prev, assistantMessage]);
+        return response;
       } catch (e) {
         setError(`AI request failed: ${e}`);
         const errorMessage: ChatMessage = {
           id: generateId(),
           role: "assistant",
-          content: `⚠️ Error: ${e}`,
+          content: `Warning: ${e}`,
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, errorMessage]);
+        return undefined;
       } finally {
         setLoading(false);
       }
     },
-    [model, useSearch]
+    [ensureConfigured, model, useSearch]
   );
 
-  // Summarize multiple files
   const summarizeFiles = useCallback(
     async (paths: string[]) => {
+      if (!(await ensureConfigured())) {
+        throw new Error(getVertexConfigErrorMessage());
+      }
+
       setLoading(true);
       setError(null);
       try {
-        const response = await invoke<string>("summarize_files", { 
-          paths, 
+        const response = await invoke<string>("summarize_files", {
+          paths,
           model,
-          useSearch
+          useSearch,
         });
         const assistantMsg: ChatMessage = {
           id: generateId(),
@@ -103,19 +155,22 @@ export function useVertexAI() {
         setLoading(false);
       }
     },
-    [model, useSearch]
+    [ensureConfigured, model, useSearch]
   );
 
-  // Generate study guide
   const generateStudyGuide = useCallback(
     async (paths: string[]) => {
+      if (!(await ensureConfigured())) {
+        throw new Error(getVertexConfigErrorMessage());
+      }
+
       setLoading(true);
       setError(null);
       try {
-        const response = await invoke<string>("generate_study_guide", { 
-          paths, 
+        const response = await invoke<string>("generate_study_guide", {
+          paths,
           model,
-          useSearch
+          useSearch,
         });
         const assistantMsg: ChatMessage = {
           id: generateId(),
@@ -132,10 +187,9 @@ export function useVertexAI() {
         setLoading(false);
       }
     },
-    [model, useSearch]
+    [ensureConfigured, model, useSearch]
   );
 
-  // Clear chat history
   const clearChat = useCallback(() => {
     setMessages([]);
     setError(null);

@@ -1,8 +1,8 @@
+use base64::{engine::general_purpose, Engine as _};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
 use std::path::Path;
-use base64::{Engine as _, engine::general_purpose};
+use std::sync::Mutex;
 
 /// Available Gemini models (Updated for April 2026)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -84,7 +84,9 @@ struct VertexError {
 #[derive(Serialize)]
 #[serde(untagged)]
 enum RequestPart {
-    Text { text: String },
+    Text {
+        text: String,
+    },
     InlineData {
         #[serde(rename = "inlineData")]
         inline_data: InlineData,
@@ -105,13 +107,23 @@ async fn call_gemini(
     parts: Vec<RequestPart>,
     use_search: bool,
 ) -> Result<String, String> {
-    let project_id = state.project_id.lock().unwrap().clone()
+    let project_id = state
+        .project_id
+        .lock()
+        .unwrap()
+        .clone()
         .ok_or_else(|| "PROJECT_ID not configured.".to_string())?;
     let location = state.location.lock().unwrap().clone();
 
-    let provider = gcp_auth::provider().await
-        .map_err(|e| format!("Auth error: {}. Use 'gcloud auth application-default login'.", e))?;
-    let token = provider.token(&["https://www.googleapis.com/auth/cloud-platform"]).await
+    let provider = gcp_auth::provider().await.map_err(|e| {
+        format!(
+            "Auth error: {}. Use 'gcloud auth application-default login'.",
+            e
+        )
+    })?;
+    let token = provider
+        .token(&["https://www.googleapis.com/auth/cloud-platform"])
+        .await
         .map_err(|e| format!("Token error: {}", e))?;
 
     // Most 2026 models support the global endpoint
@@ -133,14 +145,18 @@ async fn call_gemini(
         }]);
     }
 
-    let resp = state.client.post(url)
+    let resp = state
+        .client
+        .post(url)
         .header("Authorization", format!("Bearer {}", token.as_str()))
         .json(&body)
-        .send().await
+        .send()
+        .await
         .map_err(|e| e.to_string())?;
 
     let text = resp.text().await.map_err(|e| e.to_string())?;
-    let vertex_resp: VertexResponse = serde_json::from_str(&text).map_err(|e| format!("Parse error: {}. Raw: {}", e, text))?;
+    let vertex_resp: VertexResponse =
+        serde_json::from_str(&text).map_err(|e| format!("Parse error: {}. Raw: {}", e, text))?;
 
     if let Some(err) = vertex_resp.error {
         return Err(err.message);
@@ -173,7 +189,9 @@ pub async fn chat_with_ai(
 ) -> Result<String, String> {
     let mut parts = Vec::new();
     if let Some(ctx) = context {
-        parts.push(RequestPart::Text { text: format!("Context (Reference Material):\n---\n{}\n---\n", ctx) });
+        parts.push(RequestPart::Text {
+            text: format!("Context (Reference Material):\n---\n{}\n---\n", ctx),
+        });
     }
     parts.push(RequestPart::Text { text: message });
 
@@ -197,19 +215,30 @@ pub async fn summarize_files(
                     inline_data: InlineData {
                         mime_type: "application/pdf".to_string(),
                         data: general_purpose::STANDARD.encode(data),
-                    }
+                    },
                 });
             } else {
                 if let Ok(text) = String::from_utf8(data) {
-                    parts.push(RequestPart::Text { text: format!("File: {}\n---\n{}\n---\n", path_str, text) });
+                    parts.push(RequestPart::Text {
+                        text: format!("File: {}\n---\n{}\n---\n", path_str, text),
+                    });
                 }
             }
         }
     }
 
-    parts.push(RequestPart::Text { text: "Provide a structured academic summary of the attached materials.".to_string() });
+    parts.push(RequestPart::Text {
+        text: "Provide a structured academic summary of the attached materials.".to_string(),
+    });
 
-    call_gemini(&state, &model, "You are an expert academic summarizer.", parts, use_search).await
+    call_gemini(
+        &state,
+        &model,
+        "You are an expert academic summarizer.",
+        parts,
+        use_search,
+    )
+    .await
 }
 
 #[tauri::command]
@@ -229,19 +258,30 @@ pub async fn generate_study_guide(
                     inline_data: InlineData {
                         mime_type: "application/pdf".to_string(),
                         data: general_purpose::STANDARD.encode(data),
-                    }
+                    },
                 });
             } else {
                 if let Ok(text) = String::from_utf8(data) {
-                    parts.push(RequestPart::Text { text: format!("Content: {}\n---\n{}\n---\n", path_str, text) });
+                    parts.push(RequestPart::Text {
+                        text: format!("Content: {}\n---\n{}\n---\n", path_str, text),
+                    });
                 }
             }
         }
     }
 
-    parts.push(RequestPart::Text { text: "Create a detailed study guide from these materials.".to_string() });
+    parts.push(RequestPart::Text {
+        text: "Create a detailed study guide from these materials.".to_string(),
+    });
 
-    call_gemini(&state, &model, "You are an expert at creating study materials.", parts, use_search).await
+    call_gemini(
+        &state,
+        &model,
+        "You are an expert at creating study materials.",
+        parts,
+        use_search,
+    )
+    .await
 }
 
 #[tauri::command]

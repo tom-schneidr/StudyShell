@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, BookOpen } from "lucide-react";
+import { FilePlus2, FileText, BookOpen, FolderPlus, Trash2, Pencil } from "lucide-react";
 import type { FileNode } from "../types";
 
 interface ContextMenuProps {
@@ -9,6 +9,10 @@ interface ContextMenuProps {
   node: FileNode | null;
   visible: boolean;
   onClose: () => void;
+  onCreateNote: (node: FileNode) => void;
+  onCreateFolder: (node: FileNode) => void;
+  onRename: (node: FileNode) => void;
+  onDelete: (node: FileNode) => void;
   onGenerateSummary: (node: FileNode) => void;
   onCreateStudyGuide: (node: FileNode) => void;
 }
@@ -19,6 +23,10 @@ export default function ContextMenu({
   node,
   visible,
   onClose,
+  onCreateNote,
+  onCreateFolder,
+  onRename,
+  onDelete,
   onGenerateSummary,
   onCreateStudyGuide,
 }: ContextMenuProps) {
@@ -50,6 +58,30 @@ export default function ContextMenu({
 
   const menuItems = [
     {
+      icon: <FilePlus2 size={14} />,
+      label: "New Markdown Note",
+      onClick: () => {
+        onCreateNote(node);
+        onClose();
+      },
+    },
+    {
+      icon: <FolderPlus size={14} />,
+      label: "New Folder",
+      onClick: () => {
+        onCreateFolder(node);
+        onClose();
+      },
+    },
+    {
+      icon: <Pencil size={14} />,
+      label: "Rename",
+      onClick: () => {
+        onRename(node);
+        onClose();
+      },
+    },
+    {
       icon: <FileText size={14} />,
       label: "Generate Summary",
       onClick: () => {
@@ -67,12 +99,23 @@ export default function ContextMenu({
     },
   ];
 
+  const dangerItems = [
+    {
+      icon: <Trash2 size={14} />,
+      label: node.is_dir ? "Delete Folder" : "Delete File",
+      onClick: () => {
+        onDelete(node);
+        onClose();
+      },
+    },
+  ];
+
   return (
     <AnimatePresence>
       {visible && (
         <motion.div
           ref={menuRef}
-          className="fixed z-[9999] glass rounded-lg overflow-hidden shadow-2xl shadow-black/50 min-w-[200px]"
+          className="fixed z-[9999] glass-layer-2 rounded-lg overflow-hidden shadow-2xl shadow-black/60 min-w-[200px]"
           style={{ left: x, top: y }}
           initial={{ opacity: 0, scale: 0.92, y: -4 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -90,6 +133,19 @@ export default function ContextMenu({
                 key={i}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-[12.5px] text-shell-text-secondary
                   hover:bg-shell-accent/10 hover:text-shell-accent transition-colors duration-100 cursor-pointer"
+                onClick={item.onClick}
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            ))}
+          </div>
+          <div className="border-t border-shell-border py-1">
+            {dangerItems.map((item, i) => (
+              <button
+                key={i}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-[12.5px] text-shell-error/80
+                  hover:bg-shell-error/10 hover:text-shell-error transition-colors duration-100 cursor-pointer"
                 onClick={item.onClick}
               >
                 {item.icon}

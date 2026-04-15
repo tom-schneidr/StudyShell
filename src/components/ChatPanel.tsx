@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect, useCallback } from "react";
 import { marked } from "marked";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -11,26 +12,29 @@ import {
   User,
   ChevronDown,
   ChevronRight,
-  Globe
+  Globe,
+  Layers,
 } from "lucide-react";
 import type { FileNode, ChatMessage, VertexModel } from "../types";
 import { modelLabels } from "../types";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { getChatPlaceholder, vertexConfigGuidance } from "../utils/aiConfig";
 
 interface ChatPanelProps {
   messages: ChatMessage[];
   loading: boolean;
   error: string | null;
   model: VertexModel;
+  isConfigured: boolean | null;
   activeFileName: string | null;
   activeFileContent: string | null;
   selectedSources: FileNode[];
   useSearch: boolean;
-  onSendMessage: (message: string, context?: string) => void;
+  onSendMessage: (message: string) => void | Promise<void>;
   onModelChange: (model: VertexModel) => void;
   onSearchChange: (useSearch: boolean) => void;
   onClearChat: () => void;
   onSummarizeCurrentFile: () => void;
+  onGenerateFlashcards: () => void;
   onRemoveSource: (path: string) => void;
   onCollapse: () => void;
 }
@@ -40,6 +44,7 @@ export default function ChatPanel({
   loading,
   error,
   model,
+  isConfigured,
   activeFileName,
   activeFileContent,
   selectedSources,
@@ -48,6 +53,8 @@ export default function ChatPanel({
   onModelChange,
   onSearchChange,
   onClearChat,
+  onSummarizeCurrentFile,
+  onGenerateFlashcards,
   onRemoveSource,
   onCollapse,
 }: ChatPanelProps) {
@@ -63,19 +70,22 @@ export default function ChatPanel({
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.style.height = "auto";
-      inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + "px";
+      inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 120)}px`;
     }
   }, [input]);
 
+  const aiUnavailable = isConfigured !== true;
+  const checkingConfiguration = isConfigured === null;
+  const inputDisabled = loading || aiUnavailable;
+
   const handleSend = useCallback(() => {
-    if (!input.trim() || loading) return;
-    onSendMessage(input.trim(), activeFileContent || undefined);
+    if (!input.trim() || inputDisabled) return;
+    void onSendMessage(input.trim());
     setInput("");
-  }, [input, loading, onSendMessage, activeFileContent]);
+  }, [input, inputDisabled, onSendMessage]);
 
   return (
     <div className="h-full w-full flex flex-col bg-shell-surface overflow-hidden">
-      {/* Header - Modern with Padding */}
       <div className="flex-shrink-0 px-5 pt-8 pb-4 border-b border-shell-border bg-shell-bg/50">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -89,15 +99,44 @@ export default function ChatPanel({
           </div>
           <div className="flex items-center gap-1">
             <button onClick={onClearChat} className="p-2 rounded-lg text-shell-text-muted hover:text-red-400 hover:bg-red-400/10 transition-all cursor-pointer">
-                <Trash2 size={16} />
+              <Trash2 size={16} />
             </button>
             <button onClick={onCollapse} className="p-2 rounded-lg text-shell-text-muted hover:text-shell-text hover:bg-shell-surface-hover transition-all cursor-pointer">
-                <ChevronRight size={18} />
+              <ChevronRight size={18} />
             </button>
           </div>
         </div>
 
         <div className="space-y-2">
+          {activeFileName && activeFileContent && (
+            <div className="flex gap-2">
+              <button
+                onClick={onSummarizeCurrentFile}
+                disabled={aiUnavailable}
+                className={`flex-1 flex items-center justify-between px-3 py-2 rounded-lg bg-shell-bg border border-shell-border text-[11px] transition-all ${
+                  aiUnavailable
+                    ? "text-shell-text-muted/50 cursor-not-allowed opacity-60"
+                    : "text-shell-text-muted hover:text-shell-text cursor-pointer"
+                }`}
+              >
+                <span className="truncate pr-2">Summarize</span>
+                <Sparkles size={12} className="flex-shrink-0" />
+              </button>
+              <button
+                onClick={onGenerateFlashcards}
+                disabled={aiUnavailable}
+                className={`flex-1 flex items-center justify-between px-3 py-2 rounded-lg bg-shell-bg border border-shell-border text-[11px] transition-all ${
+                  aiUnavailable
+                    ? "text-shell-text-muted/50 cursor-not-allowed opacity-60"
+                    : "text-shell-text-muted hover:text-shell-text cursor-pointer"
+                }`}
+              >
+                <span className="truncate pr-2">Flashcards</span>
+                <Layers size={12} className="flex-shrink-0" />
+              </button>
+            </div>
+          )}
+
           <div className="relative">
             <button
               onClick={() => setShowModelPicker(!showModelPicker)}
@@ -118,8 +157,13 @@ export default function ChatPanel({
                   {(Object.entries(modelLabels) as [VertexModel, string][]).map(([key, label]) => (
                     <button
                       key={key}
-                      onClick={() => { onModelChange(key); setShowModelPicker(false); }}
-                      className={`w-full px-4 py-2.5 text-left text-[12px] transition-colors hover:bg-shell-accent/10 hover:text-shell-accent ${model === key ? "text-shell-accent bg-shell-accent/5 font-semibold" : "text-shell-text-secondary"}`}
+                      onClick={() => {
+                        onModelChange(key);
+                        setShowModelPicker(false);
+                      }}
+                      className={`w-full px-4 py-2.5 text-left text-[12px] transition-colors hover:bg-shell-accent/10 hover:text-shell-accent ${
+                        model === key ? "text-shell-accent bg-shell-accent/5 font-semibold" : "text-shell-text-secondary"
+                      }`}
                     >
                       {label}
                     </button>
@@ -129,11 +173,27 @@ export default function ChatPanel({
             </AnimatePresence>
           </div>
 
-          <button 
+          {aiUnavailable && (
+            <div className="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-3 text-[11px] leading-relaxed text-amber-200">
+              {checkingConfiguration ? (
+                <Loader2 size={15} className="mt-0.5 flex-shrink-0 animate-spin" />
+              ) : (
+                <AlertCircle size={15} className="mt-0.5 flex-shrink-0" />
+              )}
+              <div>
+                <p className="font-semibold text-amber-100">
+                  {checkingConfiguration ? "Checking Vertex AI setup..." : "Vertex AI setup required"}
+                </p>
+                <p className="mt-1 text-amber-100/80">{vertexConfigGuidance}</p>
+              </div>
+            </div>
+          )}
+
+          <button
             onClick={() => onSearchChange(!useSearch)}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-all cursor-pointer ${
-              useSearch 
-                ? "bg-shell-accent/10 border-shell-accent/30 text-shell-accent shadow-sm" 
+              useSearch
+                ? "bg-shell-accent/10 border-shell-accent/30 text-shell-accent shadow-sm"
                 : "bg-shell-bg border-shell-border text-shell-text-muted hover:text-shell-text"
             }`}
           >
@@ -149,10 +209,10 @@ export default function ChatPanel({
 
         {selectedSources.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-4 max-h-[80px] overflow-y-auto pr-1 custom-scrollbar">
-            {selectedSources.map(s => (
-              <div key={s.path} className="flex items-center gap-2 px-2.5 py-1 bg-shell-accent/10 border border-shell-accent/20 rounded-full text-[10px] text-shell-accent font-medium">
-                <span className="truncate max-w-[120px]">{s.name}</span>
-                <button onClick={() => onRemoveSource(s.path)} className="p-0.5 hover:text-emerald-400 transition-colors cursor-pointer">
+            {selectedSources.map((source) => (
+              <div key={source.path} className="flex items-center gap-2 px-2.5 py-1 bg-shell-accent/10 border border-shell-accent/20 rounded-full text-[10px] text-shell-accent font-medium">
+                <span className="truncate max-w-[120px]">{source.name}</span>
+                <button onClick={() => onRemoveSource(source.path)} className="p-0.5 hover:text-emerald-400 transition-colors cursor-pointer">
                   <X size={10} />
                 </button>
               </div>
@@ -161,7 +221,6 @@ export default function ChatPanel({
         )}
       </div>
 
-      {/* Messages - Fixed Margins */}
       <div className="flex-1 overflow-y-auto px-5 py-4 custom-scrollbar space-y-6 bg-shell-bg/20 min-h-0">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-10 animate-in fade-in zoom-in-95 duration-500">
@@ -174,32 +233,59 @@ export default function ChatPanel({
             </p>
           </div>
         ) : (
-          messages.map((msg) => (
-            <div key={msg.id} className={`flex gap-4 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-              <div className={`flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center shadow-sm ${
-                msg.role === "user" ? "bg-shell-accent text-white" : "bg-shell-surface border border-shell-border text-shell-accent"
-              }`}>
-                {msg.role === "user" ? <User size={16} /> : <Bot size={16} />}
-              </div>
-              <div className={`max-w-[88%] rounded-2xl px-5 py-3.5 text-[13px] leading-[1.6] shadow-sm animate-in slide-in-from-bottom-2 duration-300 ${
-                msg.role === "user" ? "bg-shell-accent text-white rounded-tr-none" : "bg-shell-surface text-shell-text border border-shell-border rounded-tl-none shadow-black/10"
-              }`}>
-                {msg.role === "assistant" ? (
-                  <div 
-                    className="ai-markdown"
-                    dangerouslySetInnerHTML={{ __html: marked.parse(msg.content) }}
-                  />
-                ) : (
-                  msg.content
-                )}
-              </div>
-            </div>
-          ))
+          <AnimatePresence initial={false}>
+            {messages.map((msg) => (
+              <motion.div 
+                layout
+                initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                key={msg.id} 
+                className={`flex gap-4 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
+              >
+                <div
+                  className={`flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center shadow-sm ${
+                    msg.role === "user" ? "bg-shell-accent text-white" : "bg-shell-surface border border-shell-border text-shell-accent"
+                  }`}
+                >
+                  {msg.role === "user" ? <User size={16} /> : <Bot size={16} />}
+                </div>
+                <div
+                  className={`max-w-[88%] rounded-2xl px-5 py-3.5 text-[13px] leading-[1.6] shadow-sm ${
+                    msg.role === "user" ? "bg-shell-accent text-white rounded-tr-none" : "bg-shell-surface text-shell-text border border-shell-border rounded-tl-none shadow-black/10"
+                  }`}
+                >
+                  {msg.role === "assistant" ? (
+                    <div className="ai-markdown" dangerouslySetInnerHTML={{ __html: marked.parse(msg.content) }} />
+                  ) : (
+                    msg.content
+                  )}
+                </div>
+              </motion.div>
+            ))}
+            
+            {loading && (
+              <motion.div
+                layout
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                className="flex gap-4"
+              >
+                <div className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center shadow-sm bg-shell-surface border border-shell-border text-shell-accent">
+                  <Bot size={16} />
+                </div>
+                <div className="rounded-2xl px-5 py-3.5 shadow-sm bg-shell-surface border border-shell-border rounded-tl-none shadow-black/10 flex items-center gap-1.5 h-[46px]">
+                  <motion.div className="w-1.5 h-1.5 bg-shell-text-muted/60 rounded-full" animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0 }} />
+                  <motion.div className="w-1.5 h-1.5 bg-shell-text-muted/60 rounded-full" animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.2 }} />
+                  <motion.div className="w-1.5 h-1.5 bg-shell-text-muted/60 rounded-full" animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.4 }} />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Control / Status Area - Pinned and Clear */}
       <div className="flex-shrink-0 p-5 bg-shell-bg border-t border-shell-border shadow-[0_-10px_40px_rgba(0,0,0,0.1)] mb-1">
         {error && (
           <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-400 text-[11px] font-medium leading-normal">
@@ -214,35 +300,45 @@ export default function ChatPanel({
             rows={1}
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            disabled={inputDisabled}
             onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                }
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
             }}
-            placeholder={useSearch ? "Search and ask..." : "Ask your sources..."}
+            placeholder={getChatPlaceholder(isConfigured, useSearch)}
             className="w-full bg-shell-surface border border-shell-border rounded-2xl pl-5 pr-14 py-4
               text-[13px] text-shell-text placeholder:text-shell-text-muted focus:outline-none
-              focus:ring-2 focus:ring-shell-accent/40 focus:border-shell-accent transition-all resize-none shadow-inner"
+              focus:ring-2 focus:ring-shell-accent/40 focus:border-shell-accent transition-all resize-none shadow-inner disabled:cursor-not-allowed disabled:opacity-60"
           />
           <button
             onClick={handleSend}
-            disabled={!input.trim() || loading}
-            className="absolute right-3 top-[10px] p-2.5 rounded-xl bg-shell-accent 
-              text-white shadow-xl shadow-shell-accent/20 hover:bg-shell-accent-hover 
+            disabled={!input.trim() || inputDisabled}
+            className="absolute right-3 top-[10px] p-2.5 rounded-xl bg-shell-accent
+              text-white shadow-xl shadow-shell-accent/20 hover:bg-shell-accent-hover
               active:scale-95 disabled:opacity-30 transition-all cursor-pointer"
           >
             {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
           </button>
         </div>
         <div className="mt-3 flex justify-center gap-4">
-            <span className="px-2 py-1 rounded bg-shell-surface flex items-center gap-1.5 text-[9px] text-shell-text-muted font-bold uppercase tracking-widest border border-shell-border/40">
-                <div className={`w-1.5 h-1.5 rounded-full ${useSearch ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-shell-text-muted"}`} />
-                Search {useSearch ? "ON" : "OFF"}
+          {activeFileName && (
+            <span className="px-2 py-1 rounded bg-shell-surface text-[9px] text-shell-text-muted font-bold uppercase tracking-widest border border-shell-border/40 truncate max-w-[140px]">
+              {activeFileName}
             </span>
-            <span className="px-2 py-1 rounded bg-shell-surface text-[9px] text-shell-text-muted font-bold uppercase tracking-widest border border-shell-border/40">
-                {modelLabels[model]} Ready
-            </span>
+          )}
+          <span className="px-2 py-1 rounded bg-shell-surface flex items-center gap-1.5 text-[9px] text-shell-text-muted font-bold uppercase tracking-widest border border-shell-border/40">
+            <div className={`w-1.5 h-1.5 rounded-full ${useSearch ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-shell-text-muted"}`} />
+            Search {useSearch ? "ON" : "OFF"}
+          </span>
+          <span className="px-2 py-1 rounded bg-shell-surface text-[9px] text-shell-text-muted font-bold uppercase tracking-widest border border-shell-border/40">
+            {checkingConfiguration
+              ? "AI Checking"
+              : isConfigured
+                ? `${modelLabels[model]} Ready`
+                : "AI Setup Required"}
+          </span>
         </div>
       </div>
     </div>

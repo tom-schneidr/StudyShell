@@ -98,6 +98,21 @@ body,
   border: 1px solid var(--color-glass-border);
 }
 
+.glass-layer-1 {
+  background: rgba(17, 19, 24, 0.6);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.glass-layer-2 {
+  background: rgba(17, 19, 24, 0.85);
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 1px inset rgba(255, 255, 255, 0.05);
+}
+
 .glass-subtle {
   background: rgba(17, 19, 24, 0.45);
   backdrop-filter: blur(12px) saturate(150%);
@@ -489,4 +504,21 @@ body,
   color: var(--color-shell-accent);
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+/* ===== Flashcard 3D Core ===== */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
 }

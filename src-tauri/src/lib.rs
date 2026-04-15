@@ -2,8 +2,8 @@ mod filesystem;
 mod vertex_client;
 mod watcher;
 
-use watcher::WatcherState;
 use vertex_client::VertexState;
+use watcher::WatcherState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -23,6 +23,13 @@ pub fn run() {
             filesystem::write_file,
             filesystem::write_file_binary,
             filesystem::create_file,
+            filesystem::create_directory,
+            filesystem::delete_file,
+            filesystem::delete_directory,
+            filesystem::rename_entry,
+            filesystem::import_files,
+            filesystem::search_files,
+            filesystem::save_base64_asset,
             filesystem::get_directory_stats,
             // Watcher commands
             watcher::start_watching,

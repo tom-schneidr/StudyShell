@@ -26,6 +26,7 @@ import {
 import {
   extractJsonArrayCandidate,
   parseFlashcardsResponse,
+  parseQuizResponse,
 } from "../src/utils/flashcards.ts";
 import {
   buildMarkdownImageTag,
@@ -287,6 +288,32 @@ assert.deepEqual(
   ],
 );
 assert.throws(() => parseFlashcardsResponse("[]"), /valid flashcards/);
+// Alternative {question, answer} key layout that the AI may emit
+assert.deepEqual(
+  parseFlashcardsResponse('[{"question":"What is React?","answer":"A UI library"}]'),
+  [{ front: "What is React?", back: "A UI library" }],
+);
+// {front} takes priority over {question} when both present
+assert.deepEqual(
+  parseFlashcardsResponse('[{"front":"Front wins","question":"Question ignored","back":"B"}]'),
+  [{ front: "Front wins", back: "B" }],
+);
+// parseQuizResponse: happy path with markdown fences
+assert.deepEqual(
+  parseQuizResponse(
+    '```json\n[{"question":"2+2?","options":["1","2","4","8"],"correctIndex":2,"explanation":"Basic arithmetic"}]\n```',
+  ),
+  [{ question: "2+2?", options: ["1", "2", "4", "8"], correctIndex: 2, explanation: "Basic arithmetic" }],
+);
+// parseQuizResponse: filters entries with out-of-range correctIndex
+assert.deepEqual(
+  parseQuizResponse(
+    '[{"question":"X?","options":["A","B"],"correctIndex":0,"explanation":"ok"},{"question":"Y?","options":["A","B"],"correctIndex":5,"explanation":"bad"}]',
+  ),
+  [{ question: "X?", options: ["A", "B"], correctIndex: 0, explanation: "ok" }],
+);
+// parseQuizResponse: throws on empty result
+assert.throws(() => parseQuizResponse("[]"), /valid quiz questions/);
 assert.equal(extensionFromImageMimeType("image/png"), "png");
 assert.equal(extensionFromImageMimeType("image/jpeg"), "jpg");
 assert.equal(extensionFromImageMimeType("image/png; charset=utf-8"), "png");

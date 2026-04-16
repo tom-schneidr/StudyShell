@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FilePlus2, FileText, BookOpen, FolderPlus, Trash2, Pencil, Copy } from "lucide-react";
+import { FilePlus2, FileText, BookOpen, FolderPlus, Trash2, Pencil, Copy, ArrowRight } from "lucide-react";
 import type { FileNode } from "../types";
 import { clampFloatingPosition } from "../utils/floatingPosition";
 
@@ -13,10 +13,13 @@ interface ContextMenuProps {
   onCreateNote: (node: FileNode) => void;
   onCreateFolder: (node: FileNode) => void;
   onRename: (node: FileNode) => void;
+  onMove: (node: FileNode) => void;
   onCopyPath: (node: FileNode) => void;
   onDelete: (node: FileNode) => void;
   onGenerateSummary: (node: FileNode) => void;
   onCreateStudyGuide: (node: FileNode) => void;
+  onOpenInSidePane?: (node: FileNode) => void;
+  isSplit?: boolean;
 }
 
 export default function ContextMenu({
@@ -28,10 +31,13 @@ export default function ContextMenu({
   onCreateNote,
   onCreateFolder,
   onRename,
+  onMove,
   onCopyPath,
   onDelete,
   onGenerateSummary,
   onCreateStudyGuide,
+  onOpenInSidePane,
+  isSplit,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -96,6 +102,14 @@ export default function ContextMenu({
       },
     },
     {
+      icon: <ArrowRight size={14} />,
+      label: "Move to...",
+      onClick: () => {
+        onMove(node);
+        onClose();
+      },
+    },
+    {
       icon: <Copy size={14} />,
       label: "Copy Path",
       onClick: () => {
@@ -119,6 +133,14 @@ export default function ContextMenu({
         onClose();
       },
     },
+    ...(!node.is_dir && onOpenInSidePane && !isSplit ? [{
+      icon: <FilePlus2 size={14} />,
+      label: "Open in Side Pane",
+      onClick: () => {
+        onOpenInSidePane(node);
+        onClose();
+      },
+    }] : []),
   ];
 
   const dangerItems = [

@@ -150,10 +150,11 @@ export default function Sidebar({
 
         <motion.button
           onClick={onSelectRoot}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl
+          className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl
             text-[12.5px] font-semibold transition-all duration-200 cursor-pointer
-            bg-shell-accent/10 text-shell-accent border border-shell-accent/20
-            hover:bg-shell-accent/20 hover:border-shell-accent/30 shadow-sm"
+            ${!rootPath 
+              ? "bg-shell-accent text-white shadow-lg shadow-shell-accent/25 border-none animate-pulse-subtle" 
+              : "bg-shell-accent/10 text-shell-accent border border-shell-accent/20 hover:bg-shell-accent/20 hover:border-shell-accent/30 shadow-sm"}`}
           whileTap={{ scale: 0.97 }}
         >
           <FolderSearch size={16} />

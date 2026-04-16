@@ -17,7 +17,7 @@ export interface ChatMessage {
 }
 
 /// Supported file types for the editor
-export type FileType = "markdown" | "text" | "pdf" | "image" | "video" | "audio" | "notebook" | "code" | "unsupported";
+export type FileType = "markdown" | "text" | "pdf" | "image" | "video" | "audio" | "notebook" | "code" | "svg" | "unsupported";
 
 /// Vertex AI model options
 export type VertexModel = "gemini-3.1-pro-preview" | "gemini-3-flash-preview" | "gemini-2.5-pro" | "gemini-2.5-flash";
@@ -133,6 +133,7 @@ export function getFileType(extension: string | null): FileType {
 
   const textExtensions = ["txt", "text", "log", "csv", "json", "json5", "yaml", "yml", "toml", "lock", "ini", "cfg", "conf"];
 
+  if (ext === "svg") return "svg";
   if (markdownExtensions.includes(ext)) return "markdown";
   if (pdfExtensions.includes(ext)) return "pdf";
   if (imgExtensions.includes(ext)) return "image";

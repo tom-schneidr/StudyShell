@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { X } from "lucide-react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { marked } from "marked";
+import katex from "katex";
 import {
   Bold,
   Italic,
@@ -18,6 +20,7 @@ import {
   Eye,
   PenLine,
   ListTree,
+  MessageSquareShare,
 } from "lucide-react";
 import { useToast } from "./ToastProvider";
 import {
@@ -41,6 +44,29 @@ marked.setOptions({
   gfm: true,
 });
 
+// Post-parse LaTeX rendering for Markdown
+const renderMath = (text: string) => {
+    // Replace display math $$ ... $$
+    let processed = text.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => {
+        try {
+            return `<div class="katex-display">${katex.renderToString(math, { displayMode: true, throwOnError: false })}</div>`;
+        } catch (e) {
+            return `<div class="katex-error">${math}</div>`;
+        }
+    });
+
+    // Replace inline math $ ... $
+    processed = processed.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
+        try {
+            return katex.renderToString(math, { displayMode: false, throwOnError: false });
+        } catch (e) {
+            return `<span class="katex-error">${math}</span>`;
+        }
+    });
+
+    return processed;
+};
+
 
 export default function MarkdownEditor({
   content,
@@ -57,16 +83,62 @@ export default function MarkdownEditor({
   const isInitialLoadRef = useRef(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
-  const markdownHeadings = useMemo(
+  const headings = useMemo(
     () => (isMarkdown ? parseMarkdownHeadings(rawContent) : []),
     [isMarkdown, rawContent],
   );
 
+  const [selectionInfo, setSelectionInfo] = useState<{
+    text: string;
+    x: number;
+    y: number;
+    visible: boolean;
+  }>({ text: "", x: 0, y: 0, visible: false });
+
+  const handleSelection = useCallback(() => {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || selection.toString().trim().length < 2) {
+      setSelectionInfo((prev) => ({ ...prev, visible: false }));
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    
+    // Only show if selection is within the editor
+    if (previewContainerRef.current?.contains(selection.anchorNode)) {
+        setSelectionInfo({
+            text: selection.toString().trim(),
+            x: rect.left + rect.width / 2,
+            y: rect.top - 10,
+            visible: true,
+        });
+    }
+  }, []);
+
+  useEffect(() => {
+    const container = previewContainerRef.current;
+    if (!container || isEditMode) return;
+
+    window.addEventListener("mouseup", handleSelection);
+    return () => window.removeEventListener("mouseup", handleSelection);
+  }, [handleSelection, isEditMode]);
+
   // Convert markdown to HTML for TipTap
   const htmlContent = useMemo(() => {
     if (!isMarkdown) return content;
-    return marked.parse(content) as string;
+    const html = marked.parse(content) as string;
+    return renderMath(html);
   }, [content, isMarkdown]);
+
+  const handleExplainSelection = () => {
+    if (!selectionInfo.text) return;
+    // Dispatch a custom event or use a global command to trigger AI
+    window.dispatchEvent(new CustomEvent("studyshell:explain", { 
+        detail: { text: selectionInfo.text } 
+    }));
+    setSelectionInfo(prev => ({ ...prev, visible: false }));
+  };
 
   const editor = useEditor({
     extensions: [StarterKit],
@@ -104,7 +176,7 @@ export default function MarkdownEditor({
     lastSavedRef.current = content;
     if (editor) {
       isInitialLoadRef.current = true;
-      const html = isMarkdown ? (marked.parse(content) as string) : content;
+      const html = isMarkdown ? renderMath(marked.parse(content) as string) : content;
       editor.commands.setContent(html);
     }
     // Reset to preview for markdown, edit for others
@@ -119,7 +191,7 @@ export default function MarkdownEditor({
     } else {
       // Switching TO preview — re-render from the raw content
       isInitialLoadRef.current = true;
-      const html = marked.parse(rawContent) as string;
+      const html = renderMath(marked.parse(rawContent) as string);
       editor.commands.setContent(html);
       editor.setEditable(false);
     }
@@ -137,7 +209,7 @@ export default function MarkdownEditor({
       }
 
       headingElements.forEach((element, index) => {
-        const heading = markdownHeadings[index];
+        const heading = headings[index];
         if (!heading) {
           element.removeAttribute("id");
           return;
@@ -148,7 +220,7 @@ export default function MarkdownEditor({
     });
 
     return () => window.cancelAnimationFrame(frameId);
-  }, [isEditMode, isMarkdown, markdownHeadings, rawContent]);
+  }, [isEditMode, isMarkdown, headings, rawContent]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -450,7 +522,7 @@ export default function MarkdownEditor({
           )}
         </div>
 
-        {isMarkdown && markdownHeadings.length > 0 && (
+        {isMarkdown && headings.length > 0 && (
           <aside className="hidden xl:flex w-64 flex-shrink-0 flex-col border-l border-shell-border bg-shell-bg/30">
             <div className="px-4 py-3 border-b border-shell-border">
               <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-shell-text-muted">
@@ -458,11 +530,11 @@ export default function MarkdownEditor({
                 <span>Contents</span>
               </div>
               <p className="mt-1 text-[11px] text-shell-text-secondary">
-                {markdownHeadings.length} heading{markdownHeadings.length === 1 ? "" : "s"}
+                {headings.length} heading{headings.length === 1 ? "" : "s"}
               </p>
             </div>
             <div className="flex-1 overflow-y-auto px-2 py-3 custom-scrollbar">
-              {markdownHeadings.map((heading) => (
+              {headings.map((heading: any) => (
                 <button
                   key={heading.id}
                   onClick={() => handleHeadingSelect(heading.line, heading.id)}
@@ -477,6 +549,29 @@ export default function MarkdownEditor({
           </aside>
         )}
       </div>
+
+      {/* Floating Explain Popover */}
+      {selectionInfo.visible && !isEditMode && (
+        <div 
+            className="fixed z-50 -translate-x-1/2 -translate-y-full mb-2 bg-shell-accent px-1 py-1 rounded-lg shadow-xl flex items-center gap-0.5 animate-in fade-in slide-in-from-bottom-2 duration-200"
+            style={{ left: selectionInfo.x, top: selectionInfo.y }}
+        >
+            <button
+                onClick={handleExplainSelection}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-white/10 rounded-md transition-colors cursor-pointer"
+            >
+                <MessageSquareShare size={14} />
+                Explain
+            </button>
+            <div className="w-px h-4 bg-white/20 mx-0.5" />
+            <button
+                onClick={() => setSelectionInfo(prev => ({ ...prev, visible: false }))}
+                className="p-1.5 text-white/70 hover:text-white rounded-md transition-colors cursor-pointer"
+            >
+                <X size={14} />
+            </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -36,6 +36,24 @@
   --radius-xl: 20px;
 }
 
+/* ===== Theme Variants ===== */
+.theme-light {
+  --color-shell-bg: #f8fafc;
+  --color-shell-surface: #ffffff;
+  --color-shell-surface-hover: #f1f5f9;
+  --color-shell-surface-active: #e2e8f0;
+  --color-shell-border: #e2e8f0;
+  --color-shell-border-subtle: #f1f5f9;
+  --color-shell-text: #0f172a;
+  --color-shell-text-secondary: #475569;
+  --color-shell-text-muted: #94a3b8;
+  --color-shell-accent: #3b82f6;
+  --color-shell-accent-hover: #2563eb;
+  --color-glass-bg: rgba(255, 255, 255, 0.8);
+  --color-glass-border: rgba(0, 0, 0, 0.05);
+  --color-glass-highlight: rgba(0, 0, 0, 0.02);
+}
+
 /* ===== Base Styles ===== */
 * {
   margin: 0;
@@ -60,8 +78,8 @@ body,
 
 /* ===== Scrollbar ===== */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -71,10 +89,14 @@ body,
 ::-webkit-scrollbar-thumb {
   background: var(--color-shell-border);
   border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  transition: background 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-shell-text-muted);
+  background-clip: content-box;
 }
 
 /* ===== Selection ===== */
@@ -96,21 +118,29 @@ body,
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--color-glass-border);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
 
 .glass-layer-1 {
-  background: rgba(17, 19, 24, 0.6);
-  backdrop-filter: blur(8px) saturate(150%);
-  -webkit-backdrop-filter: blur(8px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(17, 19, 24, 0.4);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .glass-layer-2 {
-  background: rgba(17, 19, 24, 0.85);
-  backdrop-filter: blur(24px) saturate(200%);
-  -webkit-backdrop-filter: blur(24px) saturate(200%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 1px inset rgba(255, 255, 255, 0.05);
+  background: rgba(17, 19, 24, 0.88);
+  backdrop-filter: blur(32px) saturate(210%);
+  -webkit-backdrop-filter: blur(32px) saturate(210%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    inset 0 1px 1px rgba(255, 255, 255, 0.05),
+    0 10px 40px -10px rgba(0, 0, 0, 0.5);
+}
+
+.glass-active {
+  background: var(--color-shell-accent-glow);
+  border-color: var(--color-shell-accent);
 }
 
 .glass-subtle {
@@ -502,8 +532,17 @@ body,
 
 .ai-markdown a {
   color: var(--color-shell-accent);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration: none;
+  border-bottom: 1px solid var(--color-shell-accent-glow);
+  transition: all 0.2s ease;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+.ai-markdown a:hover {
+  background: var(--color-shell-accent-glow);
+  border-bottom-color: var(--color-shell-accent);
+  color: var(--color-shell-accent-hover);
 }
 /* ===== Flashcard 3D Core ===== */
 .perspective-1000 {

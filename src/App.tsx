@@ -6,9 +6,14 @@ import ContextMenu from "./components/ContextMenu";
 import CreationModal from "./components/CreationModal";
 import ConfirmDialog from "./components/ConfirmDialog";
 import FlashcardDeck from "./components/FlashcardDeck";
+import StudyTimer from "./components/StudyTimer";
+import QuizView from "./components/QuizView";
+import ShortcutsModal from "./components/ShortcutsModal";
+import SettingsView from "./components/SettingsView";
 import CommandPalette, { CommandItem } from "./components/CommandPalette";
 import DropOverlay from "./components/DropOverlay";
 import { listen } from "@tauri-apps/api/event";
+import { open } from "@tauri-apps/plugin-dialog";
 import { 
   MessageSquareText, 
   Files, 
@@ -19,28 +24,24 @@ import {
   MessageSquare,
   FolderSearch,
   RefreshCw,
-  Sparkles
+  Sparkles,
+  Sun,
+  Moon
 } from "lucide-react";
 import { useFileSystem } from "./hooks/useFilesystem";
+import { useFileSystemActions } from "./hooks/useFileSystemActions";
 import { useVertexAI } from "./hooks/useVertexAI";
 import { useToast } from "./components/ToastProvider";
 import type { FileNode, NotebookData } from "./types";
 import { getFileType } from "./types";
 import { buildChatContext, canUseFileAsChatContext } from "./utils/chatContext";
-import { parseFlashcardsResponse, type FlashcardCard } from "./utils/flashcards";
+import { parseFlashcardsResponse, parseQuizResponse, type FlashcardCard, type QuizQuestion } from "./utils/flashcards";
 import {
-  buildDirectoryPath,
-  buildMarkdownNotePath,
-  buildNewMarkdownContent,
-  listChildNamesForDirectory,
   normalizeDirectoryName,
   normalizeMarkdownFileName,
   resolveCreationDirectory,
-  suggestUniqueDirectoryName,
-  suggestUniqueMarkdownFileName,
 } from "./utils/fileCreation";
 import {
-  getParentPath,
   isSameOrDescendantPath,
   joinPath,
   remapPathPrefix,
@@ -66,13 +67,12 @@ import {
 } from "./utils/pdfAnnotations";
 
 export default function App() {
+  const toast = useToast();
+  
+  const [activeFile, setActiveFile] = useState<FileNode | null>(null);
+
   const fs = useFileSystem();
   const ai = useVertexAI();
-  const toast = useToast();
-
-  // Active file state
-  const [openTabs, setOpenTabs] = useState<FileNode[]>([]);
-  const [activeFile, setActiveFile] = useState<FileNode | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [binaryData, setBinaryData] = useState<Uint8Array | null>(null);
   const [binaryLoading, setBinaryLoading] = useState(false);
@@ -85,7 +85,6 @@ export default function App() {
     return [];
   });
 
-  // AI & Chat state
   const [showChatPanel, setShowChatPanel] = useState(true);
   const [selectedSources, setSelectedSources] = useState<FileNode[]>([]);
   const [sidebarWidth, setSidebarWidth] = useState(280);
@@ -98,11 +97,18 @@ export default function App() {
     isOpen: false,
     cards: [],
   });
+  
+  const [quizSession, setQuizSession] = useState<{
+    isOpen: boolean;
+    questions: QuizQuestion[];
+  }>({
+    isOpen: false,
+    questions: [],
+  });
 
   const [pdfAnnotations, setPdfAnnotations] = useState<Record<string, any>>({});
   const lastPersistedPdfAnnotationsRef = useRef<Record<string, string>>({});
 
-  // Context menu state
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -110,29 +116,36 @@ export default function App() {
     visible: boolean;
   }>({ x: 0, y: 0, node: null, visible: false });
 
-  // Creation modal state (shared for Create and Rename)
-  const [creationModal, setCreationModal] = useState<{
-    isOpen: boolean;
-    mode: "file" | "folder" | "rename";
-    targetNode: FileNode | null;
-    suggestedName: string;
-  }>({
-    isOpen: false,
-    mode: "file",
-    targetNode: null,
-    suggestedName: "",
+  const [deleteTarget, setDeleteTarget] = useState<FileNode | null>(null);
+  const [openTabs, setOpenTabs] = useState<FileNode[]>(() => {
+    try {
+        const stored = localStorage.getItem("openTabs");
+        return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
   });
 
-  // Deletion confirmation state
-  const [deleteTarget, setDeleteTarget] = useState<FileNode | null>(null);
-
-  // Command Palette state
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSplit, setIsSplit] = useState(false);
+  const [secondActiveFile, setSecondActiveFile] = useState<FileNode | null>(null);
+  const [secondFileContent, setSecondFileContent] = useState<string | null>(null);
+  const [secondBinaryData, setSecondBinaryData] = useState<Uint8Array | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    return (localStorage.getItem("theme") as "dark" | "light") || "dark";
+  });
 
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === "light") {
+      root.classList.add("theme-light");
+    } else {
+      root.classList.remove("theme-light");
+    }
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
-
-  // Reset all file state
   const resetFileState = useCallback(() => {
     setFileContent(null);
     setBinaryData(null);
@@ -142,7 +155,6 @@ export default function App() {
 
   const liveFilePaths = useMemo(() => collectWorkspaceFilePaths(fs.fileTree), [fs.fileTree]);
 
-  // Open a file
   const handleFileSelect = useCallback(
     async (node: FileNode) => {
       if (node.is_dir) return;
@@ -213,7 +225,7 @@ export default function App() {
             const content = await fs.readFile(node.path);
             const parsed = JSON.parse(content) as NotebookData;
             setNotebookData(parsed);
-            setFileContent(content); // also store raw for AI context
+            setFileContent(content);
           } catch (e) {
             console.error("Failed to parse notebook:", e);
           }
@@ -223,13 +235,11 @@ export default function App() {
         case "markdown":
         case "text":
         default: {
-          // "default" covers all other file types — we try to read them as text
           try {
             const content = await fs.readFile(node.path);
             setFileContent(content);
           } catch (e) {
             console.error("Failed to read file as text:", e);
-            // If it fails (likely binary), we just leave it empty and let the UI show preview unavailable
           }
           break;
         }
@@ -238,7 +248,43 @@ export default function App() {
     [fs, liveFilePaths, resetFileState]
   );
 
-  // Toggle multi-source selection
+  const fsa = useFileSystemActions(fs, (node) => handleFileSelect(node));
+
+  const handleToggleSplit = useCallback(() => {
+    setIsSplit(prev => !prev);
+  }, []);
+
+  const handleSelectSecondFile = useCallback(async (node: FileNode) => {
+    if (node.is_dir) return;
+
+    setSecondActiveFile(node);
+    
+    const fileType = getFileType(node.extension);
+    try {
+        if (fileType === "pdf" || fileType === "image" || fileType === "video" || fileType === "audio") {
+            const data = await fs.readFileBinary(node.path);
+            setSecondBinaryData(data);
+        } else {
+            const content = await fs.readFile(node.path);
+            setSecondFileContent(content);
+        }
+    } catch (e) {
+        console.error("Failed to load second file for split view:", e);
+    }
+  }, [fs]);
+
+  const handleSaveFile = useCallback(
+    async (path: string, content: string) => {
+      try {
+        await fs.writeFile(path, content);
+      } catch (e) {
+        console.error("Failed to save file:", e);
+        toast.error(`Failed to save file: ${e}`);
+      }
+    },
+    [fs, toast]
+  );
+
   const handleToggleSource = useCallback((node: FileNode) => {
     setSelectedSources(prev => {
         if (prev.find(s => s.path === node.path)) {
@@ -254,13 +300,8 @@ export default function App() {
       const filtered = prev.filter(t => t.path !== path);
       if (activeFile?.path === path) {
         if (filtered.length > 0) {
-          // Prefer opening the previously adjacent tab.
           const oldIndex = prev.findIndex(t => t.path === path);
           const nextTab = filtered[Math.min(oldIndex, filtered.length - 1)];
-          // We must trigger file fetch async outside of React setState if we can,
-          // but calling handleFileSelect here creates a stale closure loop easily.
-          // Let's just unset it safely and trust a useEffect to sync or user to click.
-          // Actually, we can just setTimeout to avoid React warnings.
           setTimeout(() => handleFileSelect(nextTab), 0);
         } else {
           setActiveFile(null);
@@ -276,49 +317,66 @@ export default function App() {
     localStorage.setItem("recentFiles", serializeRecentFiles([]));
   }, []);
 
-  // Save a file
-  const handleSaveFile = useCallback(
-    async (path: string, content: string) => {
-      try {
-        await fs.writeFile(path, content);
-      } catch (e) {
-        console.error("Failed to save file:", e);
-      }
-    },
-    [fs]
-  );
+  const handleGenerateFlashcards = useCallback(async () => {
+    if (!activeFile || !fileContent) return;
+    try {
+        const response = await ai.sendMessage(
+            "Generate 5 high-quality flashcards from this content. Return ONLY a JSON array with no extra explanation: [{\"front\": \"<term or question>\", \"back\": \"<definition or answer>\"}]",
+            fileContent
+        );
+        if (response) {
+            const cards = parseFlashcardsResponse(response);
+            setFlashcardSession({ isOpen: true, cards });
+        }
+    } catch (e) {
+        toast.error("Failed to generate flashcards.");
+    }
+  }, [activeFile, fileContent, ai, toast]);
 
-  // Keyboard Shortcuts & DND
   useEffect(() => {
-    // Shortcuts
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+K: Open Command Palette
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
         setIsCommandPaletteOpen(true);
       }
-      // Ctrl+B: Toggle Sidebar
       if ((e.ctrlKey || e.metaKey) && e.key === "b") {
         e.preventDefault();
         setSidebarWidth(prev => (prev === 0 ? 280 : 0));
       }
-      // Ctrl+J: Toggle Chat
       if ((e.ctrlKey || e.metaKey) && e.key === "j") {
         e.preventDefault();
         setShowChatPanel(prev => !prev);
       }
-      // Ctrl+W: Close Current Tab
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        const hiding = sidebarWidth > 0 || showChatPanel;
+        if (hiding) {
+            setSidebarWidth(0);
+            setShowChatPanel(false);
+            toast.info("Focus Mode active.");
+        } else {
+            setSidebarWidth(280);
+            setShowChatPanel(true);
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === ",") {
+        e.preventDefault();
+        setIsSettingsOpen(true);
+      }
       if ((e.ctrlKey || e.metaKey) && e.key === "w") {
         if (activeFile) {
           e.preventDefault();
           handleCloseTab(activeFile.path);
         }
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === "/") {
+        e.preventDefault();
+        setIsShortcutsModalOpen(true);
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
 
-    // native drag and drop listeners
     const unlistenFuncs: Array<() => void> = [];
     
     const setupDnd = async () => {
@@ -329,7 +387,6 @@ export default function App() {
         const paths = event.payload.paths as string[];
         if (paths.length > 0 && fs.rootPath) {
           try {
-            // Import to the currently folder of the active file or root
             const targetDir = activeFile?.is_dir ? activeFile.path : (activeFile ? resolveCreationDirectory(activeFile) : fs.rootPath);
             await fs.importFiles(paths, targetDir);
             toast.success(`Imported ${paths.length} items.`);
@@ -343,11 +400,21 @@ export default function App() {
 
     setupDnd();
 
+    const handleExplain = (e: any) => {
+        const text = e.detail?.text;
+        if (text) {
+            setShowChatPanel(true);
+            void handleSendChatMessage(`Explain this content in detail:\n\n> ${text}`);
+        }
+    };
+    window.addEventListener("studyshell:explain", handleExplain);
+
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("studyshell:explain", handleExplain);
       unlistenFuncs.forEach(fn => fn());
     };
-  }, [activeFile, handleCloseTab, fs, toast]);
+  }, [activeFile, handleCloseTab, fs, toast, showChatPanel, sidebarWidth]);
 
   useEffect(() => {
     if (activeFile && !liveFilePaths.has(activeFile.path)) {
@@ -371,11 +438,343 @@ export default function App() {
     });
   }, [activeFile, fs.rootPath, liveFilePaths, resetFileState]);
 
+  useEffect(() => {
+    localStorage.setItem("openTabs", JSON.stringify(openTabs));
+  }, [openTabs]);
+
+  useEffect(() => {
+    if (activeFile) {
+        localStorage.setItem("lastActiveFilePath", activeFile.path);
+    }
+  }, [activeFile]);
+
+  const firstBootRef = useRef(true);
+  useEffect(() => {
+    if (firstBootRef.current && fs.rootPath && openTabs.length > 0) {
+        firstBootRef.current = false;
+        const lastPath = localStorage.getItem("lastActiveFilePath");
+        if (lastPath) {
+            const found = openTabs.find(t => t.path === lastPath);
+            if (found) {
+                handleFileSelect(found);
+            }
+        }
+    }
+  }, [fs.rootPath, openTabs, handleFileSelect]);
+
   const workspaceCommandTarget = buildWorkspaceCommandTarget(activeFile, fs.rootPath, fs.fileTree);
   const canCreateInWorkspace = workspaceCommandTarget !== null;
   const canSummarizeActiveFile = Boolean(activeFile && fileContent);
 
-  // Define global commands
+  useEffect(() => {
+    const annotationEntries = Object.entries(pdfAnnotations);
+    if (annotationEntries.length === 0) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void Promise.all(
+        annotationEntries.map(async ([path, annotations]) => {
+          const serialized = serializePdfAnnotationData(annotations);
+          if (lastPersistedPdfAnnotationsRef.current[path] === serialized) {
+            return;
+          }
+
+          try {
+            await fs.writeFile(buildPdfAnnotationSidecarPath(path), serialized);
+            lastPersistedPdfAnnotationsRef.current[path] = serialized;
+          } catch (error) {
+            console.error(`Failed to persist PDF annotations for ${path}:`, error);
+          }
+        })
+      );
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [pdfAnnotations, fs.writeFile]);
+
+  const handleUpdatePdfAnnotations = useCallback((path: string, annotations: any) => {
+    setPdfAnnotations(prev => ({
+        ...prev,
+        [path]: annotations
+    }));
+  }, []);
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, node: FileNode) => {
+      setContextMenu({ x: e.clientX, y: e.clientY, node, visible: true });
+    },
+    []
+  );
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  const handleDeleteRequest = useCallback((node: FileNode) => {
+    setDeleteTarget(node);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+
+    try {
+      await fs.deleteEntry(deleteTarget.path, deleteTarget.is_dir);
+
+      if (activeFile && isSameOrDescendantPath(activeFile.path, deleteTarget.path)) {
+        setActiveFile(null);
+        resetFileState();
+      }
+
+      setOpenTabs((prev) => removeFileNodesWithinPath(prev, deleteTarget.path));
+      setRecentFiles((prev) => {
+        const next = filterRecentFilesForWorkspace(
+          removeFileNodesWithinPath(prev, deleteTarget.path),
+          fs.rootPath,
+          liveFilePaths,
+        );
+        localStorage.setItem("recentFiles", serializeRecentFiles(next));
+        return next;
+      });
+
+      setSelectedSources(prev =>
+        prev.filter((source) => !isSameOrDescendantPath(source.path, deleteTarget.path))
+      );
+
+      toast.success("Deleted successfully.");
+      await fs.refreshTree();
+    } catch (error) {
+      console.error("Failed to delete:", error);
+      toast.error(`Failed to delete: ${error}`);
+    } finally {
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, activeFile, fs, resetFileState, liveFilePaths, toast]);
+
+  const handleMoveRequest = useCallback(async (node: FileNode) => {
+    try {
+      const selectedThemeFolder = await open({
+        directory: true,
+        multiple: false,
+        title: "Select Destination Folder",
+        defaultPath: fs.rootPath ?? undefined
+      });
+
+      if (!selectedThemeFolder || typeof selectedThemeFolder !== "string") {
+        return; // Cancelled
+      }
+
+      // Check if trying to move a folder into itself
+      if (selectedThemeFolder.startsWith(node.path)) {
+         toast.error("Cannot move a folder into itself.");
+         return;
+      }
+
+      const newPath = joinPath(selectedThemeFolder, node.name);
+      
+      await fs.renameEntry(node.path, newPath);
+      toast.success("Moved successfully.");
+
+      // Remap active file
+      const oldPath = node.path;
+      if (activeFile && isSameOrDescendantPath(activeFile.path, oldPath)) {
+          setActiveFile(prev => prev ? { 
+              ...prev, 
+              path: remapPathPrefix(prev.path, oldPath, newPath) ?? prev.path,
+          } : null);
+      }
+
+      setOpenTabs(prev => prev.map(t => {
+          const u = remapPathPrefix(t.path, oldPath, newPath);
+          return u ? { ...t, path: u } : t;
+      }));
+      
+      setSelectedSources(prev => prev.map(s => {
+          const u = remapPathPrefix(s.path, oldPath, newPath);
+          return u ? { ...s, path: u } : s;
+      }));
+
+    } catch (e) {
+      toast.error(`Move failed: ${e}`);
+    }
+  }, [activeFile, fs, toast]);
+
+  const handleCopyPath = useCallback(async (node: FileNode) => {
+    try {
+      await navigator.clipboard.writeText(node.path);
+      toast.success(`${node.is_dir ? "Folder" : "File"} path copied.`);
+    } catch (error) {
+      console.error("Failed to copy path:", error);
+      toast.error("Failed to copy path.");
+    }
+  }, [toast]);
+
+  const handleCreateRootNote = useCallback(() => {
+    if (fs.rootPath) {
+      fsa.handleCreateNote({
+        name: normalizeMarkdownFileName("untitled-note"),
+        path: fs.rootPath,
+        is_dir: true,
+        extension: null,
+        children: fs.fileTree,
+      });
+    }
+  }, [fs, fsa]);
+
+  const handleCreateRootFolder = useCallback(() => {
+    if (fs.rootPath) {
+      fsa.handleCreateFolder({
+        name: normalizeDirectoryName("untitled-folder"),
+        path: fs.rootPath,
+        is_dir: true,
+        extension: null,
+        children: fs.fileTree,
+      });
+    }
+  }, [fs, fsa]);
+
+  const collectFilePaths = useCallback((node: FileNode): string[] => {
+    const paths: string[] = [];
+    
+    const traverse = (current: FileNode) => {
+        if (current.is_dir && current.children) {
+            for (const child of current.children) {
+                traverse(child);
+            }
+        } else if (!current.is_dir) {
+            const ft = getFileType(current.extension);
+            if (ft === "markdown" || ft === "text" || ft === "pdf") {
+                paths.push(current.path);
+            }
+        }
+    };
+
+    traverse(node);
+    return paths;
+  }, []);
+
+  const handleGenerateSummary = useCallback(
+    async (node: FileNode) => {
+      const paths = collectFilePaths(node);
+      if (paths.length === 0) {
+        toast.info("No text files found to summarize.");
+        return;
+      }
+      try {
+        const summary = await ai.summarizeFiles(paths);
+        const summaryPath = joinPath(resolveCreationDirectory(node), "summary.md");
+        await fs.writeFile(summaryPath, summary);
+        await fs.refreshTree();
+        handleFileSelect({ name: "summary.md", path: summaryPath, is_dir: false, extension: "md", children: null });
+      } catch (e) {
+        console.error("Failed to generate summary:", e);
+        toast.error("Failed to generate summary.");
+      }
+    },
+    [ai, fs, collectFilePaths, handleFileSelect, toast]
+  );
+
+  const handleCreateStudyGuide = useCallback(
+    async (node: FileNode) => {
+      const paths = collectFilePaths(node);
+      if (paths.length === 0) {
+        toast.info("No text files found to create study guide from.");
+        return;
+      }
+      try {
+        const guide = await ai.generateStudyGuide(paths);
+        const guidePath = joinPath(resolveCreationDirectory(node), "study_guide.md");
+        await fs.writeFile(guidePath, guide);
+        await fs.refreshTree();
+        handleFileSelect({ name: "study_guide.md", path: guidePath, is_dir: false, extension: "md", children: null });
+      } catch (e) {
+        console.error("Failed to create study guide:", e);
+        toast.error("Failed to create study guide.");
+      }
+    },
+    [ai, fs, collectFilePaths, handleFileSelect, toast]
+  );
+
+  const handleSummarizeCurrentFile = useCallback(() => {
+    if (activeFile && fileContent) {
+      ai.sendMessage(
+        "Please provide a concise summary of this file highlighting the key concepts.",
+        fileContent
+      );
+    }
+  }, [activeFile, fileContent, ai]);
+
+  const handleGenerateQuiz = useCallback(async () => {
+    if (!activeFile || !fileContent) return;
+
+    const prompt = `Based on the following study material, generate 5 multiple-choice questions.
+    Return ONLY a raw JSON array of objects with no extra text, where each object has:
+    - "question": string
+    - "options": string array of exactly 4 items
+    - "correctIndex": number (0-3)
+    - "explanation": string
+    Material:
+      ${fileContent}`;
+
+    try {
+        const response = await ai.sendMessage(prompt, "You are a specialized quiz engine. Return ONLY JSON. No explanations.");
+        if (!response) {
+          toast.error("Failed to generate quiz.");
+          return;
+        }
+
+        const questions = parseQuizResponse(response);
+        setQuizSession({ isOpen: true, questions });
+    } catch (e) {
+        console.error("Quiz error:", e);
+        toast.error("Failed to parse quiz response. AI might have returned invalid JSON.");
+    }
+  }, [activeFile, fileContent, ai, toast]);
+
+
+  const handleSendChatMessage = useCallback(
+    async (message: string) => {
+      const seenPaths = new Set<string>();
+      const contextSections: Array<{ label: string; path: string; content: string }> = [];
+
+      if (activeFile && fileContent && canUseFileAsChatContext(activeFile)) {
+        seenPaths.add(activeFile.path);
+        contextSections.push({
+          label: `Active file: ${activeFile.name}`,
+          path: activeFile.path,
+          content: fileContent,
+        });
+      }
+
+      const additionalSources = await Promise.all(
+        selectedSources
+          .filter((source) => !seenPaths.has(source.path) && canUseFileAsChatContext(source))
+          .map(async (source) => {
+            try {
+              const content = await fs.readFile(source.path);
+              seenPaths.add(source.path);
+              return {
+                label: `Selected source: ${source.name}`,
+                path: source.path,
+                content,
+              };
+            } catch (error) {
+              console.error(`Failed to read selected source ${source.path}:`, error);
+              return null;
+            }
+          })
+      );
+
+      const context = buildChatContext([
+        ...contextSections,
+        ...additionalSources.filter((source): source is NonNullable<typeof source> => source !== null),
+      ]);
+
+      await ai.sendMessageStreaming(message, context);
+    },
+    [activeFile, fileContent, selectedSources, fs, ai]
+  );
+
   const globalCommands: CommandItem[] = [
     {
       id: "new-note",
@@ -388,7 +787,7 @@ export default function App() {
       disabled: !workspaceCommandTarget,
       onSelect: () => {
         if (workspaceCommandTarget) {
-          void handleCreateNote(workspaceCommandTarget);
+          fsa.handleCreateNote(workspaceCommandTarget);
         }
       },
     },
@@ -403,7 +802,7 @@ export default function App() {
       disabled: !workspaceCommandTarget,
       onSelect: () => {
         if (workspaceCommandTarget) {
-          void handleCreateFolder(workspaceCommandTarget);
+          fsa.handleCreateFolder(workspaceCommandTarget);
         }
       },
     },
@@ -465,431 +864,29 @@ export default function App() {
           handleSummarizeCurrentFile();
         }
       },
+    },
+    {
+      id: "generate-quiz",
+      label: "Generate AI Quiz",
+      category: "AI",
+      icon: <MessageSquare size={16} />,
+      description: activeFile ? "Create 5 multiple choice questions from active file" : "Open a file first",
+      disabled: !activeFile,
+      onSelect: () => handleGenerateQuiz(),
+    },
+    {
+      id: "toggle-theme",
+      label: `Switch to ${theme === "dark" ? "Light" : "Dark"} Mode`,
+      category: "View",
+      icon: theme === "dark" ? <Sun size={16} /> : <Moon size={16} />,
+      onSelect: () => setTheme(prev => prev === "dark" ? "light" : "dark"),
     }
   ];
-
-
-
-  // Update PDF annotations globally
-  const handleUpdatePdfAnnotations = useCallback((path: string, annotations: any) => {
-    setPdfAnnotations(prev => ({
-        ...prev,
-        [path]: annotations
-    }));
-  }, []);
-
-  useEffect(() => {
-    const annotationEntries = Object.entries(pdfAnnotations);
-    if (annotationEntries.length === 0) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      void Promise.all(
-        annotationEntries.map(async ([path, annotations]) => {
-          const serialized = serializePdfAnnotationData(annotations);
-          if (lastPersistedPdfAnnotationsRef.current[path] === serialized) {
-            return;
-          }
-
-          try {
-            await fs.writeFile(buildPdfAnnotationSidecarPath(path), serialized);
-            lastPersistedPdfAnnotationsRef.current[path] = serialized;
-          } catch (error) {
-            console.error(`Failed to persist PDF annotations for ${path}:`, error);
-          }
-        })
-      );
-    }, 500);
-
-    return () => window.clearTimeout(timer);
-  }, [pdfAnnotations, fs.writeFile]);
-
-  // Context menu handlers
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent, node: FileNode) => {
-      setContextMenu({ x: e.clientX, y: e.clientY, node, visible: true });
-    },
-    []
-  );
-
-  const handleCloseContextMenu = useCallback(() => {
-    setContextMenu((prev) => ({ ...prev, visible: false }));
-  }, []);
-
-  const handleCopyPath = useCallback(async (node: FileNode) => {
-    try {
-      await navigator.clipboard.writeText(node.path);
-      toast.success(`${node.is_dir ? "Folder" : "File"} path copied.`);
-    } catch (error) {
-      console.error("Failed to copy path:", error);
-      toast.error("Failed to copy path.");
-    }
-  }, [toast]);
-
-  const handleCreateNote = useCallback(
-    async (node: FileNode) => {
-      const targetDirectory = resolveCreationDirectory(node);
-      const existingNames = listChildNamesForDirectory(fs.fileTree, targetDirectory, fs.rootPath);
-      const suggestedName = suggestUniqueMarkdownFileName(existingNames, "untitled-note");
-      
-      setCreationModal({
-        isOpen: true,
-        mode: "file",
-        targetNode: node,
-        suggestedName,
-      });
-    },
-    [fs]
-  );
-
-  const handleCreateFolder = useCallback(
-    async (node: FileNode) => {
-      const targetDirectory = resolveCreationDirectory(node);
-      const existingNames = listChildNamesForDirectory(fs.fileTree, targetDirectory, fs.rootPath);
-      const suggestedName = suggestUniqueDirectoryName(existingNames, "untitled-folder");
-      
-      setCreationModal({
-        isOpen: true,
-        mode: "folder",
-        targetNode: node,
-        suggestedName,
-      });
-    },
-    [fs]
-  );
-
-  const handleConfirmCreation = useCallback(
-    async (name: string) => {
-      if (!creationModal.targetNode) return;
-
-      const node = creationModal.targetNode;
-      const targetDirectory = resolveCreationDirectory(node);
-      const existingNames = listChildNamesForDirectory(fs.fileTree, targetDirectory, fs.rootPath);
-
-      try {
-        if (creationModal.mode === "file") {
-          const fileName = suggestUniqueMarkdownFileName(existingNames, name);
-          const notePath = buildMarkdownNotePath(node, fileName);
-          await fs.createFile(notePath, buildNewMarkdownContent(fileName));
-          await fs.refreshTree();
-          await handleFileSelect({
-            name: fileName,
-            path: notePath,
-            is_dir: false,
-            extension: "md",
-            children: null,
-          });
-        } else {
-          const folderName = suggestUniqueDirectoryName(existingNames, name);
-          const folderPath = buildDirectoryPath(node, folderName);
-          await fs.createDirectory(folderPath);
-          await fs.refreshTree();
-        }
-      } catch (error) {
-        console.error(`Failed to create ${creationModal.mode}:`, error);
-        toast.error(`Failed to create ${creationModal.mode}: ${error}`);
-      } finally {
-        setCreationModal(prev => ({ ...prev, isOpen: false }));
-      }
-    },
-    [fs, creationModal, handleFileSelect]
-  );
-
-  // Rename handlers
-  const handleRenameRequest = useCallback((node: FileNode) => {
-    setCreationModal({
-      isOpen: true,
-      mode: "rename",
-      targetNode: node,
-      suggestedName: node.name,
-    });
-  }, []);
-
-  const handleConfirmRename = useCallback(async (newName: string) => {
-    if (!creationModal.targetNode) return;
-    const node = creationModal.targetNode;
-    
-    try {
-      const newPath = joinPath(getParentPath(node.path), newName);
-      
-      await fs.renameEntry(node.path, newPath);
-
-      if (activeFile && isSameOrDescendantPath(activeFile.path, node.path)) {
-        const updatedPath = remapPathPrefix(activeFile.path, node.path, newPath);
-        setActiveFile((prev) => (
-          prev && updatedPath
-            ? { ...prev, path: updatedPath, name: prev.path === node.path ? newName : prev.name }
-            : prev
-        ));
-      }
-
-      setOpenTabs(prev => prev.map(tab => {
-        const updatedPath = remapPathPrefix(tab.path, node.path, newPath);
-        if (updatedPath) {
-          return { ...tab, path: updatedPath, name: tab.path === node.path ? newName : tab.name };
-        }
-        return tab;
-      }));
-
-      setSelectedSources(prev => prev.map(source => {
-        const updatedPath = remapPathPrefix(source.path, node.path, newPath);
-        if (updatedPath) {
-          return { ...source, path: updatedPath, name: source.path === node.path ? newName : source.name };
-        }
-        return source;
-      }));
-
-      setPdfAnnotations((prev) => {
-        const next: Record<string, any> = {};
-        for (const [path, annotations] of Object.entries(prev)) {
-          const updatedPath = remapPathPrefix(path, node.path, newPath);
-          next[updatedPath ?? path] = annotations;
-        }
-        return next;
-      });
-
-      const remappedPersisted: Record<string, string> = {};
-      for (const [path, serialized] of Object.entries(lastPersistedPdfAnnotationsRef.current)) {
-        const updatedPath = remapPathPrefix(path, node.path, newPath);
-        remappedPersisted[updatedPath ?? path] = serialized;
-      }
-      lastPersistedPdfAnnotationsRef.current = remappedPersisted;
-
-      await fs.refreshTree();
-    } catch (e) {
-      console.error("Failed to rename:", e);
-      toast.error(`Failed to rename: ${e}`);
-    } finally {
-      setCreationModal(prev => ({ ...prev, isOpen: false }));
-    }
-  }, [creationModal, activeFile, fs, toast]);
-
-  // Deletion handlers
-  const handleDeleteRequest = useCallback((node: FileNode) => {
-    setDeleteTarget(node);
-  }, []);
-
-  const handleConfirmDelete = useCallback(async () => {
-    if (!deleteTarget) return;
-
-    try {
-      await fs.deleteEntry(deleteTarget.path, deleteTarget.is_dir);
-
-      if (activeFile && isSameOrDescendantPath(activeFile.path, deleteTarget.path)) {
-        setActiveFile(null);
-        resetFileState();
-      }
-
-      setOpenTabs((prev) => removeFileNodesWithinPath(prev, deleteTarget.path));
-      setRecentFiles((prev) => {
-        const next = filterRecentFilesForWorkspace(
-          removeFileNodesWithinPath(prev, deleteTarget.path),
-          fs.rootPath,
-          liveFilePaths,
-        );
-        localStorage.setItem("recentFiles", serializeRecentFiles(next));
-        return next;
-      });
-
-      setSelectedSources(prev =>
-        prev.filter((source) => !isSameOrDescendantPath(source.path, deleteTarget.path))
-      );
-
-      setPdfAnnotations((prev) =>
-        Object.fromEntries(
-          Object.entries(prev).filter(([path]) => !isSameOrDescendantPath(path, deleteTarget.path))
-        )
-      );
-
-      lastPersistedPdfAnnotationsRef.current = Object.fromEntries(
-        Object.entries(lastPersistedPdfAnnotationsRef.current).filter(
-          ([path]) => !isSameOrDescendantPath(path, deleteTarget.path)
-        )
-      );
-
-      await fs.refreshTree();
-    } catch (error) {
-      console.error("Failed to delete:", error);
-      toast.error(`Failed to delete: ${error}`);
-    } finally {
-      setDeleteTarget(null);
-    }
-  }, [deleteTarget, activeFile, fs, resetFileState]);
-
-  const handleCreateRootNote = useCallback(() => {
-    if (!fs.rootPath) {
-      return;
-    }
-
-    void handleCreateNote({
-      name: normalizeMarkdownFileName("untitled-note"),
-      path: fs.rootPath,
-      is_dir: true,
-      extension: null,
-      children: fs.fileTree,
-    });
-  }, [fs.rootPath, fs.fileTree, handleCreateNote]);
-
-  const handleCreateRootFolder = useCallback(() => {
-    if (!fs.rootPath) {
-      return;
-    }
-
-    void handleCreateFolder({
-      name: normalizeDirectoryName("untitled-folder"),
-      path: fs.rootPath,
-      is_dir: true,
-      extension: null,
-      children: fs.fileTree,
-    });
-  }, [fs.rootPath, fs.fileTree, handleCreateFolder]);
-
-  // Collect all file paths recursively (including subfolders)
-  const collectFilePaths = useCallback((node: FileNode): string[] => {
-    const paths: string[] = [];
-    
-    const traverse = (current: FileNode) => {
-        if (current.is_dir && current.children) {
-            for (const child of current.children) {
-                traverse(child);
-            }
-        } else if (!current.is_dir) {
-            const ft = getFileType(current.extension);
-            if (ft === "markdown" || ft === "text" || ft === "pdf") {
-                paths.push(current.path);
-            }
-        }
-    };
-
-    traverse(node);
-    return paths;
-  }, []);
-
-  // Generate summary
-  const handleGenerateSummary = useCallback(
-    async (node: FileNode) => {
-      const paths = collectFilePaths(node);
-      if (paths.length === 0) {
-        toast.info("No text files found to summarize.");
-        return;
-      }
-      try {
-        const summary = await ai.summarizeFiles(paths);
-        const summaryPath = joinPath(resolveCreationDirectory(node), "summary.md");
-        await fs.writeFile(summaryPath, summary);
-        await fs.refreshTree();
-        handleFileSelect({ name: "summary.md", path: summaryPath, is_dir: false, extension: "md", children: null });
-      } catch (e) {
-        console.error("Failed to generate summary:", e);
-      }
-    },
-    [ai, fs, collectFilePaths, handleFileSelect]
-  );
-
-  // Create study guide
-  const handleCreateStudyGuide = useCallback(
-    async (node: FileNode) => {
-      const paths = collectFilePaths(node);
-      if (paths.length === 0) {
-        toast.info("No text files found to create study guide from.");
-        return;
-      }
-      try {
-        const guide = await ai.generateStudyGuide(paths);
-        const guidePath = joinPath(resolveCreationDirectory(node), "study_guide.md");
-        await fs.writeFile(guidePath, guide);
-        await fs.refreshTree();
-        handleFileSelect({ name: "study_guide.md", path: guidePath, is_dir: false, extension: "md", children: null });
-      } catch (e) {
-        console.error("Failed to create study guide:", e);
-      }
-    },
-    [ai, fs, collectFilePaths, handleFileSelect]
-  );
-
-  // Summarize current file via chat
-  const handleSummarizeCurrentFile = useCallback(() => {
-    if (activeFile && fileContent) {
-      ai.sendMessage(
-        "Please provide a concise summary of this file highlighting the key concepts.",
-        fileContent
-      );
-    }
-  }, [activeFile, fileContent, ai]);
-
-  const handleGenerateFlashcards = useCallback(async () => {
-    if (!activeFile || !fileContent) return;
-    
-    const prompt = `Based on the following study material, generate a set of 8-10 high-quality flashcards. 
-    Return ONLY a raw JSON array of objects, where each object has "front" (question/term) and "back" (answer/definition) keys.
-    Material:
-      ${fileContent}`;
-
-    try {
-        const response = await ai.sendMessage(prompt, "You are a specialized study assistant. Return ONLY JSON. No explanations.");
-        if (!response) {
-          toast.error("Failed to generate flashcards.");
-          return;
-        }
-
-        const cards = parseFlashcardsResponse(response);
-        setFlashcardSession({ isOpen: true, cards });
-    } catch (e) {
-        console.error("Flashcard error:", e);
-        toast.error(e instanceof Error ? e.message : "Failed to generate flashcards.");
-    }
-  }, [activeFile, fileContent, ai, toast]);
-
-
-  const handleSendChatMessage = useCallback(
-    async (message: string) => {
-      const seenPaths = new Set<string>();
-      const contextSections: Array<{ label: string; path: string; content: string }> = [];
-
-      if (activeFile && fileContent && canUseFileAsChatContext(activeFile)) {
-        seenPaths.add(activeFile.path);
-        contextSections.push({
-          label: `Active file: ${activeFile.name}`,
-          path: activeFile.path,
-          content: fileContent,
-        });
-      }
-
-      const additionalSources = await Promise.all(
-        selectedSources
-          .filter((source) => !seenPaths.has(source.path) && canUseFileAsChatContext(source))
-          .map(async (source) => {
-            try {
-              const content = await fs.readFile(source.path);
-              seenPaths.add(source.path);
-              return {
-                label: `Selected source: ${source.name}`,
-                path: source.path,
-                content,
-              };
-            } catch (error) {
-              console.error(`Failed to read selected source ${source.path}:`, error);
-              return null;
-            }
-          })
-      );
-
-      const context = buildChatContext([
-        ...contextSections,
-        ...additionalSources.filter((source): source is NonNullable<typeof source> => source !== null),
-      ]);
-
-      await ai.sendMessage(message, context);
-    },
-    [activeFile, fileContent, selectedSources, fs, ai]
-  );
 
   return (
     <div className="h-screen w-screen flex bg-shell-bg overflow-hidden relative text-shell-text select-none">
       <div className="bg-glow" />
 
-      {/* Resizable Sidebar */}
       {sidebarWidth > 0 && (
           <div 
             className="flex-shrink-0 z-10 relative group h-full border-r border-shell-border bg-shell-surface/30 shadow-2xl overflow-hidden"
@@ -916,7 +913,6 @@ export default function App() {
               onCollapse={() => setSidebarWidth(0)}
               onSearch={fs.searchFiles}
             />
-            {/* Sidebar Resize Handle */}
             <div 
               onMouseDown={() => {
                   const handleMove = (e: MouseEvent) => setSidebarWidth(Math.max(150, Math.min(e.clientX, 600)));
@@ -932,9 +928,7 @@ export default function App() {
           </div>
       )}
 
-      {/* Main Content Area */}
       <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden bg-shell-bg relative">
-        {/* Subtle Panel Controls - Blending into the Header */}
         <div className="h-10 border-b border-shell-border bg-shell-surface/10 flex items-center justify-between px-2">
           <div className="flex items-center gap-1">
             {sidebarWidth === 0 && (
@@ -952,7 +946,17 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-4">
+            <StudyTimer />
+            <div className="h-4 w-px bg-shell-border mx-1" />
+            <div className="flex items-center gap-1">
+            <button 
+              onClick={() => setTheme(prev => (prev === "dark" ? "light" : "dark"))}
+              className="p-1.5 rounded-lg text-shell-text-muted hover:text-shell-accent hover:bg-shell-accent/10 transition-all cursor-pointer"
+              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            >
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
             {!showChatPanel && (
                 <button 
                   onClick={() => setShowChatPanel(true)}
@@ -962,6 +966,7 @@ export default function App() {
                   <MessageSquareText size={16} />
                 </button>
             )}
+            </div>
           </div>
         </div>
 
@@ -979,6 +984,16 @@ export default function App() {
             onCloseTab={handleCloseTab}
             onUpdatePdfAnnotations={handleUpdatePdfAnnotations}
             onSaveAsset={fs.saveImageAsset}
+            isSplit={isSplit}
+            onToggleSplit={handleToggleSplit}
+            secondActiveFile={secondActiveFile}
+            secondFileContent={secondFileContent}
+            secondBinaryData={secondBinaryData}
+            onCloseSecondPane={() => {
+                setSecondActiveFile(null);
+                setSecondFileContent(null);
+                setSecondBinaryData(null);
+            }}
           />
         </div>
       </div>
@@ -1034,27 +1049,60 @@ export default function App() {
         node={contextMenu.node}
         visible={contextMenu.visible}
         onClose={handleCloseContextMenu}
-        onCreateNote={handleCreateNote}
-        onCreateFolder={handleCreateFolder}
-        onRename={handleRenameRequest}
+        onCreateNote={fsa.handleCreateNote}
+        onCreateFolder={fsa.handleCreateFolder}
+        onRename={fsa.handleRenameRequest}
+        onMove={handleMoveRequest}
         onCopyPath={handleCopyPath}
         onDelete={handleDeleteRequest}
         onGenerateSummary={handleGenerateSummary}
         onCreateStudyGuide={handleCreateStudyGuide}
+        onOpenInSidePane={handleSelectSecondFile}
+        isSplit={isSplit}
       />
 
       <CreationModal
-        isOpen={creationModal.isOpen}
-        mode={creationModal.mode}
-        suggestedName={creationModal.suggestedName}
+        isOpen={fsa.creationModal.isOpen}
+        mode={fsa.creationModal.mode}
+        suggestedName={fsa.creationModal.suggestedName}
         onConfirm={(name) => {
-          if (creationModal.mode === "rename") {
-            handleConfirmRename(name);
+          if (fsa.creationModal.mode === "rename") {
+            const node = fsa.creationModal.targetNode;
+            if (!node) return;
+            fsa.handleConfirmRename(name, (oldPath, newPath) => {
+                // Remap active file
+                if (activeFile && isSameOrDescendantPath(activeFile.path, oldPath)) {
+                    setActiveFile(prev => prev ? { 
+                        ...prev, 
+                        path: remapPathPrefix(prev.path, oldPath, newPath) ?? prev.path,
+                        name: prev.path === oldPath ? name : prev.name
+                    } : null);
+                }
+                // Remap tabs
+                setOpenTabs(prev => prev.map(t => {
+                    const u = remapPathPrefix(t.path, oldPath, newPath);
+                    return u ? { ...t, path: u, name: t.path === oldPath ? name : t.name } : t;
+                }));
+                // Remap sources
+                setSelectedSources(prev => prev.map(s => {
+                    const u = remapPathPrefix(s.path, oldPath, newPath);
+                    return u ? { ...s, path: u, name: s.path === oldPath ? name : s.name } : s;
+                }));
+                // Remap PDF annotations
+                setPdfAnnotations(prev => {
+                    const next: Record<string, any> = {};
+                    for (const [path, ann] of Object.entries(prev)) {
+                        const u = remapPathPrefix(path, oldPath, newPath);
+                        next[u ?? path] = ann;
+                    }
+                    return next;
+                });
+            });
           } else {
-            handleConfirmCreation(name);
+            fsa.handleConfirmCreation(name);
           }
         }}
-        onCancel={() => setCreationModal(prev => ({ ...prev, isOpen: false }))}
+        onCancel={() => fsa.setCreationModal(prev => ({ ...prev, isOpen: false }))}
       />
 
       <ConfirmDialog
@@ -1084,6 +1132,28 @@ export default function App() {
           onClose={() => setFlashcardSession({ isOpen: false, cards: [] })}
         />
       )}
+
+      {quizSession.isOpen && (
+        <QuizView
+          questions={quizSession.questions}
+          title={`Quiz: ${activeFile?.name}`}
+          onClose={() => setQuizSession({ isOpen: false, questions: [] })}
+        />
+      )}
+
+      <ShortcutsModal 
+        isOpen={isShortcutsModalOpen}
+        onClose={() => setIsShortcutsModalOpen(false)}
+      />
+
+      <SettingsView
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        systemPrompt={ai.systemPrompt}
+        onSystemPromptChange={ai.setSystemPrompt}
+        theme={theme}
+        onThemeChange={setTheme}
+      />
     </div>
   );
 }

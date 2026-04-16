@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import type { ChatMessage, VertexModel } from "../types";
 import { generateId } from "../types";
 import { getVertexConfigErrorMessage } from "../utils/aiConfig";
@@ -15,6 +16,8 @@ export function useVertexAI() {
   const [useSearch, setUseSearch] = useState(false);
   const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
   const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
+  const [systemPrompt, setSystemPrompt] = useState<string>("You are StudyShell AI, a professional academic assistant. Support markdown in all responses.");
+  const streamAbortRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     invoke<boolean>("check_vertex_config")
@@ -98,6 +101,7 @@ export function useVertexAI() {
           context: context || null,
           model,
           useSearch,
+          systemPrompt,
         });
 
         const assistantMessage: ChatMessage = {
@@ -121,6 +125,82 @@ export function useVertexAI() {
         return undefined;
       } finally {
         setLoading(false);
+      }
+    },
+    [ensureConfigured, model, useSearch]
+  );
+
+  const sendMessageStreaming = useCallback(
+    async (content: string, context?: string) => {
+      if (!content.trim()) return;
+      if (!(await ensureConfigured())) return;
+
+      const userMsg: ChatMessage = {
+        id: generateId(),
+        role: "user",
+        content,
+        timestamp: new Date(),
+      };
+
+      const assistantId = generateId();
+      const assistantMsg: ChatMessage = {
+        id: assistantId,
+        role: "assistant",
+        content: "",
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, userMsg, assistantMsg]);
+      setLoading(true);
+      setError(null);
+
+      // Cleanup previous stream if any
+      if (streamAbortRef.current) streamAbortRef.current();
+
+      try {
+        let accumulatedContent = "";
+        
+        const unlisten = await listen<{ chunk: string; done: boolean; error: string | null }>(
+          "ai-stream-chunk",
+          (event) => {
+            if (event.payload.error) {
+              setError(event.payload.error);
+              setLoading(false);
+              return;
+            }
+
+            if (event.payload.done) {
+              setLoading(false);
+              unlisten();
+              streamAbortRef.current = null;
+              return;
+            }
+
+            accumulatedContent += event.payload.chunk;
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantId ? { ...msg, content: accumulatedContent } : msg
+              )
+            );
+          }
+        );
+
+        streamAbortRef.current = unlisten;
+
+        await invoke("stream_chat_with_ai", {
+          message: content,
+          context: context || null,
+          model,
+          useSearch,
+          systemPrompt,
+        });
+      } catch (e) {
+        setError(`Streaming failed: ${e}`);
+        setLoading(false);
+        if (streamAbortRef.current) {
+            streamAbortRef.current();
+            streamAbortRef.current = null;
+        }
       }
     },
     [ensureConfigured, model, useSearch]
@@ -203,11 +283,14 @@ export function useVertexAI() {
     useSearch,
     isConfigured,
     sendMessage,
+    sendMessageStreaming,
     setModel,
     setUseSearch,
     checkConfig,
     summarizeFiles,
     generateStudyGuide,
     clearChat,
+    systemPrompt,
+    setSystemPrompt,
   };
 }

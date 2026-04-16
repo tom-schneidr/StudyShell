@@ -6,6 +6,8 @@ import ImageViewer from "./ImageViewer";
 import NotebookViewer from "./NotebookViewer";
 import MediaViewer from "./MediaViewer";
 import CodeEditor from "./CodeEditor";
+import { Splitpanes, Pane } from "splitpanes";
+import "splitpanes/dist/splitpanes.css";
 import type { FileNode, NotebookData, PdfAnnotationData } from "../types";
 import { getFileType, getMimeType } from "../types";
 
@@ -22,6 +24,12 @@ interface EditorProps {
   onCloseTab: (path: string, e?: React.MouseEvent) => void;
   onUpdatePdfAnnotations: (path: string, annotations: PdfAnnotationData) => void;
   onSaveAsset?: (documentPath: string, filename: string, base64: string) => Promise<string>;
+  isSplit?: boolean;
+  onToggleSplit?: () => void;
+  secondActiveFile?: FileNode | null;
+  secondFileContent?: string | null;
+  secondBinaryData?: Uint8Array | null;
+  onCloseSecondPane?: () => void;
 }
 
 export default function Editor({
@@ -37,13 +45,15 @@ export default function Editor({
   onCloseTab,
   onUpdatePdfAnnotations,
   onSaveAsset,
+  isSplit,
+  secondActiveFile,
+  secondFileContent,
+  secondBinaryData,
+  onCloseSecondPane,
 }: EditorProps) {
   if (!activeFile) {
     return <EmptyState />;
   }
-
-  const fileType = getFileType(activeFile.extension);
-  const fileName = activeFile.name;
 
   const fileTypeIcon = (ext: string | null | undefined) => {
     switch (getFileType(ext ?? null)) {
@@ -57,6 +67,103 @@ export default function Editor({
     }
   };
 
+  const renderSingleContent = (
+    node: FileNode,
+    content: string | null,
+    binary: Uint8Array | null,
+    notebook: NotebookData | null,
+    isSecondPane = false
+  ) => {
+    const type = getFileType(node.extension);
+    
+    switch (type) {
+      case "pdf":
+        return binary ? (
+          <PdfViewer
+            pdfData={binary}
+            filePath={node.path}
+            initialAnnotations={!isSecondPane ? pdfAnnotations : null}
+            onUpdateAnnotations={(anns) => !isSecondPane && onUpdatePdfAnnotations(node.path, anns)}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full text-shell-error text-sm">Failed to load PDF</div>
+        );
+
+      case "image":
+        return binary ? (
+          <ImageViewer
+            imageData={binary}
+            mimeType={getMimeType(node.extension)}
+            fileName={node.name}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full text-shell-error text-sm">Failed to load image</div>
+        );
+
+      case "video":
+      case "audio":
+        return binary ? (
+          <MediaViewer
+            data={binary}
+            mimeType={getMimeType(node.extension)}
+            type={type as "video" | "audio"}
+            fileName={node.name}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full text-shell-error text-sm">Failed to load media</div>
+        );
+
+      case "notebook":
+        return notebook ? (
+          <NotebookViewer data={notebook} />
+        ) : (
+          <div className="flex items-center justify-center h-full text-shell-text-muted">Loading notebook...</div>
+        );
+
+      case "svg":
+        return content !== null ? (
+          <div className="h-full flex items-center justify-center p-8 bg-white/5 overflow-auto">
+             <div 
+                className="max-w-full max-h-full"
+                dangerouslySetInnerHTML={{ __html: content }} 
+             />
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-full text-shell-text-muted">Loading SVG...</div>
+        );
+
+      case "code":
+        return content !== null ? (
+          <CodeEditor
+            content={content}
+            onSave={(val) => onSaveFile(node.path, val)}
+            filePath={node.path}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full text-shell-text-muted">Loading code...</div>
+        );
+
+      case "markdown":
+      case "text":
+      default: {
+        const isMarkdown = type === "markdown";
+        return content !== null ? (
+          <MarkdownEditor
+            content={content}
+            onSave={(val) => onSaveFile(node.path, val)}
+            filePath={node.path}
+            isMarkdown={isMarkdown}
+            onSaveAsset={onSaveAsset}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full text-shell-text-muted">
+            {type === "unsupported" ? "Preview not available" : "Loading..."}
+          </div>
+        );
+      }
+    }
+  };
+
   const renderContent = () => {
     if (binaryLoading) {
       return (
@@ -67,80 +174,35 @@ export default function Editor({
       );
     }
 
-    switch (fileType) {
-      case "pdf":
-        return binaryData ? (
-          <PdfViewer
-            pdfData={binaryData}
-            filePath={activeFile.path}
-            initialAnnotations={pdfAnnotations}
-            onUpdateAnnotations={(anns) => onUpdatePdfAnnotations(activeFile.path, anns)}
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full text-shell-error text-sm">Failed to load PDF</div>
+    if (isSplit && secondActiveFile) {
+        return (
+            <Splitpanes className="default-theme h-full">
+                <Pane minSize={20}>
+                    <div className="h-full relative overflow-hidden">
+                        {renderSingleContent(activeFile, fileContent, binaryData, notebookData)}
+                    </div>
+                </Pane>
+                <Pane minSize={20}>
+                    <div className="h-full relative overflow-hidden border-l border-shell-border bg-shell-surface/20">
+                        <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-1.5 bg-shell-bg/80 border-b border-shell-border text-[11px] font-bold text-shell-text-secondary uppercase tracking-wider backdrop-blur-md">
+                            <div className="flex items-center gap-2 truncate">
+                                {fileTypeIcon(secondActiveFile.extension)}
+                                <span className="truncate">{secondActiveFile.name} (Side Pane)</span>
+                            </div>
+                            <button onClick={onCloseSecondPane} className="p-1 hover:bg-shell-surface-hover rounded transition-colors text-shell-text-muted hover:text-shell-text">
+                                <X size={12} />
+                            </button>
+                        </div>
+                        <div className="h-full pt-8">
+                            {renderSingleContent(secondActiveFile, secondFileContent || null, secondBinaryData || null, null, true)}
+                        </div>
+                    </div>
+                </Pane>
+            </Splitpanes>
         );
-
-      case "image":
-        return binaryData ? (
-          <ImageViewer
-            imageData={binaryData}
-            mimeType={getMimeType(activeFile.extension)}
-            fileName={fileName}
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full text-shell-error text-sm">Failed to load image</div>
-        );
-
-      case "video":
-      case "audio":
-        return binaryData ? (
-          <MediaViewer
-            data={binaryData}
-            mimeType={getMimeType(activeFile.extension)}
-            type={fileType as "video" | "audio"}
-            fileName={fileName}
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full text-shell-error text-sm">Failed to load media</div>
-        );
-
-      case "notebook":
-        return notebookData ? (
-          <NotebookViewer data={notebookData} />
-        ) : (
-          <div className="flex items-center justify-center h-full text-shell-text-muted">Loading notebook...</div>
-        );
-
-      case "code":
-        return fileContent !== null ? (
-          <CodeEditor
-            content={fileContent}
-            onSave={(content) => onSaveFile(activeFile.path, content)}
-            filePath={activeFile.path}
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full text-shell-text-muted">Loading code...</div>
-        );
-
-      case "markdown":
-      case "text":
-      default: {
-        const isMarkdown = fileType === "markdown";
-        return fileContent !== null ? (
-          <MarkdownEditor
-            content={fileContent}
-            onSave={(content) => onSaveFile(activeFile.path, content)}
-            filePath={activeFile.path}
-            isMarkdown={isMarkdown}
-            onSaveAsset={onSaveAsset}
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full text-shell-text-muted">
-            {fileType === "unsupported" ? "Preview not available" : "Loading..."}
-          </div>
-        );
-      }
     }
+
+    return renderSingleContent(activeFile, fileContent, binaryData, notebookData);
   };
 
   return (
@@ -209,38 +271,85 @@ export default function Editor({
 function EmptyState() {
   return (
     <div className="h-full flex items-center justify-center bg-shell-surface relative overflow-hidden">
+      {/* Dynamic Background Glows */}
+      <motion.div 
+        animate={{ 
+          scale: [1, 1.2, 1],
+          opacity: [0.03, 0.07, 0.03],
+          x: [-20, 20, -20],
+          y: [-20, 20, -20]
+        }}
+        transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+        className="absolute top-1/4 left-1/4 w-96 h-96 bg-shell-accent rounded-full blur-[100px] pointer-events-none"
+      />
+      <motion.div 
+        animate={{ 
+          scale: [1.2, 1, 1.2],
+          opacity: [0.02, 0.05, 0.02],
+          x: [20, -20, 20],
+          y: [20, -20, 20]
+        }}
+        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+        className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500 rounded-full blur-[100px] pointer-events-none"
+      />
+
       <div
-        className="absolute inset-0 opacity-[0.02]"
+        className="absolute inset-0 opacity-[0.015]"
         style={{
           backgroundImage: "radial-gradient(circle, currentColor 1px, transparent 1px)",
-          backgroundSize: "24px 24px",
+          backgroundSize: "32px 32px",
         }}
       />
+
       <motion.div
         className="text-center relative z-10"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
       >
         <motion.div 
-            className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-shell-accent/10 to-purple-500/10 border border-shell-border flex items-center justify-center shadow-inner"
-            animate={{ y: [-4, 4, -4] }}
-            transition={{ ease: "easeInOut", duration: 4, repeat: Infinity }}
+            className="w-24 h-24 mx-auto mb-8 rounded-[2rem] bg-gradient-to-br from-shell-accent/20 to-purple-500/20 border border-shell-border-subtle flex items-center justify-center shadow-2xl relative"
+            animate={{ 
+              y: [-6, 6, -6],
+              rotate: [-2, 2, -2]
+            }}
+            transition={{ ease: "easeInOut", duration: 5, repeat: Infinity }}
         >
-          <GraduationCap size={36} className="text-shell-accent/50" />
+          <div className="absolute inset-0 rounded-[2rem] bg-shell-accent/10 blur-xl animate-pulse-subtle" />
+          <GraduationCap size={44} className="text-shell-accent relative z-10" />
         </motion.div>
-        <h2 className="text-lg font-semibold text-shell-text mb-2 tracking-tight">Welcome to StudyShell</h2>
-        <p className="text-sm text-shell-text-muted max-w-[300px] leading-relaxed">
-          Select a file from the sidebar to view or edit it. Right-click folders to generate AI summaries.
+
+        <h2 className="text-2xl font-bold text-shell-text mb-3 tracking-tight">Focus Your Learning</h2>
+        <p className="text-sm text-shell-text-secondary max-w-[320px] mx-auto leading-relaxed mb-10">
+          Open a file to start studying, or use the AI Assistant to generate summaries and guides.
         </p>
-        <div className="mt-8 flex items-center justify-center gap-3 text-[11px] text-shell-text-muted">
-          <motion.span whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-blue-400/10 hover:text-blue-200 transition-colors cursor-default"><span className="w-1.5 h-1.5 rounded-full bg-blue-400/50" />.md</motion.span>
-          <motion.span whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-red-400/10 hover:text-red-200 transition-colors cursor-default"><span className="w-1.5 h-1.5 rounded-full bg-red-400/50" />.pdf</motion.span>
-          <motion.span whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-purple-400/10 hover:text-purple-200 transition-colors cursor-default"><span className="w-1.5 h-1.5 rounded-full bg-purple-400/50" />.png</motion.span>
-          <motion.span whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-cyan-400/10 hover:text-cyan-200 transition-colors cursor-default"><span className="w-1.5 h-1.5 rounded-full bg-cyan-400/50" />.mp4</motion.span>
-          <motion.span whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-orange-400/10 hover:text-orange-200 transition-colors cursor-default"><span className="w-1.5 h-1.5 rounded-full bg-orange-400/50" />.ipynb</motion.span>
+
+        <div className="flex items-center justify-center gap-4">
+          <FilePill label=".md" color="blue" />
+          <FilePill label=".pdf" color="red" />
+          <FilePill label=".png" color="purple" />
+          <FilePill label=".ipynb" color="orange" />
         </div>
       </motion.div>
     </div>
+  );
+}
+
+function FilePill({ label, color }: { label: string; color: string }) {
+  const colorMap: Record<string, string> = {
+    blue: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+    red: "bg-red-500/10 text-red-400 border-red-500/20",
+    purple: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+    orange: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+  };
+
+  return (
+    <motion.div 
+      whileHover={{ y: -4, scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      className={`px-3 py-1.5 rounded-xl border ${colorMap[color]} text-[11px] font-bold tracking-wider transition-all cursor-default shadow-sm hover:shadow-lg hover:shadow-${color}-500/10`}
+    >
+      {label}
+    </motion.div>
   );
 }

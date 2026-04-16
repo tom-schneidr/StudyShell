@@ -2,5 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    studyshell_lib::run()
+    studyshell_lib::create_app()
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }

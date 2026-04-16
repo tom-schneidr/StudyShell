@@ -69,14 +69,23 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           {toasts.map((toast) => (
             <motion.div
               key={toast.id}
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-              className="pointer-events-auto flex items-start gap-3 p-4 rounded-xl border glass-layer-2 shadow-2xl relative overflow-hidden"
+              initial={{ opacity: 0, x: 40, scale: 0.9 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 20, scale: 0.95, transition: { duration: 0.2 } }}
+              className="pointer-events-auto flex items-start gap-4 p-5 rounded-2xl border glass-layer-2 shadow-2xl relative overflow-hidden"
             >
               {/* Type-based border glow */}
               <div
-                className={`absolute left-0 top-0 bottom-0 w-1 ${
+                className={`absolute left-0 top-0 bottom-0 w-1.5 ${
+                  toast.type === "success" ? "bg-shell-success" : 
+                  toast.type === "error" ? "bg-shell-error" : 
+                  "bg-shell-accent"
+                }`}
+              />
+              
+              {/* Type-based accent background glow */}
+              <div
+                 className={`absolute inset-0 opacity-5 pointer-events-none ${
                   toast.type === "success" ? "bg-shell-success" : 
                   toast.type === "error" ? "bg-shell-error" : 
                   "bg-shell-accent"
@@ -84,21 +93,33 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               />
               
               <div className="flex-shrink-0 mt-0.5">
-                {toast.type === "success" && <CheckCircle size={18} className="text-shell-success" />}
-                {toast.type === "error" && <AlertCircle size={18} className="text-shell-error" />}
-                {toast.type === "info" && <Info size={18} className="text-shell-accent" />}
+                {toast.type === "success" && <CheckCircle size={20} className="text-shell-success" />}
+                {toast.type === "error" && <AlertCircle size={20} className="text-shell-error" />}
+                {toast.type === "info" && <Info size={20} className="text-shell-accent" />}
               </div>
               
-              <div className="flex-1 text-[13px] text-shell-text font-medium leading-relaxed">
+              <div className="flex-1 text-[13.5px] text-shell-text font-semibold leading-relaxed">
                 {toast.message}
               </div>
               
               <button
                 onClick={() => removeToast(toast.id)}
-                className="flex-shrink-0 p-1 -mr-2 -mt-1 text-shell-text-muted hover:text-shell-text hover:bg-shell-surface-hover rounded-md transition-colors cursor-pointer"
+                className="flex-shrink-0 p-1.5 -mr-2 -mt-1 text-shell-text-muted hover:text-shell-text hover:bg-shell-surface-hover rounded-lg transition-all cursor-pointer"
               >
-                <X size={14} />
+                <X size={16} />
               </button>
+
+              {/* Progress Bar */}
+              <motion.div 
+                initial={{ width: "100%" }}
+                animate={{ width: "0%" }}
+                transition={{ duration: 4, ease: "linear" }}
+                className={`absolute bottom-0 left-0 h-0.5 opacity-40 ${
+                  toast.type === "success" ? "bg-shell-success" : 
+                  toast.type === "error" ? "bg-shell-error" : 
+                  "bg-shell-accent"
+                }`}
+              />
             </motion.div>
           ))}
         </AnimatePresence>

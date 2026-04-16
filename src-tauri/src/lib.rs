@@ -6,7 +6,7 @@ use vertex_client::VertexState;
 use watcher::WatcherState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
+pub fn create_app() -> tauri::Builder<tauri::Wry> {
     // Load .env file if present
     let _ = dotenvy::dotenv();
 
@@ -38,8 +38,7 @@ pub fn run() {
             vertex_client::chat_with_ai,
             vertex_client::summarize_files,
             vertex_client::generate_study_guide,
+            vertex_client::stream_chat_with_ai,
             vertex_client::check_vertex_config,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
 }

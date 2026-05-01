@@ -1,7 +1,8 @@
 {
-  "name": "tauri-app",
+  "name": "studyshell",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.1",
+  "description": "A Tauri-powered desktop study workspace with local file browsing, PDF annotation, note editing, and Vertex AI study assistance.",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,6 +12,15 @@
     "preview": "vite preview",
     "tauri": "tauri"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tom-schneidr/studyshell.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tom-schneidr/studyshell/issues"
+  },
+  "homepage": "https://github.com/tom-schneidr/studyshell#readme",
+  "license": "MIT",
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.1",
     "@codemirror/commands": "^6.10.3",

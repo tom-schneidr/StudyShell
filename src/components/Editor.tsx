@@ -1,15 +1,17 @@
+import { lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, FileText, FileType, File, GraduationCap, Loader2, Image as ImageIcon, BookOpen, Film, Music } from "lucide-react";
-import MarkdownEditor from "./MarkdownEditor";
-import PdfViewer from "./PdfViewer";
-import ImageViewer from "./ImageViewer";
-import NotebookViewer from "./NotebookViewer";
-import MediaViewer from "./MediaViewer";
-import CodeEditor from "./CodeEditor";
 import { Splitpanes, Pane } from "splitpanes";
 import "splitpanes/dist/splitpanes.css";
 import type { FileNode, NotebookData, PdfAnnotationData } from "../types";
 import { getFileType, getMimeType } from "../types";
+
+const MarkdownEditor = lazy(() => import("./MarkdownEditor"));
+const PdfViewer = lazy(() => import("./PdfViewer"));
+const ImageViewer = lazy(() => import("./ImageViewer"));
+const NotebookViewer = lazy(() => import("./NotebookViewer"));
+const MediaViewer = lazy(() => import("./MediaViewer"));
+const CodeEditor = lazy(() => import("./CodeEditor"));
 
 interface EditorProps {
   activeFile: FileNode | null;
@@ -29,6 +31,8 @@ interface EditorProps {
   secondActiveFile?: FileNode | null;
   secondFileContent?: string | null;
   secondBinaryData?: Uint8Array | null;
+  secondBinaryLoading?: boolean;
+  secondNotebookData?: NotebookData | null;
   onCloseSecondPane?: () => void;
 }
 
@@ -46,9 +50,12 @@ export default function Editor({
   onUpdatePdfAnnotations,
   onSaveAsset,
   isSplit,
+  onToggleSplit,
   secondActiveFile,
   secondFileContent,
   secondBinaryData,
+  secondBinaryLoading,
+  secondNotebookData,
   onCloseSecondPane,
 }: EditorProps) {
   if (!activeFile) {
@@ -79,23 +86,27 @@ export default function Editor({
     switch (type) {
       case "pdf":
         return binary ? (
-          <PdfViewer
-            pdfData={binary}
-            filePath={node.path}
-            initialAnnotations={!isSecondPane ? pdfAnnotations : null}
-            onUpdateAnnotations={(anns) => !isSecondPane && onUpdatePdfAnnotations(node.path, anns)}
-          />
+          <Suspense fallback={<ContentLoading label="Loading PDF..." />}>
+            <PdfViewer
+              pdfData={binary}
+              filePath={node.path}
+              initialAnnotations={!isSecondPane ? pdfAnnotations : null}
+              onUpdateAnnotations={(anns) => !isSecondPane && onUpdatePdfAnnotations(node.path, anns)}
+            />
+          </Suspense>
         ) : (
           <div className="flex items-center justify-center h-full text-shell-error text-sm">Failed to load PDF</div>
         );
 
       case "image":
         return binary ? (
-          <ImageViewer
-            imageData={binary}
-            mimeType={getMimeType(node.extension)}
-            fileName={node.name}
-          />
+          <Suspense fallback={<ContentLoading label="Loading image..." />}>
+            <ImageViewer
+              imageData={binary}
+              mimeType={getMimeType(node.extension)}
+              fileName={node.name}
+            />
+          </Suspense>
         ) : (
           <div className="flex items-center justify-center h-full text-shell-error text-sm">Failed to load image</div>
         );
@@ -103,19 +114,23 @@ export default function Editor({
       case "video":
       case "audio":
         return binary ? (
-          <MediaViewer
-            data={binary}
-            mimeType={getMimeType(node.extension)}
-            type={type as "video" | "audio"}
-            fileName={node.name}
-          />
+          <Suspense fallback={<ContentLoading label="Loading media..." />}>
+            <MediaViewer
+              data={binary}
+              mimeType={getMimeType(node.extension)}
+              type={type as "video" | "audio"}
+              fileName={node.name}
+            />
+          </Suspense>
         ) : (
           <div className="flex items-center justify-center h-full text-shell-error text-sm">Failed to load media</div>
         );
 
       case "notebook":
         return notebook ? (
-          <NotebookViewer data={notebook} />
+          <Suspense fallback={<ContentLoading label="Loading notebook..." />}>
+            <NotebookViewer data={notebook} />
+          </Suspense>
         ) : (
           <div className="flex items-center justify-center h-full text-shell-text-muted">Loading notebook...</div>
         );
@@ -134,11 +149,13 @@ export default function Editor({
 
       case "code":
         return content !== null ? (
-          <CodeEditor
-            content={content}
-            onSave={(val) => onSaveFile(node.path, val)}
-            filePath={node.path}
-          />
+          <Suspense fallback={<ContentLoading label="Loading code editor..." />}>
+            <CodeEditor
+              content={content}
+              onSave={(val) => onSaveFile(node.path, val)}
+              filePath={node.path}
+            />
+          </Suspense>
         ) : (
           <div className="flex items-center justify-center h-full text-shell-text-muted">Loading code...</div>
         );
@@ -148,13 +165,15 @@ export default function Editor({
       default: {
         const isMarkdown = type === "markdown";
         return content !== null ? (
-          <MarkdownEditor
-            content={content}
-            onSave={(val) => onSaveFile(node.path, val)}
-            filePath={node.path}
-            isMarkdown={isMarkdown}
-            onSaveAsset={onSaveAsset}
-          />
+          <Suspense fallback={<ContentLoading label={isMarkdown ? "Loading markdown editor..." : "Loading editor..."} />}>
+            <MarkdownEditor
+              content={content}
+              onSave={(val) => onSaveFile(node.path, val)}
+              filePath={node.path}
+              isMarkdown={isMarkdown}
+              onSaveAsset={onSaveAsset}
+            />
+          </Suspense>
         ) : (
           <div className="flex items-center justify-center h-full text-shell-text-muted">
             {type === "unsupported" ? "Preview not available" : "Loading..."}
@@ -194,7 +213,15 @@ export default function Editor({
                             </button>
                         </div>
                         <div className="h-full pt-8">
-                            {renderSingleContent(secondActiveFile, secondFileContent || null, secondBinaryData || null, null, true)}
+                            {secondBinaryLoading
+                              ? <ContentLoading label="Loading side pane..." />
+                              : renderSingleContent(
+                                  secondActiveFile,
+                                  secondFileContent || null,
+                                  secondBinaryData || null,
+                                  secondNotebookData || null,
+                                  true,
+                                )}
                         </div>
                     </div>
                 </Pane>
@@ -248,6 +275,19 @@ export default function Editor({
           );
         })}
         <div className="flex-1 border-l border-shell-border h-full min-h-[35px]" />
+        {onToggleSplit && (
+          <button
+            onClick={onToggleSplit}
+            className={`mr-2 rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] transition-colors ${
+              isSplit
+                ? "border-shell-accent/30 bg-shell-accent/10 text-shell-accent"
+                : "border-shell-border bg-shell-bg text-shell-text-muted hover:text-shell-text"
+            }`}
+            title={isSplit ? "Close split view" : "Open split view"}
+          >
+            {isSplit ? "Close Split" : "Split View"}
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-hidden relative">
@@ -264,6 +304,15 @@ export default function Editor({
           </motion.div>
         </AnimatePresence>
       </div>
+    </div>
+  );
+}
+
+function ContentLoading({ label }: { label: string }) {
+  return (
+    <div className="flex items-center justify-center h-full gap-2 text-shell-text-muted">
+      <Loader2 size={18} className="animate-spin" />
+      <span className="text-sm">{label}</span>
     </div>
   );
 }

@@ -4,8 +4,12 @@ export interface SearchResultLike {
   content: string;
 }
 
+export function normalizeSearchQuery(query: string): string {
+  return query.trim().replace(/\s+/g, " ");
+}
+
 export function shouldExecuteSearch(query: string, rootPath: string | null): boolean {
-  return Boolean(rootPath && query.trim().length >= 2);
+  return Boolean(rootPath && normalizeSearchQuery(query).length >= 2);
 }
 
 export function formatSearchError(error: unknown): string {

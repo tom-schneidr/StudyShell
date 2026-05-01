@@ -2,6 +2,16 @@ import assert from "node:assert/strict";
 
 import { cellSourceToString, formatBytes, getFileType } from "../src/types.ts";
 import {
+  APP_VERSION,
+  DEFAULT_SYSTEM_PROMPT,
+  DEFAULT_USE_SEARCH,
+  DEFAULT_VERTEX_MODEL,
+  parseStoredBoolean,
+  parseStoredRootPath,
+  parseStoredString,
+  parseStoredVertexModel,
+} from "../src/utils/appPreferences.ts";
+import {
   buildChatContext,
   canUseFileAsChatContext,
   truncateChatContextContent,
@@ -13,7 +23,9 @@ import {
   listChildNamesForDirectory,
   normalizeDirectoryName,
   normalizeMarkdownFileName,
+  normalizeRenameName,
   resolveCreationDirectory,
+  sanitizeEntryName,
   suggestUniqueDirectoryName,
   suggestUniqueMarkdownFileName,
 } from "../src/utils/fileCreation.ts";
@@ -83,6 +95,7 @@ import {
   getNextSearchResultIndex,
   getSearchResultsSummary,
   groupSearchResultsByFile,
+  normalizeSearchQuery,
   shouldExecuteSearch,
 } from "../src/utils/searchResults.ts";
 import { formatFilesystemError } from "../src/utils/filesystemErrors.ts";
@@ -102,6 +115,15 @@ import {
   limitChatHistory,
   serializeChatHistory,
 } from "../src/utils/aiHistory.ts";
+import {
+  clampChatWidth,
+  clampSidebarWidth,
+  DEFAULT_CHAT_WIDTH,
+  DEFAULT_SIDEBAR_WIDTH,
+  readStoredChatPanelVisible,
+  readStoredChatWidth,
+  readStoredSidebarWidth,
+} from "../src/utils/layoutPreferences.ts";
 import { hasDuplicateToast } from "../src/utils/toasts.ts";
 import {
   DEFAULT_SIDEBAR_TAB,
@@ -114,6 +136,18 @@ import {
   parsePdfAnnotationData,
   serializePdfAnnotationData,
 } from "../src/utils/pdfAnnotations.ts";
+import {
+  BREAK_DURATION_SECONDS,
+  WORK_DURATION_SECONDS,
+  createDefaultStudyTimerState,
+  deserializeStudyTimerState,
+  formatStudyTimerTime,
+  getNextTimerMode,
+  getStudyTimerProgress,
+  getTimerDuration,
+  readStudyTimerState,
+  serializeStudyTimerState,
+} from "../src/utils/studyTimer.ts";
 
 assert.equal(getFileType("md"), "markdown");
 assert.equal(getFileType("PDF"), "pdf");
@@ -180,6 +214,7 @@ assert.equal(normalizeMarkdownFileName("  inva<lid>|name  "), "inva-lid--name.md
 assert.equal(normalizeMarkdownFileName("weekly notes... "), "weekly notes.md");
 assert.equal(normalizeDirectoryName(" Week <1> "), "Week -1-");
 assert.equal(normalizeDirectoryName(" Topic 1... "), "Topic 1");
+assert.equal(sanitizeEntryName("  exam<review>?  "), "exam-review--");
 assert.equal(suggestUniqueMarkdownFileName(["untitled-note.md"], "untitled-note"), "untitled-note-2.md");
 assert.equal(
   suggestUniqueMarkdownFileName(["Lecture 1.md", "Lecture 1-2.md"], "Lecture 1"),
@@ -209,6 +244,18 @@ assert.equal(
   "/tmp/Ideas",
 );
 assert.equal(buildNewMarkdownContent("week-2.md"), "# Week 2\n\n");
+assert.equal(
+  normalizeRenameName({ is_dir: false, name: "lecture-notes.md", extension: "md" }, "Week 2"),
+  "Week 2.md",
+);
+assert.equal(
+  normalizeRenameName({ is_dir: false, name: "lecture-notes.md", extension: "md" }, "Week 2.txt"),
+  "Week 2.txt",
+);
+assert.equal(
+  normalizeRenameName({ is_dir: true, name: "Week 1", extension: null }, "  Week <2> "),
+  "Week -2-",
+);
 
 const fileTree = [
   {
@@ -264,6 +311,25 @@ assert.equal(getChatPlaceholder(false, true), "Configure Vertex AI to start chat
 assert.equal(getChatPlaceholder(true, false), "Ask your sources...");
 assert.equal(getChatPlaceholder(true, true), "Search and ask...");
 assert.match(vertexConfigGuidance, /Google application default credentials/);
+assert.equal(APP_VERSION, "0.2.1");
+assert.equal(parseStoredVertexModel(null), DEFAULT_VERTEX_MODEL);
+assert.equal(parseStoredVertexModel("gemini-2.5-pro"), "gemini-2.5-pro");
+assert.equal(parseStoredVertexModel("bad-model"), DEFAULT_VERTEX_MODEL);
+assert.equal(parseStoredBoolean("true", DEFAULT_USE_SEARCH), true);
+assert.equal(parseStoredBoolean("false", true), false);
+assert.equal(parseStoredBoolean("not-a-bool", true), true);
+assert.equal(parseStoredString("  Custom prompt  ", DEFAULT_SYSTEM_PROMPT), "Custom prompt");
+assert.equal(parseStoredString("   ", DEFAULT_SYSTEM_PROMPT), DEFAULT_SYSTEM_PROMPT);
+assert.equal(parseStoredRootPath("  C:\\Study  "), "C:\\Study");
+assert.equal(parseStoredRootPath("   "), null);
+assert.equal(clampSidebarWidth(Number.NaN), DEFAULT_SIDEBAR_WIDTH);
+assert.equal(clampSidebarWidth(0), 0);
+assert.equal(clampSidebarWidth(999), 600);
+assert.equal(clampChatWidth(Number.NaN), DEFAULT_CHAT_WIDTH);
+assert.equal(clampChatWidth(999), 800);
+assert.equal(readStoredSidebarWidth({ getItem: () => "420" }), 420);
+assert.equal(readStoredChatWidth({ getItem: () => "300" }), 300);
+assert.equal(readStoredChatPanelVisible({ getItem: () => "false" }), false);
 
 assert.equal(
   extractJsonArrayCandidate('```json\n[{"front":"Q1","back":"A1"}]\n```'),
@@ -539,6 +605,18 @@ assert.equal(
   commandMatchesQuery({ label: "New Note", category: "Files", description: "Create a markdown note" }, "system"),
   false,
 );
+assert.equal(
+  commandMatchesQuery(
+    {
+      label: "Toggle Sidebar",
+      category: "View",
+      description: "Show or hide the explorer",
+      shortcut: "Ctrl+B",
+    },
+    "ctrl+b",
+  ),
+  true,
+);
 assert.deepEqual(
   normalizeRecentFiles([
     { name: "notes.md", path: "C:\\Study\\notes.md", is_dir: false, extension: "md", children: null },
@@ -616,7 +694,9 @@ assert.deepEqual(
     },
   ],
 );
+assert.equal(normalizeSearchQuery("  exam   prep  "), "exam prep");
 assert.equal(shouldExecuteSearch("ab", "C:\\Study"), true);
+assert.equal(shouldExecuteSearch("  ab  ", "C:\\Study"), true);
 assert.equal(shouldExecuteSearch(" a ", null), false);
 assert.equal(shouldExecuteSearch("x", "C:\\Study"), false);
 assert.equal(getDefaultSearchResultIndex(3), 0);
@@ -681,6 +761,31 @@ assert.equal(parseSidebarTab(null), DEFAULT_SIDEBAR_TAB);
 assert.equal(formatSearchTabBadge(0), null);
 assert.equal(formatSearchTabBadge(7), "7");
 assert.equal(formatSearchTabBadge(142), "99+");
+assert.equal(createDefaultStudyTimerState(1000).seconds, WORK_DURATION_SECONDS);
+assert.equal(getTimerDuration("break"), BREAK_DURATION_SECONDS);
+assert.equal(getNextTimerMode("work"), "break");
+assert.equal(formatStudyTimerTime(65), "1:05");
+assert.equal(getStudyTimerProgress("work", WORK_DURATION_SECONDS), 0);
+assert.equal(getStudyTimerProgress("break", 0), 1);
+const serializedTimer = serializeStudyTimerState({
+  mode: "work",
+  seconds: 90,
+  isActive: true,
+  updatedAt: 1_000,
+});
+assert.deepEqual(
+  deserializeStudyTimerState(serializedTimer, 95_000),
+  {
+    mode: "break",
+    seconds: BREAK_DURATION_SECONDS,
+    isActive: false,
+    updatedAt: 95_000,
+  },
+);
+assert.equal(
+  readStudyTimerState({ getItem: () => null }, 2_000).seconds,
+  WORK_DURATION_SECONDS,
+);
 
 const chatHistory = [
   {

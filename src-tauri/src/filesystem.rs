@@ -2,6 +2,10 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
+fn is_visible_search_entry(entry: &walkdir::DirEntry) -> bool {
+    entry.depth() == 0 || !entry.file_name().to_string_lossy().starts_with('.')
+}
+
 /// Represents a node in the file tree (file or directory with children)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileNode {
@@ -305,11 +309,20 @@ pub fn search_files(path: String, query: String) -> Result<Vec<SearchResult>, St
         return Err(format!("Invalid search root: {}", path));
     }
 
+    let normalized_query = query.trim();
+    if normalized_query.is_empty() {
+        return Ok(Vec::new());
+    }
+
     let mut results = Vec::new();
-    let query_lower = query.to_lowercase();
+    let query_lower = normalized_query.to_lowercase();
 
     // Iterate through all files in the directory
-    for entry in WalkDir::new(root).into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(root)
+        .into_iter()
+        .filter_entry(is_visible_search_entry)
+        .filter_map(|e| e.ok())
+    {
         let path = entry.path();
 
         // Only search files, not directories
@@ -680,5 +693,44 @@ mod tests {
             fs::read(assets_dir.join("pasted-image-1-2.png")).unwrap(),
             b"hello"
         );
+    }
+
+    #[test]
+    fn search_files_trims_query_whitespace() {
+        let temp = TestDir::new("search");
+        let root = temp.child("course");
+
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("notes.md"), "Alpha beta\nGamma delta").unwrap();
+
+        let results = search_files(
+            root.to_string_lossy().to_string(),
+            "  beta  ".to_string(),
+        )
+        .unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].line_number, 1);
+        assert_eq!(results[0].content, "Alpha beta");
+    }
+
+    #[test]
+    fn search_files_skips_hidden_directories() {
+        let temp = TestDir::new("search-hidden");
+        let root = temp.child("course");
+
+        fs::create_dir_all(root.join(".private")).unwrap();
+        fs::create_dir_all(root.join("visible")).unwrap();
+        fs::write(root.join(".private/notes.md"), "visible keyword").unwrap();
+        fs::write(root.join("visible/notes.md"), "visible keyword").unwrap();
+
+        let results = search_files(
+            root.to_string_lossy().to_string(),
+            "keyword".to_string(),
+        )
+        .unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert!(results[0].path.ends_with("visible/notes.md") || results[0].path.ends_with("visible\\notes.md"));
     }
 }

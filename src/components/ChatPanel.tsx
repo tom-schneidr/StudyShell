@@ -34,6 +34,7 @@ interface ChatPanelProps {
   onModelChange: (model: VertexModel) => void;
   onSearchChange: (useSearch: boolean) => void;
   onClearChat: () => void;
+  canClearChat: boolean;
   onSummarizeCurrentFile: () => void;
   onGenerateFlashcards: () => void;
   onRemoveSource: (path: string) => void;
@@ -55,6 +56,7 @@ export default function ChatPanel({
   onModelChange,
   onSearchChange,
   onClearChat,
+  canClearChat,
   onSummarizeCurrentFile,
   onGenerateFlashcards,
   onRemoveSource,
@@ -130,7 +132,16 @@ export default function ChatPanel({
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={onClearChat} className="p-2 rounded-lg text-shell-text-muted hover:text-red-400 hover:bg-red-400/10 transition-all cursor-pointer">
+            <button
+              onClick={onClearChat}
+              disabled={!canClearChat}
+              className={`p-2 rounded-lg transition-all ${
+                canClearChat
+                  ? "cursor-pointer text-shell-text-muted hover:text-red-400 hover:bg-red-400/10"
+                  : "cursor-not-allowed text-shell-text-muted/40"
+              }`}
+              title={canClearChat ? "Clear chat history" : "No chat history to clear"}
+            >
               <Trash2 size={16} />
             </button>
             <button onClick={onCollapse} className="p-2 rounded-lg text-shell-text-muted hover:text-shell-text hover:bg-shell-surface-hover transition-all cursor-pointer">

@@ -5,18 +5,30 @@ import type { ChatMessage, VertexModel } from "../types";
 import { generateId } from "../types";
 import { getVertexConfigErrorMessage } from "../utils/aiConfig";
 import { deserializeChatHistory, serializeChatHistory } from "../utils/aiHistory";
-
-const CHAT_HISTORY_STORAGE_KEY = "studyshell.chatHistory";
+import {
+  DEFAULT_SYSTEM_PROMPT,
+  DEFAULT_USE_SEARCH,
+  STORAGE_KEYS,
+  parseStoredBoolean,
+  parseStoredString,
+  parseStoredVertexModel,
+} from "../utils/appPreferences";
 
 export function useVertexAI() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [model, setModel] = useState<VertexModel>("gemini-3-flash-preview");
-  const [useSearch, setUseSearch] = useState(false);
+  const [model, setModel] = useState<VertexModel>(() =>
+    parseStoredVertexModel(window.localStorage.getItem(STORAGE_KEYS.vertexModel)),
+  );
+  const [useSearch, setUseSearch] = useState(() =>
+    parseStoredBoolean(window.localStorage.getItem(STORAGE_KEYS.useSearch), DEFAULT_USE_SEARCH),
+  );
   const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
   const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
-  const [systemPrompt, setSystemPrompt] = useState<string>("You are StudyShell AI, a professional academic assistant. Support markdown in all responses.");
+  const [systemPrompt, setSystemPrompt] = useState<string>(() =>
+    parseStoredString(window.localStorage.getItem(STORAGE_KEYS.systemPrompt), DEFAULT_SYSTEM_PROMPT),
+  );
   const streamAbortRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -27,7 +39,7 @@ export function useVertexAI() {
 
   useEffect(() => {
     try {
-      const stored = window.localStorage.getItem(CHAT_HISTORY_STORAGE_KEY);
+      const stored = window.localStorage.getItem(STORAGE_KEYS.chatHistory);
       if (stored) {
         setMessages(deserializeChatHistory(stored));
       }
@@ -45,15 +57,27 @@ export function useVertexAI() {
 
     try {
       if (messages.length === 0) {
-        window.localStorage.removeItem(CHAT_HISTORY_STORAGE_KEY);
+        window.localStorage.removeItem(STORAGE_KEYS.chatHistory);
         return;
       }
 
-      window.localStorage.setItem(CHAT_HISTORY_STORAGE_KEY, serializeChatHistory(messages));
+      window.localStorage.setItem(STORAGE_KEYS.chatHistory, serializeChatHistory(messages));
     } catch {
       // Ignore storage failures so the chat UI remains usable.
     }
   }, [hasLoadedHistory, messages]);
+
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEYS.vertexModel, model);
+  }, [model]);
+
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEYS.useSearch, String(useSearch));
+  }, [useSearch]);
+
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEYS.systemPrompt, systemPrompt);
+  }, [systemPrompt]);
 
   const checkConfig = useCallback(async () => {
     try {
@@ -127,7 +151,7 @@ export function useVertexAI() {
         setLoading(false);
       }
     },
-    [ensureConfigured, model, useSearch]
+    [ensureConfigured, model, systemPrompt, useSearch]
   );
 
   const sendMessageStreaming = useCallback(
@@ -203,7 +227,7 @@ export function useVertexAI() {
         }
       }
     },
-    [ensureConfigured, model, useSearch]
+    [ensureConfigured, model, systemPrompt, useSearch]
   );
 
   const summarizeFiles = useCallback(

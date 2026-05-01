@@ -11,7 +11,7 @@ import {
   Clock,
   File
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import FileTree from "./FileTree";
 import SearchPanel from "./SearchPanel";
 import type { DirectoryStats, FileNode } from "../types";
@@ -19,6 +19,7 @@ import { formatBytes } from "../types";
 import { formatFilesystemError } from "../utils/filesystemErrors";
 import { filterFileTree } from "../utils/fileTreeFilter";
 import { getPathBaseName } from "../utils/pathUtils";
+import { APP_VERSION } from "../utils/appPreferences";
 import {
   DEFAULT_SIDEBAR_TAB,
   formatSearchTabBadge,
@@ -78,6 +79,7 @@ export default function Sidebar({
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResultCount, setSearchResultCount] = useState(0);
+  const filterInputRef = useRef<HTMLInputElement>(null);
   const rootName = rootPath ? getPathBaseName(rootPath) : null;
   const filteredTree = useMemo(
     () => filterFileTree(fileTree, searchQuery),
@@ -92,6 +94,22 @@ export default function Sidebar({
       localStorage.setItem("sidebarActiveTab", activeTab);
     } catch {}
   }, [activeTab]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key === "Escape" &&
+        activeTab === "explorer" &&
+        hasActiveSearch &&
+        document.activeElement === filterInputRef.current
+      ) {
+        setSearchQuery("");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeTab, hasActiveSearch]);
 
   return (
     <div className="h-full flex flex-col bg-shell-surface border-r border-shell-border overflow-hidden">
@@ -219,6 +237,7 @@ export default function Sidebar({
               <div className="relative mt-3">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-shell-text-muted" />
                 <input
+                  ref={filterInputRef}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Filter explorer..."
@@ -352,7 +371,7 @@ export default function Sidebar({
       {/* Footer */}
       <div className="flex-shrink-0 px-4 py-2 border-t border-shell-border">
         <p className="text-[10px] text-shell-text-muted text-center">
-          StudyShell v0.1.0
+          StudyShell v{APP_VERSION}
         </p>
       </div>
     </div>

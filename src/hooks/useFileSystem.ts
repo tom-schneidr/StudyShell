@@ -3,15 +3,19 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { DirectoryStats, FileNode, FsChangeEvent } from "../types";
+import { STORAGE_KEYS, parseStoredRootPath } from "../utils/appPreferences";
 
 export function useFileSystem() {
-  const [rootPath, setRootPath] = useState<string | null>(null);
+  const [rootPath, setRootPath] = useState<string | null>(() =>
+    parseStoredRootPath(window.localStorage.getItem(STORAGE_KEYS.rootPath)),
+  );
   const [fileTree, setFileTree] = useState<FileNode[]>([]);
   const [directoryStats, setDirectoryStats] = useState<DirectoryStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [statsLoading, setStatsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const unlistenRef = useRef<(() => void) | null>(null);
+  const initialRootPathRef = useRef(rootPath);
 
   // Select a root folder using the native dialog
   const selectRootFolder = useCallback(async () => {
@@ -33,6 +37,15 @@ export function useFileSystem() {
       setError(`Failed to select folder: ${e}`);
     }
   }, []);
+
+  useEffect(() => {
+    if (rootPath) {
+      window.localStorage.setItem(STORAGE_KEYS.rootPath, rootPath);
+      return;
+    }
+
+    window.localStorage.removeItem(STORAGE_KEYS.rootPath);
+  }, [rootPath]);
 
   // Refresh the file tree from a given root
   const refreshTree = useCallback(async (path?: string) => {
@@ -175,6 +188,35 @@ export function useFileSystem() {
       });
     };
   }, [rootPath, refreshTree]);
+
+  useEffect(() => {
+    const restoredRootPath = initialRootPathRef.current;
+    if (!restoredRootPath || rootPath !== restoredRootPath) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        await refreshTree(restoredRootPath);
+        await invoke("start_watching", { path: restoredRootPath });
+      } catch (restoreError) {
+        if (cancelled) {
+          return;
+        }
+
+        setError(`Failed to restore workspace: ${restoreError}`);
+        setDirectoryStats(null);
+        setFileTree([]);
+        setRootPath(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshTree, rootPath]);
 
   return {
     rootPath,

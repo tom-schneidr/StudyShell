@@ -2,20 +2,33 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, Pause, RotateCcw, Coffee, BookOpen } from "lucide-react";
 import { useToast } from "./ToastProvider";
-
-type TimerMode = "work" | "break";
+import {
+  createDefaultStudyTimerState,
+  formatStudyTimerTime,
+  getNextTimerMode,
+  getStudyTimerProgress,
+  getTimerDuration,
+  readStudyTimerState,
+  requestDesktopNotificationPermission,
+  saveStudyTimerState,
+  sendStudyTimerNotification,
+} from "../utils/studyTimer";
 
 export default function StudyTimer() {
-  const [seconds, setSeconds] = useState(25 * 60);
-  const [isActive, setIsActive] = useState(false);
-  const [mode, setMode] = useState<TimerMode>("work");
+  const [timerState, setTimerState] = useState(() => readStudyTimerState(window.localStorage));
   const toast = useToast();
+  const { seconds, isActive, mode } = timerState;
 
   const switchMode = useCallback(() => {
-    const nextMode = mode === "work" ? "break" : "work";
-    setMode(nextMode);
-    setSeconds(nextMode === "work" ? 25 * 60 : 5 * 60);
-    setIsActive(false);
+    const completedMode = mode;
+    const nextMode = getNextTimerMode(completedMode);
+    setTimerState({
+      mode: nextMode,
+      seconds: getTimerDuration(nextMode),
+      isActive: false,
+      updatedAt: Date.now(),
+    });
+    sendStudyTimerNotification(completedMode);
     
     if (nextMode === "work") {
         toast.info("Break finished! Time to focus.");
@@ -29,7 +42,11 @@ export default function StudyTimer() {
 
     if (isActive && seconds > 0) {
       interval = setInterval(() => {
-        setSeconds((s) => s - 1);
+        setTimerState((prev) => ({
+          ...prev,
+          seconds: Math.max(0, prev.seconds - 1),
+          updatedAt: Date.now(),
+        }));
       }, 1000);
     } else if (isActive && seconds === 0) {
       switchMode();
@@ -40,20 +57,32 @@ export default function StudyTimer() {
     };
   }, [isActive, seconds, switchMode]);
 
-  const toggleTimer = () => setIsActive(!isActive);
+  useEffect(() => {
+    saveStudyTimerState(window.localStorage, timerState);
+  }, [timerState]);
+
+  const toggleTimer = () => {
+    const nextIsActive = !isActive;
+    setTimerState((prev) => ({
+      ...prev,
+      isActive: nextIsActive,
+      updatedAt: Date.now(),
+    }));
+
+    if (nextIsActive) {
+      void requestDesktopNotificationPermission();
+    }
+  };
 
   const resetTimer = () => {
-    setIsActive(false);
-    setSeconds(mode === "work" ? 25 * 60 : 5 * 60);
+    setTimerState({
+      ...createDefaultStudyTimerState(Date.now()),
+      mode,
+      seconds: getTimerDuration(mode),
+    });
   };
 
-  const formatTime = (s: number) => {
-    const mins = Math.floor(s / 60);
-    const secs = s % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  const progress = 1 - seconds / (mode === "work" ? 25 * 60 : 5 * 60);
+  const progress = getStudyTimerProgress(mode, seconds);
 
   return (
     <div className="flex items-center gap-4 px-3 py-1.5 rounded-2xl bg-shell-surface/50 border border-shell-border shadow-inner group">
@@ -92,7 +121,7 @@ export default function StudyTimer() {
 
         <div className="flex flex-col min-w-[45px]">
             <span className="text-[13px] font-mono font-bold text-shell-text tabular-nums leading-none">
-                {formatTime(seconds)}
+                {formatStudyTimerTime(seconds)}
             </span>
             <span className="text-[8px] font-black uppercase tracking-widest text-shell-text-muted mt-0.5 leading-none">
                 {mode}
@@ -100,7 +129,7 @@ export default function StudyTimer() {
         </div>
       </div>
 
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
         <button
           onClick={toggleTimer}
           className={`p-1.5 rounded-lg transition-all ${

@@ -29,12 +29,33 @@ export function normalizeDirectoryName(rawName: string): string {
   return sanitized.length > 0 ? sanitized : fallback;
 }
 
-function sanitizeEntryName(rawName: string): string {
+export function sanitizeEntryName(rawName: string): string {
   return rawName
     .replace(INVALID_WINDOWS_CHARS, "-")
     .replace(/\s+/g, " ")
     .trim()
     .replace(/[. ]+$/g, "");
+}
+
+export function normalizeRenameName(
+  node: Pick<FileNode, "is_dir" | "name" | "extension">,
+  rawName: string,
+): string {
+  if (node.is_dir) {
+    return normalizeDirectoryName(rawName);
+  }
+
+  const fallbackBaseName =
+    sanitizeEntryName(node.name.replace(/\.[^.]+$/, "")) || "untitled-file";
+  const sanitized = sanitizeEntryName(rawName);
+  const hasExplicitExtension = /\.[^.]+$/.test(sanitized);
+  const normalizedBaseName = sanitized.length > 0 ? sanitized : fallbackBaseName;
+
+  if (hasExplicitExtension || !node.extension) {
+    return normalizedBaseName;
+  }
+
+  return `${normalizedBaseName}.${node.extension}`;
 }
 
 export function listChildNamesForDirectory(

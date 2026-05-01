@@ -14,15 +14,6 @@
 
 ## PILLAR 1: Core OS & File Management
 
-### 1.1. Native Alerts & Dialogs Cleanup
-**Priority:** Critical
-**Context:** Some legacy browser alerts remain in the codebase.
-**Approach:**
-- **Remove:** `window.confirm` in `PdfViewer.tsx` (line 68). Replace it with the `ConfirmDialog` component. You will need to add state to `PdfViewer` to manage the dialog's `isOpen` status.
-- **Remove:** `alert()` calls in `PdfViewer.tsx` (lines 82, 84, 102). Replace with a non-blocking UI notification.
-- **Remove:** `window.alert()` calls in `App.tsx` (lines 243, 276, 336, 358).
-- **Implementation:** Create a simple `ToastNotification.tsx` (using Framer Motion for slide-in) or a custom `AlertDialog.tsx` component. Render it at the root in `App.tsx` and pass a trigger function via context or a global store.
-
 ### 1.2. File & Folder Rename
 **Priority:** Critical — essential file operation.
 **Approach:**
@@ -60,16 +51,6 @@
 - **Behavior:** Clicking a file in the sidebar checks if it's already in `openTabs`. If yes, switch to that index. If no, fetch content and push to the array. Middle-clicking a tab should close it.
 - **Gotcha:** Lazy load contents! Don't load file contents until the tab actually becomes active.
 
-### 2.2. Command Palette & Keyboard Shortcuts
-**Priority:** High
-**Approach:**
-- **UI:** A centered modal (`CommandPalette.tsx`) triggered by `Ctrl+K`. It has a large `<input>` and renders a fuzzy-filtered list of application commands.
-- **Shortcuts Hook:** In `App.tsx`, implement a global `useEffect` listening for `keydown`.
-  - `Ctrl+B`: Toggle sidebar Width.
-  - `Ctrl+J`: Toggle chat panel.
-  - `Ctrl+W`: Close active file/tab.
-- **Important:** ALWAYS call `e.preventDefault()` on matched shortcuts so browsers don't trigger native behaviors (like `Ctrl+S` triggering HTML save).
-
 ### 2.3. Full-Text Search Across Files
 **Priority:** High
 **Approach:**
@@ -106,13 +87,6 @@
 - **UI:** `FlashcardViewer.tsx` using Framer Motion 3D transforms (`rotateY`) to flip cards.
 - **Storage:** Persist generated flashcards as a sidecar JSON file in the target directory (e.g., `biology-notes.flashcards.json`) so the user can review them later without regenerating.
 
-### 3.2. AI Quiz Mode
-**Priority:** Medium
-**Approach:**
-- Very similar to Flashcards. Ask the model for multiple-choice JSON: `[{ "question": "", "options": [], "correctIndex": 0, "explanation": "" }]`.
-- **UI:** A `QuizView.tsx` component that takes over the main editor pane. Present questions sequentially. On submit, show red/green indicators and the explanation text.
-- Allow invoking this via the Context Menu for folders ("Generate Quiz from Folder").
-
 ### 3.3. AI Explain Text Selection
 **Priority:** Low
 **Approach:**
@@ -130,46 +104,12 @@
 
 ## PILLAR 4: Polish & Productivity
 
-### 4.1. Persistent PDF Annotations
-**Priority:** Medium
-**Approach:**
-- The `PdfViewer.tsx` has drawing/highlight states but they reset on reload unless the user explicitly "Saves" them to the underlying PDF.
-- **Auto-save sidecar:** Hook into `onUpdateAnnotations` in `App.tsx`. Debounce it, and save the metadata to a file named `<filename>.pdf.annotations.json` in the same directory.
-- On file load, verify if that JSON sidecar exists. If yes, inject it as `initialAnnotations`.
-
 ### 4.2. Recent Files & Pinned Files
 **Priority:** Medium
 **Approach:**
 - Track an array of `recentFiles: FileNode[]` in `App.tsx` (using `localStorage` to persist).
 - Prepend the file to this array every time `handleFileSelect` fires. Deduplicate by path. Limit to 10.
 - Render a new highly-visible "Recent" section at the top of `Sidebar.tsx`, above the Explorer file tree.
-
-### 4.3. Markdown Table of Contents (TOC)
-**Priority:** Low
-**Approach:**
-- Parse the current markdown text to find headings (`^#+ .*`).
-- Render a `TableOfContents.tsx` floating sidebar inside the `MarkdownEditor.tsx` component.
-- Allow clicking items to scroll the editor to that line.
-
-### 4.4. Image Paste in Markdown Editor
-**Priority:** High Productivity
-**Approach:**
-- Hook the `onPaste` event in the markdown `<textarea>`.
-- Check if `e.clipboardData.items[0].type.startsWith('image/')`.
-- If so, grab the blob, send it to the Rust backend to save in a `_assets/` subdirectory using a timestamped filename.
-- Insert the markdown tag `![](_assets/img-123.png)` into the textarea at the cursor position.
-
-### 4.5. Study Timer / Pomodoro
-**Priority:** Low
-**Approach:**
-- A simple `setInterval` countdown widget living in the header bar or chat panel. State includes `mode` (Work/Break) and `remainingSeconds`.
-- Issue a system notification (via Tauri API) when the timer hits zero.
-
-### 4.6. Dark / Light Theme Toggle
-**Priority:** Low
-**Approach:**
-- Create a `.theme-light` class wrapper in `index.css` that redefines all `--color-shell-*` variables to light variants (off-white bg, dark text, tweaked accent colors).
-- Store user preference in `localStorage`. Toggle applies the class directly to the root `<html>` element.
 
 ## PILLAR 5: UI & Visual Polish
 

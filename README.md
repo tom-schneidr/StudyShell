@@ -1,37 +1,76 @@
 # StudyShell
 
-StudyShell is a desktop study workspace built with Tauri, React, and TypeScript. It combines a local file explorer, multimodal document viewers, note editing, PDF annotation, and Vertex AI-powered study assistance in a single app.
+[StudyShell](https://github.com/tom-schneidr/studyshell) is a Tauri-powered desktop study workspace built with React and TypeScript.
+It combines a local file explorer, Markdown and code editing, multimodal document viewers, PDF annotation, and Vertex AI-powered study assistance in one app.
 
-## Current Capabilities
+## Features
 
-- Browse a local study folder with live filesystem refresh.
-- Open and edit Markdown and text files.
-- View notebooks, images, media, and PDFs.
-- Annotate PDFs and save changes back to disk or export a copy.
-- Chat with Vertex AI using the active file or selected source files as context.
-- Generate folder-level summaries and study guides from supported materials.
+- Local workspace browser with live filesystem refresh
+- Markdown, plain text, and code editing with syntax-aware support
+- Notebook, image, audio, video, and PDF previewing
+- PDF annotation, save, and export workflows
+- AI chat assistant contextualized by active files and selected sources
+- Flashcard and quiz generation from study materials
+- Workspace search, command palette, and recent file history
+- Persistent layout, theme, and study timer state
+- Google Vertex AI / Gemini integration for AI-powered summaries
 
-## Tech Stack
+## Quick Start
 
-- Frontend: React 19, TypeScript, Vite, Tailwind CSS, Framer Motion
-- Desktop shell: Tauri 2
-- Backend: Rust with Tauri commands for filesystem access, file watching, and Vertex AI requests
-- AI integration: Google Vertex AI / Gemini models
+### Prerequisites
 
-## Commands
+- Node.js 20+ and npm
+- Rust toolchain
+- Tauri CLI: `npm install -D @tauri-apps/cli`
+- Google Cloud application default credentials for Vertex AI
 
-- `npm run dev` starts the Vite frontend for Tauri development.
-- `npm run typecheck` runs the TypeScript compiler in no-emit mode.
-- `npm run test` runs lightweight utility tests with Node's built-in test runner.
-- `npm run build` builds the frontend bundle.
-- `cargo test` from [`src-tauri/Cargo.toml`](/C:/Users/tomla/My%20Drive/Code/StudyShell/src-tauri/Cargo.toml) runs Rust tests.
+### Run locally
+
+```bash
+npm install
+npm run dev
+```
+
+Then open the local Tauri development window or use `npm run tauri` when ready.
+
+### Build for production
+
+```bash
+npm run build
+```
+
+### Run tests
+
+```bash
+npm run typecheck
+npm run test
+cargo test --manifest-path src-tauri/Cargo.toml
+```
 
 ## Configuration
 
-StudyShell loads environment variables from `.env` when the Tauri app starts.
+Create a `.env` file at the project root with the following values:
 
-- `PROJECT_ID` should point to your Google Cloud project for Vertex AI.
-- `VERTEX_LOCATION` is optional and defaults to `global`.
+```env
+PROJECT_ID=your-google-cloud-project-id
+VERTEX_LOCATION=global
+```
 
-You will also need local Google application default credentials available for the Rust backend.
+`VERTEX_LOCATION` is optional and defaults to `global`.
 
+The Rust backend also requires valid Google application default credentials for Vertex AI requests.
+
+## Project Structure
+
+- `src/` — React frontend code and UI components
+- `src-tauri/` — Tauri backend, Rust commands, and native integrations
+- `public/` — static assets
+- `tests/` — lightweight Node test utilities
+
+## Contributing
+
+Contributions are welcome. Please open an issue before submitting major changes and follow the repository conventions.
+
+## License
+
+This project is released under the MIT License.

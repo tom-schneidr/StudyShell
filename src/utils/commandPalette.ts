@@ -27,7 +27,10 @@ export function hasCommandPaletteMatches(matchCount: number): boolean {
   return matchCount > 0;
 }
 
-export function commandMatchesQuery(command: Pick<CommandItem, "label" | "category" | "description">, query: string): boolean {
+export function commandMatchesQuery(
+  command: Pick<CommandItem, "label" | "category" | "description" | "shortcut">,
+  query: string,
+): boolean {
   const normalizedQuery = query.trim().toLowerCase();
   if (!normalizedQuery) {
     return true;
@@ -36,7 +39,8 @@ export function commandMatchesQuery(command: Pick<CommandItem, "label" | "catego
   return (
     command.label.toLowerCase().includes(normalizedQuery) ||
     command.category.toLowerCase().includes(normalizedQuery) ||
-    (command.description?.toLowerCase().includes(normalizedQuery) ?? false)
+    (command.description?.toLowerCase().includes(normalizedQuery) ?? false) ||
+    (command.shortcut?.toLowerCase().includes(normalizedQuery) ?? false)
   );
 }
 

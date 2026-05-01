@@ -8,6 +8,7 @@ import {
   getNextSearchResultIndex,
   getSearchResultsSummary,
   groupSearchResultsByFile,
+  normalizeSearchQuery,
   shouldExecuteSearch,
 } from "../utils/searchResults";
 
@@ -42,7 +43,8 @@ export default function SearchPanel({
   const resultsListRef = useRef<HTMLDivElement>(null);
 
   const performSearch = useCallback(async (q: string) => {
-    if (!shouldExecuteSearch(q, rootPath)) {
+    const normalizedQuery = normalizeSearchQuery(q);
+    if (!shouldExecuteSearch(normalizedQuery, rootPath)) {
       latestSearchRequestRef.current += 1;
       setResults([]);
       setLoading(false);
@@ -56,7 +58,7 @@ export default function SearchPanel({
     setError(null);
 
     try {
-      const nextResults = await onSearch(q);
+      const nextResults = await onSearch(normalizedQuery);
       if (latestSearchRequestRef.current !== requestId) {
         return;
       }
@@ -107,7 +109,8 @@ export default function SearchPanel({
     () => groupedResults.flatMap((group) => group.results),
     [groupedResults],
   );
-  const hasActiveQuery = query.trim().length > 0;
+  const normalizedQuery = useMemo(() => normalizeSearchQuery(query), [query]);
+  const hasActiveQuery = normalizedQuery.length > 0;
   const searchSummary = getSearchResultsSummary(results.length, groupedResults.length);
 
   useEffect(() => {
@@ -265,12 +268,12 @@ export default function SearchPanel({
               });
             })()}
           </div>
-        ) : query.length >= 2 && !loading ? (
+        ) : normalizedQuery.length >= 2 && !loading ? (
           <div className="flex flex-col items-center justify-center py-20 px-8 text-center">
             <div className="w-12 h-12 rounded-full bg-shell-surface flex items-center justify-center mb-4 text-shell-text-muted opacity-30">
               <Search size={24} />
             </div>
-            <p className="text-sm text-shell-text-muted">No results found for "{query}"</p>
+            <p className="text-sm text-shell-text-muted">No results found for "{normalizedQuery}"</p>
           </div>
         ) : !loading && (
           <div className="flex flex-col items-center justify-center py-20 px-8 text-center opacity-40">

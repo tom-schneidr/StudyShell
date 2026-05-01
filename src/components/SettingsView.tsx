@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Settings, Sparkles, Layout, Globe, Shield } from "lucide-react";
+import { DEFAULT_SYSTEM_PROMPT } from "../utils/appPreferences";
 
 interface SettingsViewProps {
   isOpen: boolean;
@@ -20,14 +21,25 @@ export default function SettingsView({
   onThemeChange,
 }: SettingsViewProps) {
   const [localPrompt, setLocalPrompt] = useState(systemPrompt);
+  const [localTheme, setLocalTheme] = useState(theme);
 
   useEffect(() => {
     setLocalPrompt(systemPrompt);
-  }, [systemPrompt]);
+    setLocalTheme(theme);
+  }, [systemPrompt, theme, isOpen]);
+
+  const normalizedPrompt = localPrompt.trim() || DEFAULT_SYSTEM_PROMPT;
+  const hasChanges = normalizedPrompt !== systemPrompt || localTheme !== theme;
 
   const handleSave = () => {
-    onSystemPromptChange(localPrompt);
+    onSystemPromptChange(normalizedPrompt);
+    onThemeChange(localTheme);
     onClose();
+  };
+
+  const handleResetDraft = () => {
+    setLocalPrompt(systemPrompt);
+    setLocalTheme(theme);
   };
 
   return (
@@ -114,14 +126,14 @@ export default function SettingsView({
                             </div>
                             <div className="flex gap-1 p-1 rounded-lg bg-shell-surface border border-shell-border">
                                 <button
-                                    onClick={() => onThemeChange("dark")}
-                                    className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all ${theme === "dark" ? "bg-shell-accent text-white shadow-sm" : "text-shell-text-muted hover:text-shell-text"}`}
+                                    onClick={() => setLocalTheme("dark")}
+                                    className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all ${localTheme === "dark" ? "bg-shell-accent text-white shadow-sm" : "text-shell-text-muted hover:text-shell-text"}`}
                                 >
                                     DARK
                                 </button>
                                 <button
-                                    onClick={() => onThemeChange("light")}
-                                    className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all ${theme === "light" ? "bg-shell-accent text-white shadow-sm" : "text-shell-text-muted hover:text-shell-text"}`}
+                                    onClick={() => setLocalTheme("light")}
+                                    className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all ${localTheme === "light" ? "bg-shell-accent text-white shadow-sm" : "text-shell-text-muted hover:text-shell-text"}`}
                                 >
                                     LIGHT
                                 </button>
@@ -134,6 +146,13 @@ export default function SettingsView({
             {/* Footer */}
             <div className="px-6 py-4 bg-shell-surface/50 border-t border-shell-border flex items-center justify-end gap-3">
               <button
+                onClick={handleResetDraft}
+                disabled={!hasChanges}
+                className="px-4 py-2 rounded-xl text-[13px] font-bold text-shell-text-secondary hover:text-shell-text hover:bg-shell-surface-hover transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Reset Draft
+              </button>
+              <button
                 onClick={onClose}
                 className="px-4 py-2 rounded-xl text-[13px] font-bold text-shell-text-secondary hover:text-shell-text hover:bg-shell-surface-hover transition-colors cursor-pointer"
               >
@@ -141,7 +160,8 @@ export default function SettingsView({
               </button>
               <button
                 onClick={handleSave}
-                className="px-6 py-2 rounded-xl bg-shell-accent text-white text-[13px] font-bold shadow-lg shadow-shell-accent/20 hover:bg-shell-accent/90 transition-all cursor-pointer"
+                disabled={!hasChanges}
+                className="px-6 py-2 rounded-xl bg-shell-accent text-white text-[13px] font-bold shadow-lg shadow-shell-accent/20 hover:bg-shell-accent/90 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Apply Changes
               </button>

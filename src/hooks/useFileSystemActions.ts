@@ -7,6 +7,7 @@ import {
   buildMarkdownNotePath,
   buildNewMarkdownContent,
   listChildNamesForDirectory,
+  normalizeRenameName,
   resolveCreationDirectory,
   suggestUniqueDirectoryName,
   suggestUniqueMarkdownFileName,
@@ -109,14 +110,21 @@ export function useFileSystemActions(
     [fs, creationModal, onFileSelect, toast]
   );
 
-  const handleConfirmRename = useCallback(async (newName: string, onRenameSuccess: (oldPath: string, newPath: string) => void) => {
+  const handleConfirmRename = useCallback(async (newName: string, onRenameSuccess: (oldPath: string, newPath: string) => void | Promise<void>) => {
     if (!creationModal.targetNode) return;
     const node = creationModal.targetNode;
     
     try {
-      const newPath = joinPath(getParentPath(node.path), newName);
+      const normalizedName = normalizeRenameName(node, newName);
+      const newPath = joinPath(getParentPath(node.path), normalizedName);
+
+      if (newPath === node.path) {
+        toast.info("Name unchanged.");
+        return;
+      }
+
       await fs.renameEntry(node.path, newPath);
-      onRenameSuccess(node.path, newPath);
+      await onRenameSuccess(node.path, newPath);
       toast.success("Renamed successfully.");
     } catch (error) {
        toast.error(`Rename failed: ${error}`);

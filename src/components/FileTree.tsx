@@ -8,9 +8,14 @@ import {
   FileType,
   File,
   FileCode,
-  Sparkles
+  Sparkles,
+  Image as ImageIcon,
+  BookOpen,
+  Film,
+  Music
 } from "lucide-react";
 import type { FileNode } from "../types";
+import { getFileType } from "../types";
 import { canSelectSource } from "../utils/sourceSelection";
 
 interface FileTreeProps {
@@ -25,23 +30,23 @@ interface FileTreeProps {
 }
 
 function getFileIcon(extension: string | null) {
-  if (!extension) return <File size={15} className="text-shell-text-muted" />;
-  switch (extension.toLowerCase()) {
-    case "md":
+  switch (getFileType(extension)) {
     case "markdown":
       return <FileText size={15} className="text-blue-400" />;
     case "pdf":
       return <FileType size={15} className="text-red-400" />;
-    case "txt":
     case "text":
       return <FileText size={15} className="text-shell-text-secondary" />;
-    case "rs":
-    case "py":
-    case "js":
-    case "ts":
-    case "tsx":
-    case "jsx":
+    case "code":
       return <FileCode size={15} className="text-green-400" />;
+    case "image":
+      return <ImageIcon size={15} className="text-purple-400" />;
+    case "notebook":
+      return <BookOpen size={15} className="text-orange-400" />;
+    case "video":
+      return <Film size={15} className="text-cyan-400" />;
+    case "audio":
+      return <Music size={15} className="text-emerald-400" />;
     default:
       return <File size={15} className="text-shell-text-muted" />;
   }

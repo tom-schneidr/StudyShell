@@ -1,13 +1,7 @@
 import type { ChatMessage, VertexModel } from "../types.ts";
+import { parseStoredVertexModel } from "./appPreferences.ts";
 
 export const CHAT_HISTORY_LIMIT = 200;
-
-const VALID_MODELS = new Set<VertexModel>([
-  "gemini-3.1-pro-preview",
-  "gemini-3-flash-preview",
-  "gemini-2.5-pro",
-  "gemini-2.5-flash",
-]);
 
 interface StoredChatMessage {
   id: string;
@@ -63,10 +57,9 @@ export function deserializeChatHistory(raw: string): ChatMessage[] {
       continue;
     }
 
-    const model =
-      typeof entry.model === "string" && VALID_MODELS.has(entry.model as VertexModel)
-        ? (entry.model as VertexModel)
-        : undefined;
+    const model = typeof entry.model === "string"
+      ? parseStoredVertexModel(entry.model, undefined as VertexModel | undefined)
+      : undefined;
 
     messages.push({
       id,

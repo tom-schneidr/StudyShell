@@ -8,9 +8,15 @@ import {
   FileType,
   File,
   FileCode,
-  Sparkles
+  Sparkles,
+  Image as ImageIcon,
+  BookOpen,
+  Film,
+  Music
 } from "lucide-react";
 import type { FileNode } from "../types";
+import { getFileType } from "../types";
+import { canSelectSource } from "../utils/sourceSelection";
 
 interface FileTreeProps {
   nodes: FileNode[];
@@ -19,27 +25,28 @@ interface FileTreeProps {
   onFileSelect: (node: FileNode) => void;
   onContextMenu: (e: React.MouseEvent, node: FileNode) => void;
   onToggleSource: (node: FileNode) => void;
+  forceExpandAll?: boolean;
   depth?: number;
 }
 
 function getFileIcon(extension: string | null) {
-  if (!extension) return <File size={15} className="text-shell-text-muted" />;
-  switch (extension.toLowerCase()) {
-    case "md":
+  switch (getFileType(extension)) {
     case "markdown":
       return <FileText size={15} className="text-blue-400" />;
     case "pdf":
       return <FileType size={15} className="text-red-400" />;
-    case "txt":
     case "text":
       return <FileText size={15} className="text-shell-text-secondary" />;
-    case "rs":
-    case "py":
-    case "js":
-    case "ts":
-    case "tsx":
-    case "jsx":
+    case "code":
       return <FileCode size={15} className="text-green-400" />;
+    case "image":
+      return <ImageIcon size={15} className="text-purple-400" />;
+    case "notebook":
+      return <BookOpen size={15} className="text-orange-400" />;
+    case "video":
+      return <Film size={15} className="text-cyan-400" />;
+    case "audio":
+      return <Music size={15} className="text-emerald-400" />;
     default:
       return <File size={15} className="text-shell-text-muted" />;
   }
@@ -52,6 +59,7 @@ function TreeNode({
   onFileSelect,
   onContextMenu,
   onToggleSource,
+  forceExpandAll = false,
   depth = 0,
 }: {
   node: FileNode;
@@ -60,19 +68,25 @@ function TreeNode({
   onFileSelect: (node: FileNode) => void;
   onContextMenu: (e: React.MouseEvent, node: FileNode) => void;
   onToggleSource: (node: FileNode) => void;
+  forceExpandAll?: boolean;
   depth: number;
 }) {
   const [isOpen, setIsOpen] = useState(depth < 1);
   const isActive = activeFilePath === node.path;
   const isSelectedSource = selectedSourcePaths.includes(node.path);
+  const isExpanded = forceExpandAll || isOpen;
+  const canUseAsSource = canSelectSource(node);
 
   const handleClick = useCallback(() => {
     if (node.is_dir) {
+      if (forceExpandAll) {
+        return;
+      }
       setIsOpen((prev) => !prev);
     } else {
       onFileSelect(node);
     }
-  }, [node, onFileSelect]);
+  }, [node, onFileSelect, forceExpandAll]);
 
   return (
     <div>
@@ -92,10 +106,10 @@ function TreeNode({
       >
         {node.is_dir ? (
           <>
-            <motion.div animate={{ rotate: isOpen ? 90 : 0 }}>
+            <motion.div animate={{ rotate: isExpanded ? 90 : 0 }}>
               <ChevronRight size={14} className="text-shell-text-muted flex-shrink-0" />
             </motion.div>
-            {isOpen ? (
+            {isExpanded ? (
               <FolderOpen size={15} className="text-shell-accent flex-shrink-0" />
             ) : (
               <Folder size={15} className="text-shell-accent/70 flex-shrink-0" />
@@ -109,7 +123,7 @@ function TreeNode({
         )}
         <span className="truncate text-[12.5px] font-medium flex-1">{node.name}</span>
         
-        {!node.is_dir && (
+        {!node.is_dir && canUseAsSource && (
             <button
                 onClick={(e) => { e.stopPropagation(); onToggleSource(node); }}
                 className={`p-1 rounded hover:bg-shell-accent/20 transition-all cursor-pointer 
@@ -122,7 +136,7 @@ function TreeNode({
       </motion.div>
 
       <AnimatePresence>
-        {node.is_dir && isOpen && node.children && (
+        {node.is_dir && isExpanded && node.children && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
@@ -138,6 +152,7 @@ function TreeNode({
                 onFileSelect={onFileSelect}
                 onContextMenu={onContextMenu}
                 onToggleSource={onToggleSource}
+                forceExpandAll={forceExpandAll}
                 depth={depth + 1}
               />
             ))}
@@ -155,6 +170,7 @@ export default function FileTree({
   onFileSelect,
   onContextMenu,
   onToggleSource,
+  forceExpandAll = false,
   depth = 0,
 }: FileTreeProps) {
   return (
@@ -168,6 +184,7 @@ export default function FileTree({
           onFileSelect={onFileSelect}
           onContextMenu={onContextMenu}
           onToggleSource={onToggleSource}
+          forceExpandAll={forceExpandAll}
           depth={depth}
         />
       ))}

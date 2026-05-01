@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import {
   ZoomOut,
@@ -17,7 +17,16 @@ import {
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import PdfInkCanvas from "./PdfInkCanvas";
 import type { PdfAnnotationData, PageAnnotations } from "../types";
-import { useFileSystem } from "../hooks/useFileSystem";
+import { useFileSystem } from "../hooks/useFilesystem";
+import { useToast } from "./ToastProvider";
+import ConfirmDialog from "./ConfirmDialog";
+import { buildExportCopyFilename } from "../utils/pathUtils";
+import {
+  DEFAULT_PDF_SCALE,
+  getNextPdfPageNumber,
+  getNextPdfScale,
+  parsePdfPageNumberInput,
+} from "../utils/pdfViewer";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
@@ -30,10 +39,13 @@ interface PdfViewerProps {
 
 export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpdateAnnotations }: PdfViewerProps) {
   const fs = useFileSystem();
+  const toast = useToast();
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState(1);
-  const [scale, setScale] = useState(0.8);
+  const [pageInputValue, setPageInputValue] = useState("1");
+  const [scale, setScale] = useState(DEFAULT_PDF_SCALE);
   const [error, setError] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   // Editor State
   const [tool, setTool] = useState<"pen" | "highlighter" | "eraser" | "select" | "text">("select");
@@ -65,10 +77,12 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
   };
 
   const clearAllAnnotations = () => {
-    const isConfirmed = window.confirm("Clear all drawings and annotations from this PDF for this session?");
-    if (isConfirmed) {
-      onUpdateAnnotations({ version: 1, pages: {} });
-    }
+    setShowClearConfirm(true);
+  };
+
+  const handleConfirmClear = () => {
+    onUpdateAnnotations({ version: 1, pages: {} });
+    setShowClearConfirm(false);
   };
 
   // The Big One: Save and Overwrite original file
@@ -79,9 +93,9 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
 
       // Overwrite the original file using Tauri FS
       await fs.writeFileBinary(filePath, pdfBytes);
-      alert("Changes saved and file overwritten successfully.");
+      toast.success("Changes saved and file overwritten successfully.");
     } catch (e) {
-      alert(`Save failed: ${e}`);
+      toast.error(`Save failed: ${e}`);
     }
   };
 
@@ -95,11 +109,11 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
 
       const link = document.createElement("a");
       link.href = url;
-      link.download = filePath.split("\\").pop()?.replace(".pdf", "_annotated.pdf") || "annotated.pdf";
+      link.download = buildExportCopyFilename(filePath);
       link.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      alert(`Export failed: ${e}`);
+      toast.error(`Export failed: ${e}`);
     }
   };
 
@@ -173,8 +187,70 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
     }));
   }, []);
 
-  const goToPrev = () => setPageNumber((p) => Math.max(1, p - 1));
-  const goToNext = () => setPageNumber((p) => Math.min(numPages, p + 1));
+  const goToPrev = useCallback(() => {
+    setPageNumber((page) => getNextPdfPageNumber(page, numPages, -1));
+  }, [numPages]);
+
+  const goToNext = useCallback(() => {
+    setPageNumber((page) => getNextPdfPageNumber(page, numPages, 1));
+  }, [numPages]);
+
+  const commitPageInput = useCallback(() => {
+    setPageNumber((currentPage) => parsePdfPageNumberInput(pageInputValue, numPages, currentPage));
+  }, [numPages, pageInputValue]);
+
+  useEffect(() => {
+    setPageInputValue(String(pageNumber));
+  }, [pageNumber]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        goToPrev();
+        return;
+      }
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        goToNext();
+        return;
+      }
+
+      if (event.key === "+" || event.key === "=") {
+        event.preventDefault();
+        setScale((currentScale) => getNextPdfScale(currentScale, 1));
+        return;
+      }
+
+      if (event.key === "-") {
+        event.preventDefault();
+        setScale((currentScale) => getNextPdfScale(currentScale, -1));
+        return;
+      }
+
+      if (event.key === "0") {
+        event.preventDefault();
+        setScale(DEFAULT_PDF_SCALE);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [goToNext, goToPrev]);
 
   return (
     <div className="h-full flex flex-col bg-shell-bg overflow-hidden relative">
@@ -187,9 +263,29 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
             <button onClick={goToPrev} disabled={pageNumber <= 1} className="p-1 rounded hover:bg-shell-surface-hover text-shell-text-muted disabled:opacity-20 flex-shrink-0 cursor-pointer">
               <ChevronLeft size={14} />
             </button>
-            <span className="text-[11px] font-medium min-w-[60px] text-center">
-              {pageNumber} / {numPages}
-            </span>
+            <div className="flex items-center gap-1 text-[11px] font-medium text-shell-text-muted">
+              <input
+                value={pageInputValue}
+                onChange={(event) => setPageInputValue(event.target.value)}
+                onBlur={commitPageInput}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    commitPageInput();
+                    return;
+                  }
+
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    setPageInputValue(String(pageNumber));
+                  }
+                }}
+                inputMode="numeric"
+                aria-label="Current page"
+                className="w-10 rounded bg-transparent px-1 py-0.5 text-center text-shell-text outline-none transition-colors focus:bg-shell-surface focus:ring-1 focus:ring-shell-accent/40"
+              />
+              <span>/ {numPages}</span>
+            </div>
             <button onClick={goToNext} disabled={pageNumber >= numPages} className="p-1 rounded hover:bg-shell-surface-hover text-shell-text-muted disabled:opacity-20 flex-shrink-0 cursor-pointer">
               <ChevronRight size={14} />
             </button>
@@ -224,17 +320,18 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
 
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
-            <button onClick={() => setScale((s) => Math.max(0.4, s - 0.2))} className="p-1.5 text-shell-text-muted hover:text-shell-text cursor-pointer"><ZoomOut size={14} /></button>
+            <button onClick={() => setScale((currentScale) => getNextPdfScale(currentScale, -1))} className="p-1.5 text-shell-text-muted hover:text-shell-text cursor-pointer" title="Zoom out (-)"><ZoomOut size={14} /></button>
             <span className="text-[10px] text-shell-text-muted w-10 text-center">{Math.round(scale * 100)}%</span>
-            <button onClick={() => setScale((s) => Math.min(3, s + 0.2))} className="p-1.5 text-shell-text-muted hover:text-shell-text cursor-pointer"><ZoomIn size={14} /></button>
+            <button onClick={() => setScale((currentScale) => getNextPdfScale(currentScale, 1))} className="p-1.5 text-shell-text-muted hover:text-shell-text cursor-pointer" title="Zoom in (+)"><ZoomIn size={14} /></button>
+            <button onClick={() => setScale(DEFAULT_PDF_SCALE)} className="rounded border border-shell-border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-shell-text-muted hover:text-shell-text hover:border-shell-accent/30 cursor-pointer" title="Reset zoom (0)">Reset</button>
           </div>
           <div className="h-4 w-px bg-shell-border" />
           
-          <button onClick={saveAndOverwrite} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-[11px] font-medium hover:bg-emerald-700 transition-colors cursor-pointer">
+          <button onClick={saveAndOverwrite} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-[11px] font-medium hover:bg-emerald-700 transition-colors cursor-pointer" title="Save annotated PDF">
             <Save size={13} /> Save Changes
           </button>
 
-          <button onClick={exportCopy} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-shell-accent text-white text-[11px] font-medium hover:bg-shell-accent-hover transition-colors cursor-pointer">
+          <button onClick={exportCopy} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-shell-accent text-white text-[11px] font-medium hover:bg-shell-accent-hover transition-colors cursor-pointer" title="Export annotated copy">
             <Download size={13} /> Export Copy
           </button>
           
@@ -289,6 +386,20 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
             </Document>
           )}
         </div>
+      </div>
+      
+      <ConfirmDialog
+        isOpen={showClearConfirm}
+        title="Clear All Annotations"
+        message="Are you sure you want to clear all drawings, highlights, and text from this PDF?"
+        detail="This will only be saved to disk if you click 'Save Changes' afterwards."
+        confirmLabel="Clear All"
+        onConfirm={handleConfirmClear}
+        onCancel={() => setShowClearConfirm(false)}
+      />
+
+      <div className="pointer-events-none absolute bottom-4 right-4 rounded-lg border border-shell-border bg-shell-surface/80 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-shell-text-muted shadow-lg">
+        Arrow Keys Navigate · +/- Zoom · 0 Reset
       </div>
     </div>
   );

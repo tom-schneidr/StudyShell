@@ -17,7 +17,7 @@ export interface ChatMessage {
 }
 
 /// Supported file types for the editor
-export type FileType = "markdown" | "text" | "pdf" | "image" | "video" | "audio" | "notebook" | "unsupported";
+export type FileType = "markdown" | "text" | "pdf" | "image" | "video" | "audio" | "notebook" | "code" | "svg" | "unsupported";
 
 /// Vertex AI model options
 export type VertexModel = "gemini-3.1-pro-preview" | "gemini-3-flash-preview" | "gemini-2.5-pro" | "gemini-2.5-flash";
@@ -125,21 +125,22 @@ export function getFileType(extension: string | null): FileType {
   const notebookExtensions = ["ipynb"];
   const markdownExtensions = ["md", "markdown", "mdx"];
 
-  const textExtensions = [
-    "txt", "text", "log", "csv", "json", "json5", "yaml", "yml", "toml", "lock", "ini", "cfg", "conf",
+  const codeExtensions = [
     "rs", "py", "js", "ts", "tsx", "jsx", "html", "css", "scss", "sass", "less", "java", "c", "cpp",
     "h", "hpp", "cs", "go", "rb", "php", "swift", "kt", "kts", "scala", "r", "m", "sql", "sh", "bash",
-    "zsh", "ps1", "bat", "cmd", "xml", "svg", "env", "gitignore", "dockerignore", "dockerfile",
-    "makefile", "cmake", "gradle", "properties", "tex", "bib", "lua", "vim", "diff", "patch", "svelte",
-    "vue", "astro", "graphql", "gql", "prisma", "yml", "yaml", "md", "markdown", "mdx"
+    "zsh", "ps1", "bat", "cmd", "xml", "lua", "vim", "diff", "patch", "svelte", "vue", "astro", "graphql", "gql", "prisma"
   ];
 
+  const textExtensions = ["txt", "text", "log", "csv", "json", "json5", "yaml", "yml", "toml", "lock", "ini", "cfg", "conf"];
+
+  if (ext === "svg") return "svg";
   if (markdownExtensions.includes(ext)) return "markdown";
   if (pdfExtensions.includes(ext)) return "pdf";
   if (imgExtensions.includes(ext)) return "image";
   if (videoExtensions.includes(ext)) return "video";
   if (audioExtensions.includes(ext)) return "audio";
   if (notebookExtensions.includes(ext)) return "notebook";
+  if (codeExtensions.includes(ext)) return "code";
   if (textExtensions.includes(ext)) return "text";
   return "unsupported";
 }
@@ -171,7 +172,7 @@ export function getMimeType(extension: string | null): string {
 
 /// Format bytes to human-readable string
 export function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
   const k = 1024;
   const sizes = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));

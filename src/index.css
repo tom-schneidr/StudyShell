@@ -36,6 +36,24 @@
   --radius-xl: 20px;
 }
 
+/* ===== Theme Variants ===== */
+.theme-light {
+  --color-shell-bg: #f8fafc;
+  --color-shell-surface: #ffffff;
+  --color-shell-surface-hover: #f1f5f9;
+  --color-shell-surface-active: #e2e8f0;
+  --color-shell-border: #e2e8f0;
+  --color-shell-border-subtle: #f1f5f9;
+  --color-shell-text: #0f172a;
+  --color-shell-text-secondary: #475569;
+  --color-shell-text-muted: #94a3b8;
+  --color-shell-accent: #3b82f6;
+  --color-shell-accent-hover: #2563eb;
+  --color-glass-bg: rgba(255, 255, 255, 0.8);
+  --color-glass-border: rgba(0, 0, 0, 0.05);
+  --color-glass-highlight: rgba(0, 0, 0, 0.02);
+}
+
 /* ===== Base Styles ===== */
 * {
   margin: 0;
@@ -60,8 +78,8 @@ body,
 
 /* ===== Scrollbar ===== */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -71,10 +89,14 @@ body,
 ::-webkit-scrollbar-thumb {
   background: var(--color-shell-border);
   border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  transition: background 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-shell-text-muted);
+  background-clip: content-box;
 }
 
 /* ===== Selection ===== */
@@ -96,6 +118,29 @@ body,
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--color-glass-border);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-layer-1 {
+  background: rgba(17, 19, 24, 0.4);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-layer-2 {
+  background: rgba(17, 19, 24, 0.88);
+  backdrop-filter: blur(32px) saturate(210%);
+  -webkit-backdrop-filter: blur(32px) saturate(210%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    inset 0 1px 1px rgba(255, 255, 255, 0.05),
+    0 10px 40px -10px rgba(0, 0, 0, 0.5);
+}
+
+.glass-active {
+  background: var(--color-shell-accent-glow);
+  border-color: var(--color-shell-accent);
 }
 
 .glass-subtle {
@@ -409,4 +454,110 @@ body,
   transform: translateY(-2px);
   box-shadow: 0 15px 50px -12px rgba(0, 0, 0, 0.7);
   border-color: var(--color-shell-accent) !important;
+}
+/* ===== AI Markdown Styles ===== */
+.ai-markdown {
+  line-height: 1.6;
+  font-size: 13.5px;
+  color: var(--color-shell-text);
+}
+
+.ai-markdown h1, 
+.ai-markdown h2, 
+.ai-markdown h3 {
+  color: var(--color-shell-text);
+  font-weight: 700;
+  margin-top: 1.25rem;
+  margin-bottom: 0.75rem;
+  letter-spacing: -0.01em;
+}
+
+.ai-markdown h1 { font-size: 1.25rem; border-bottom: 1px solid var(--color-shell-border); padding-bottom: 0.5rem; }
+.ai-markdown h2 { font-size: 1.1rem; }
+.ai-markdown h3 { font-size: 1rem; }
+
+.ai-markdown p {
+  margin-bottom: 0.75rem;
+}
+
+.ai-markdown ul, 
+.ai-markdown ol {
+  padding-left: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.ai-markdown li {
+  margin-bottom: 0.4rem;
+}
+
+.ai-markdown ul { list-style-type: disc; }
+.ai-markdown ol { list-style-type: decimal; }
+
+.ai-markdown code {
+  background: var(--color-shell-surface-hover);
+  color: var(--color-shell-accent);
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.ai-markdown pre {
+  background: var(--color-shell-surface);
+  border: 1px solid var(--color-shell-border);
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+  overflow-x: auto;
+}
+
+.ai-markdown pre code {
+  background: none;
+  padding: 0;
+  color: var(--color-shell-text-secondary);
+}
+
+.ai-markdown blockquote {
+  border-left: 3px solid var(--color-shell-accent);
+  padding-left: 1rem;
+  color: var(--color-shell-text-secondary);
+  font-style: italic;
+  margin: 1rem 0;
+}
+
+.ai-markdown strong {
+  color: var(--color-shell-text);
+  font-weight: 600;
+}
+
+.ai-markdown a {
+  color: var(--color-shell-accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--color-shell-accent-glow);
+  transition: all 0.2s ease;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+.ai-markdown a:hover {
+  background: var(--color-shell-accent-glow);
+  border-bottom-color: var(--color-shell-accent);
+  color: var(--color-shell-accent-hover);
+}
+/* ===== Flashcard 3D Core ===== */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
 }

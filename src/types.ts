@@ -17,7 +17,7 @@ export interface ChatMessage {
 }
 
 /// Supported file types for the editor
-export type FileType = "markdown" | "text" | "pdf" | "image" | "video" | "audio" | "notebook" | "code" | "svg" | "unsupported";
+export type FileType = "markdown" | "text" | "pdf" | "image" | "video" | "audio" | "notebook" | "code" | "svg" | "flashcard" | "unsupported";
 
 /// Vertex AI model options
 export type VertexModel = "gemini-3.1-pro-preview" | "gemini-3-flash-preview" | "gemini-2.5-pro" | "gemini-2.5-flash";
@@ -114,7 +114,8 @@ export interface Textbox {
 }
 
 /// Get the file type from an extension
-export function getFileType(extension: string | null): FileType {
+export function getFileType(extension: string | null, name?: string): FileType {
+  if (name && name.toLowerCase().endsWith(".flashcards.json")) return "flashcard";
   if (!extension) return "unsupported";
   const ext = extension.toLowerCase();
 

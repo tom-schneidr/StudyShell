@@ -9,13 +9,48 @@ import {
   Search,
   X,
   Clock,
-  File
+  File,
+  Pin,
+  PinOff,
+  FileText,
+  FileType,
+  Image as ImageIcon,
+  BookOpen,
+  Film,
+  Music,
+  Sparkles,
+  FileCode
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import FileTree from "./FileTree";
 import SearchPanel from "./SearchPanel";
 import type { DirectoryStats, FileNode } from "../types";
-import { formatBytes } from "../types";
+import { formatBytes, getFileType } from "../types";
+
+function getSidebarFileIcon(extension: string | null, name?: string, active = false) {
+  const type = getFileType(extension, name);
+  const activeClass = active ? "text-shell-accent" : "";
+  switch (type) {
+    case "flashcard":
+      return <Sparkles size={13} className={`text-amber-400 fill-amber-400/10 flex-shrink-0 ${activeClass}`} />;
+    case "markdown":
+      return <FileText size={13} className={`text-blue-400 flex-shrink-0 ${activeClass}`} />;
+    case "pdf":
+      return <FileType size={13} className={`text-red-400 flex-shrink-0 ${activeClass}`} />;
+    case "image":
+      return <ImageIcon size={13} className={`text-purple-400 flex-shrink-0 ${activeClass}`} />;
+    case "notebook":
+      return <BookOpen size={13} className={`text-orange-400 flex-shrink-0 ${activeClass}`} />;
+    case "video":
+      return <Film size={13} className={`text-cyan-400 flex-shrink-0 ${activeClass}`} />;
+    case "audio":
+      return <Music size={13} className={`text-emerald-400 flex-shrink-0 ${activeClass}`} />;
+    case "code":
+      return <FileCode size={13} className={`text-green-400 flex-shrink-0 ${activeClass}`} />;
+    default:
+      return <File size={13} className={`text-shell-text-muted flex-shrink-0 ${activeClass}`} />;
+  }
+}
 import { formatFilesystemError } from "../utils/filesystemErrors";
 import { filterFileTree } from "../utils/fileTreeFilter";
 import { getPathBaseName } from "../utils/pathUtils";
@@ -37,6 +72,8 @@ interface SidebarProps {
   activeFilePath: string | null;
   selectedSourcePaths: string[];
   recentFiles: FileNode[];
+  pinnedFiles: FileNode[];
+  onTogglePin: (node: FileNode) => void;
   onClearRecentFiles: () => void;
   onSelectRoot: () => void;
   onRefresh: () => void;
@@ -59,6 +96,8 @@ export default function Sidebar({
   activeFilePath,
   selectedSourcePaths,
   recentFiles,
+  pinnedFiles,
+  onTogglePin,
   onClearRecentFiles,
   onSelectRoot,
   onRefresh,
@@ -278,7 +317,50 @@ export default function Sidebar({
                 <>
                   {!hasActiveSearch && (
                     <div className="mb-4">
-                      <div className="px-5 py-2 mt-2 flex items-center justify-between gap-3 text-[10px] font-bold text-shell-text-muted uppercase tracking-widest">
+                      {/* Pinned Files Section */}
+                      {pinnedFiles.length > 0 && (
+                        <div className="mb-4">
+                          <div className="px-5 py-2 mt-2 flex items-center justify-between gap-3 text-[10px] font-bold text-shell-text-muted uppercase tracking-widest">
+                            <div className="flex items-center gap-2">
+                              <Pin size={12} className="opacity-70 text-shell-accent" />
+                              <span>Pinned Files</span>
+                            </div>
+                          </div>
+                          <div className="px-2 space-y-0.5">
+                            {pinnedFiles.map(file => {
+                              const isActive = activeFilePath === file.path;
+                              return (
+                                <div
+                                  key={`pinned-${file.path}`}
+                                  className={`w-full flex items-center justify-between rounded-lg transition-colors group/pin ${
+                                    isActive 
+                                      ? "bg-shell-accent/10 text-shell-accent" 
+                                      : "text-shell-text-secondary hover:bg-shell-surface hover:text-shell-text"
+                                  }`}
+                                >
+                                  <button
+                                    onClick={() => onFileSelect(file)}
+                                    className="flex-1 flex items-center gap-2 px-3 py-1.5 text-left truncate cursor-pointer"
+                                  >
+                                    {getSidebarFileIcon(file.extension, file.name, isActive)}
+                                    <span className="text-[12px] truncate">{file.name}</span>
+                                  </button>
+                                  <button
+                                    onClick={() => onTogglePin(file)}
+                                    className="p-1 mr-1 text-shell-text-muted hover:text-shell-accent rounded transition-colors opacity-0 group-hover/pin:opacity-100 cursor-pointer"
+                                    title="Unpin file"
+                                  >
+                                    <PinOff size={11} />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Recent Files Section */}
+                      <div className="px-5 py-2 mt-2 flex items-center justify-between gap-3 text-[10px] font-bold text-shell-text-muted uppercase tracking-widest border-t border-shell-border/40">
                         <div className="flex items-center gap-2">
                           <Clock size={12} className="opacity-70" />
                           <span>Recent Files</span>
@@ -294,20 +376,23 @@ export default function Sidebar({
                       </div>
                       {recentFiles.length > 0 ? (
                         <div className="px-2 space-y-0.5">
-                          {recentFiles.map(file => (
-                            <button
-                              key={`recent-${file.path}`}
-                              onClick={() => onFileSelect(file)}
-                              className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-left transition-colors cursor-pointer ${
-                                activeFilePath === file.path 
-                                  ? "bg-shell-accent/10 text-shell-accent" 
-                                  : "text-shell-text-secondary hover:bg-shell-surface hover:text-shell-text"
-                              }`}
-                            >
-                              <File size={13} className={activeFilePath === file.path ? "text-shell-accent" : "text-shell-text-muted"} />
-                              <span className="text-[12px] truncate">{file.name}</span>
-                            </button>
-                          ))}
+                          {recentFiles.map(file => {
+                            const isActive = activeFilePath === file.path;
+                            return (
+                              <button
+                                key={`recent-${file.path}`}
+                                onClick={() => onFileSelect(file)}
+                                className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-left transition-colors cursor-pointer ${
+                                  isActive 
+                                    ? "bg-shell-accent/10 text-shell-accent" 
+                                    : "text-shell-text-secondary hover:bg-shell-surface hover:text-shell-text"
+                                }`}
+                              >
+                                {getSidebarFileIcon(file.extension, file.name, isActive)}
+                                <span className="text-[12px] truncate">{file.name}</span>
+                              </button>
+                            );
+                          })}
                         </div>
                       ) : (
                         <div className="mx-4 rounded-xl border border-dashed border-shell-border bg-shell-bg/40 px-4 py-3 text-[11px] leading-relaxed text-shell-text-muted">

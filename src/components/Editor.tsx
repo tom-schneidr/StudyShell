@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, FileText, FileType, File, GraduationCap, Loader2, Image as ImageIcon, BookOpen, Film, Music } from "lucide-react";
+import { X, FileText, FileType, File, GraduationCap, Loader2, Image as ImageIcon, BookOpen, Film, Music, Sparkles } from "lucide-react";
 import { Splitpanes, Pane } from "splitpanes";
 import "splitpanes/dist/splitpanes.css";
 import type { FileNode, NotebookData, PdfAnnotationData } from "../types";
@@ -12,6 +12,7 @@ const ImageViewer = lazy(() => import("./ImageViewer"));
 const NotebookViewer = lazy(() => import("./NotebookViewer"));
 const MediaViewer = lazy(() => import("./MediaViewer"));
 const CodeEditor = lazy(() => import("./CodeEditor"));
+const FlashcardStudio = lazy(() => import("./FlashcardStudio"));
 
 interface EditorProps {
   activeFile: FileNode | null;
@@ -34,6 +35,8 @@ interface EditorProps {
   secondBinaryLoading?: boolean;
   secondNotebookData?: NotebookData | null;
   onCloseSecondPane?: () => void;
+  fileTree?: FileNode[];
+  ai?: any;
 }
 
 export default function Editor({
@@ -57,13 +60,16 @@ export default function Editor({
   secondBinaryLoading,
   secondNotebookData,
   onCloseSecondPane,
+  fileTree = [],
+  ai,
 }: EditorProps) {
   if (!activeFile) {
     return <EmptyState />;
   }
 
-  const fileTypeIcon = (ext: string | null | undefined) => {
-    switch (getFileType(ext ?? null)) {
+  const fileTypeIcon = (ext: string | null | undefined, name?: string) => {
+    switch (getFileType(ext ?? null, name)) {
+      case "flashcard": return <Sparkles size={13} className="text-amber-400 flex-shrink-0" />;
       case "pdf": return <FileType size={13} className="text-red-400 flex-shrink-0" />;
       case "markdown": return <FileText size={13} className="text-blue-400 flex-shrink-0" />;
       case "image": return <ImageIcon size={13} className="text-purple-400 flex-shrink-0" />;
@@ -81,9 +87,25 @@ export default function Editor({
     notebook: NotebookData | null,
     isSecondPane = false
   ) => {
-    const type = getFileType(node.extension);
+    const type = getFileType(node.extension, node.name);
     
     switch (type) {
+      case "flashcard":
+        return content !== null ? (
+          <Suspense fallback={<ContentLoading label="Loading Flashcard Studio..." />}>
+            <FlashcardStudio
+              content={content}
+              filePath={node.path}
+              onSave={(val) => onSaveFile(node.path, val)}
+              onFileSelect={onSelectTab}
+              fileTree={fileTree}
+              ai={ai}
+            />
+          </Suspense>
+        ) : (
+          <div className="flex items-center justify-center h-full text-shell-text-muted">Loading Flashcard Studio...</div>
+        );
+
       case "pdf":
         return binary ? (
           <Suspense fallback={<ContentLoading label="Loading PDF..." />}>
@@ -205,7 +227,7 @@ export default function Editor({
                     <div className="h-full relative overflow-hidden border-l border-shell-border bg-shell-surface/20">
                         <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-1.5 bg-shell-bg/80 border-b border-shell-border text-[11px] font-bold text-shell-text-secondary uppercase tracking-wider backdrop-blur-md">
                             <div className="flex items-center gap-2 truncate">
-                                {fileTypeIcon(secondActiveFile.extension)}
+                                {fileTypeIcon(secondActiveFile.extension, secondActiveFile.name)}
                                 <span className="truncate">{secondActiveFile.name} (Side Pane)</span>
                             </div>
                             <button onClick={onCloseSecondPane} className="p-1 hover:bg-shell-surface-hover rounded transition-colors text-shell-text-muted hover:text-shell-text">
@@ -253,7 +275,7 @@ export default function Editor({
                 isActive ? "bg-shell-surface text-shell-text" : "bg-shell-bg text-shell-text-muted hover:bg-shell-surface-hover hover:text-shell-text"
               }`}
             >
-              {fileTypeIcon(tab.extension)}
+              {fileTypeIcon(tab.extension, tab.name)}
               <span className="text-[12.5px] truncate select-none">{tab.name}</span>
               <div
                 onClick={(e) => onCloseTab(tab.path, e)}

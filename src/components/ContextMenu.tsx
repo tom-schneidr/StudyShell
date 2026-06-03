@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FilePlus2, FileText, BookOpen, FolderPlus, Trash2, Pencil, Copy, ArrowRight } from "lucide-react";
+import { FilePlus2, FileText, BookOpen, FolderPlus, Trash2, Pencil, Copy, ArrowRight, Pin, PinOff } from "lucide-react";
 import type { FileNode } from "../types";
 import { clampFloatingPosition } from "../utils/floatingPosition";
 
@@ -20,6 +20,8 @@ interface ContextMenuProps {
   onCreateStudyGuide: (node: FileNode) => void;
   onOpenInSidePane?: (node: FileNode) => void;
   isSplit?: boolean;
+  pinnedFiles?: FileNode[];
+  onTogglePin?: (node: FileNode) => void;
 }
 
 export default function ContextMenu({
@@ -38,8 +40,11 @@ export default function ContextMenu({
   onCreateStudyGuide,
   onOpenInSidePane,
   isSplit,
+  pinnedFiles,
+  onTogglePin,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const isPinned = node ? (pinnedFiles?.some((f) => f.path === node.path) ?? false) : false;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -138,6 +143,14 @@ export default function ContextMenu({
       label: "Open in Side Pane",
       onClick: () => {
         onOpenInSidePane(node);
+        onClose();
+      },
+    }] : []),
+    ...(!node.is_dir && onTogglePin ? [{
+      icon: isPinned ? <PinOff size={14} /> : <Pin size={14} />,
+      label: isPinned ? "Unpin File" : "Pin File",
+      onClick: () => {
+        onTogglePin(node);
         onClose();
       },
     }] : []),

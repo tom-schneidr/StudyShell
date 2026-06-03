@@ -1,12 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Play, Pause, RotateCcw, Coffee, BookOpen } from "lucide-react";
+import { Play, Pause, RotateCcw } from "lucide-react";
 import { useToast } from "./ToastProvider";
 import {
   createDefaultStudyTimerState,
   formatStudyTimerTime,
   getNextTimerMode,
-  getStudyTimerProgress,
   getTimerDuration,
   readStudyTimerState,
   requestDesktopNotificationPermission,
@@ -29,11 +27,11 @@ export default function StudyTimer() {
       updatedAt: Date.now(),
     });
     sendStudyTimerNotification(completedMode);
-    
+
     if (nextMode === "work") {
-        toast.info("Break finished! Time to focus.");
+      toast.info("Break finished. Back to focus.");
     } else {
-        toast.success("Work session complete! Take a well-deserved break.");
+      toast.success("Focus session complete. Take a break.");
     }
   }, [mode, toast]);
 
@@ -82,71 +80,28 @@ export default function StudyTimer() {
     });
   };
 
-  const progress = getStudyTimerProgress(mode, seconds);
-
   return (
-    <div className="flex items-center gap-4 px-3 py-1.5 rounded-2xl bg-shell-surface/50 border border-shell-border shadow-inner group">
-      <div className="flex items-center gap-2.5">
-        <div className="relative w-7 h-7 flex items-center justify-center">
-            {/* Circular Progress */}
-            <svg className="absolute inset-0 w-full h-full -rotate-90">
-                <circle 
-                  cx="14" cy="14" r="12" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  strokeWidth="2" 
-                  className="text-shell-border" 
-                />
-                <motion.circle 
-                  cx="14" cy="14" r="12" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  strokeWidth="2" 
-                  strokeDasharray="75.4" // 2 * PI * 12
-                  animate={{ strokeDashoffset: 75.4 * (1 - progress) }}
-                  className={mode === "work" ? "text-shell-accent" : "text-emerald-400"}
-                />
-            </svg>
-            <AnimatePresence mode="wait">
-                <motion.div
-                  key={mode}
-                  initial={{ opacity: 0, scale: 0.5 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 1.5 }}
-                >
-                    {mode === "work" ? <BookOpen size={12} className="text-shell-accent" /> : <Coffee size={12} className="text-emerald-400" />}
-                </motion.div>
-            </AnimatePresence>
-        </div>
-
-        <div className="flex flex-col min-w-[45px]">
-            <span className="text-[13px] font-mono font-bold text-shell-text tabular-nums leading-none">
-                {formatStudyTimerTime(seconds)}
-            </span>
-            <span className="text-[8px] font-black uppercase tracking-widest text-shell-text-muted mt-0.5 leading-none">
-                {mode}
-            </span>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={toggleTimer}
-          className={`p-1.5 rounded-lg transition-all ${
-            isActive ? "bg-shell-surface-active text-shell-text" : "hover:bg-shell-accent/10 hover:text-shell-accent"
-          }`}
-          title={isActive ? "Pause" : "Start"}
-        >
-          {isActive ? <Pause size={14} /> : <Play size={14} className="ml-0.5" />}
-        </button>
-        <button
-          onClick={resetTimer}
-          className="p-1.5 rounded-lg hover:bg-shell-surface-hover hover:text-shell-text text-shell-text-muted transition-all"
-          title="Reset"
-        >
-          <RotateCcw size={14} />
-        </button>
-      </div>
+    <div className="flex items-center gap-0.5 text-[12px] text-shell-text-secondary">
+      <span className="font-mono tabular-nums text-shell-text min-w-[42px]">
+        {formatStudyTimerTime(seconds)}
+      </span>
+      <span className="text-[10px] text-shell-text-muted capitalize">{mode}</span>
+      <button
+        type="button"
+        onClick={toggleTimer}
+        className="p-1.5 rounded-md text-shell-text-muted hover:text-shell-text hover:bg-shell-surface-hover transition-colors cursor-pointer"
+        title={isActive ? "Pause" : "Start"}
+      >
+        {isActive ? <Pause size={14} /> : <Play size={14} />}
+      </button>
+      <button
+        type="button"
+        onClick={resetTimer}
+        className="p-1.5 rounded-md text-shell-text-muted hover:text-shell-text hover:bg-shell-surface-hover transition-colors cursor-pointer"
+        title="Reset"
+      >
+        <RotateCcw size={14} />
+      </button>
     </div>
   );
 }

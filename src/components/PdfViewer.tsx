@@ -325,7 +325,7 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
             <button onClick={() => setScale((currentScale) => getNextPdfScale(currentScale, -1))} className="p-1.5 text-shell-text-muted hover:text-shell-text cursor-pointer" title="Zoom out (-)"><ZoomOut size={14} /></button>
             <span className="text-[10px] text-shell-text-muted w-10 text-center">{Math.round(scale * 100)}%</span>
             <button onClick={() => setScale((currentScale) => getNextPdfScale(currentScale, 1))} className="p-1.5 text-shell-text-muted hover:text-shell-text cursor-pointer" title="Zoom in (+)"><ZoomIn size={14} /></button>
-            <button onClick={() => setScale(DEFAULT_PDF_SCALE)} className="rounded border border-shell-border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-shell-text-muted hover:text-shell-text hover:border-shell-accent/30 cursor-pointer" title="Reset zoom (0)">Reset</button>
+            <button onClick={() => setScale(DEFAULT_PDF_SCALE)} className="rounded border border-shell-border px-2 py-1 text-[11px] text-shell-text-muted hover:text-shell-text cursor-pointer" title="Reset zoom (0)">100%</button>
           </div>
           <div className="h-4 w-px bg-shell-border" />
           
@@ -400,9 +400,6 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
         onCancel={() => setShowClearConfirm(false)}
       />
 
-      <div className="pointer-events-none absolute bottom-4 right-4 rounded-lg border border-shell-border bg-shell-surface/80 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-shell-text-muted shadow-lg">
-        Arrow Keys Navigate · +/- Zoom · 0 Reset
-      </div>
     </div>
   );
 }

@@ -1,60 +1,22 @@
-import { motion } from "framer-motion";
 import {
-  FilePlus2,
-  FolderSearch,
-  FolderPlus,
-  RefreshCw,
-  Loader2,
   ChevronLeft,
+  FilePlus2,
+  FolderPlus,
+  FolderSearch,
+  Loader2,
+  RefreshCw,
   Search,
   X,
-  Clock,
-  File,
-  Pin,
-  PinOff,
-  FileText,
-  FileType,
-  Image as ImageIcon,
-  BookOpen,
-  Film,
-  Music,
-  Sparkles,
-  FileCode
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import FileTree from "./FileTree";
 import SearchPanel from "./SearchPanel";
 import type { DirectoryStats, FileNode, SearchResult } from "../types";
-import { formatBytes, getFileType } from "../types";
-
-function getSidebarFileIcon(extension: string | null, name?: string, active = false) {
-  const type = getFileType(extension, name);
-  const activeClass = active ? "text-shell-accent" : "";
-  switch (type) {
-    case "flashcard":
-      return <Sparkles size={13} className={`text-amber-400 fill-amber-400/10 flex-shrink-0 ${activeClass}`} />;
-    case "markdown":
-      return <FileText size={13} className={`text-blue-400 flex-shrink-0 ${activeClass}`} />;
-    case "pdf":
-      return <FileType size={13} className={`text-red-400 flex-shrink-0 ${activeClass}`} />;
-    case "image":
-      return <ImageIcon size={13} className={`text-purple-400 flex-shrink-0 ${activeClass}`} />;
-    case "notebook":
-      return <BookOpen size={13} className={`text-orange-400 flex-shrink-0 ${activeClass}`} />;
-    case "video":
-      return <Film size={13} className={`text-cyan-400 flex-shrink-0 ${activeClass}`} />;
-    case "audio":
-      return <Music size={13} className={`text-emerald-400 flex-shrink-0 ${activeClass}`} />;
-    case "code":
-      return <FileCode size={13} className={`text-green-400 flex-shrink-0 ${activeClass}`} />;
-    default:
-      return <File size={13} className={`text-shell-text-muted flex-shrink-0 ${activeClass}`} />;
-  }
-}
+import { formatBytes } from "../types";
 import { formatFilesystemError } from "../utils/filesystemErrors";
 import { filterFileTree } from "../utils/fileTreeFilter";
+import { FileTypeIcon } from "../utils/fileIcons";
 import { getPathBaseName } from "../utils/pathUtils";
-import { APP_VERSION } from "../utils/appPreferences";
 import {
   DEFAULT_SIDEBAR_TAB,
   formatSearchTabBadge,
@@ -86,6 +48,30 @@ interface SidebarProps {
   onSearch: (query: string) => Promise<SearchResult[]>;
 }
 
+function QuickFileRow({
+  file,
+  isActive,
+  onSelect,
+}: {
+  file: FileNode;
+  isActive: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      onClick={onSelect}
+      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-[12px] transition-colors cursor-pointer ${
+        isActive
+          ? "bg-shell-accent/10 text-shell-accent"
+          : "text-shell-text-secondary hover:bg-shell-surface-hover hover:text-shell-text"
+      }`}
+    >
+      <FileTypeIcon extension={file.extension} name={file.name} size={13} active={isActive} />
+      <span className="truncate">{file.name}</span>
+    </button>
+  );
+}
+
 export default function Sidebar({
   rootPath,
   fileTree,
@@ -97,7 +83,6 @@ export default function Sidebar({
   selectedSourcePaths,
   recentFiles,
   pinnedFiles,
-  onTogglePin,
   onClearRecentFiles,
   onSelectRoot,
   onRefresh,
@@ -122,11 +107,23 @@ export default function Sidebar({
   const rootName = rootPath ? getPathBaseName(rootPath) : null;
   const filteredTree = useMemo(
     () => filterFileTree(fileTree, searchQuery),
-    [fileTree, searchQuery]
+    [fileTree, searchQuery],
   );
   const hasActiveSearch = searchQuery.trim().length > 0;
   const formattedError = formatFilesystemError(error);
   const searchBadge = formatSearchTabBadge(searchResultCount);
+
+  const quickAccessFiles = useMemo(() => {
+    const seen = new Set<string>();
+    const items: FileNode[] = [];
+    for (const file of [...pinnedFiles, ...recentFiles]) {
+      if (seen.has(file.path)) continue;
+      seen.add(file.path);
+      items.push(file);
+      if (items.length >= 8) break;
+    }
+    return items;
+  }, [pinnedFiles, recentFiles]);
 
   useEffect(() => {
     try {
@@ -150,327 +147,152 @@ export default function Sidebar({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [activeTab, hasActiveSearch]);
 
+  const statsLine =
+    rootPath && directoryStats
+      ? `${directoryStats.file_count} files · ${formatBytes(directoryStats.total_size)}`
+      : statsLoading
+        ? "Loading…"
+        : null;
+
   return (
-    <div className="h-full flex flex-col bg-shell-surface border-r border-shell-border overflow-hidden">
-      {/* Header - Modern Academic Spacing */}
-      <div className="flex-shrink-0 px-5 pt-8 pb-4 border-b border-shell-border">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-shell-accent to-purple-500 flex items-center justify-center shadow-lg shadow-shell-accent/20">
-              <span className="text-white text-[12px] font-black">S</span>
-            </div>
-            <h1 className="text-[15px] font-bold text-shell-text tracking-tight uppercase">
-              Explorer
-            </h1>
-          </div>
-          <div className="flex items-center gap-1">
-            {rootPath && (
-                <button
-                onClick={onCreateRootFolder}
-                className="p-1.5 rounded-md text-shell-text-muted hover:text-shell-text
-                    hover:bg-shell-surface-hover transition-colors duration-150 cursor-pointer"
-                title="New folder in root"
-                >
+    <div className="h-full flex flex-col bg-shell-surface overflow-hidden">
+      <div className="flex-shrink-0 px-3 py-2.5 border-b border-shell-border">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onSelectRoot}
+            className="flex-1 min-w-0 text-left text-[13px] font-medium text-shell-text truncate hover:text-shell-accent transition-colors cursor-pointer"
+            title={rootPath ?? "Select workspace folder"}
+          >
+            {rootName ?? "Open folder…"}
+          </button>
+          {rootPath && (
+            <>
+              <IconBtn title="New folder" onClick={onCreateRootFolder}>
                 <FolderPlus size={14} />
-                </button>
-            )}
-            {rootPath && (
-                <button
-                onClick={onCreateRootNote}
-                className="p-1.5 rounded-md text-shell-text-muted hover:text-shell-text
-                    hover:bg-shell-surface-hover transition-colors duration-150 cursor-pointer"
-                title="New note in root"
-                >
+              </IconBtn>
+              <IconBtn title="New note" onClick={onCreateRootNote}>
                 <FilePlus2 size={14} />
-                </button>
-            )}
-            {rootPath && (
-                <button
-                onClick={onRefresh}
-                className="p-1.5 rounded-md text-shell-text-muted hover:text-shell-text
-                    hover:bg-shell-surface-hover transition-colors duration-150 cursor-pointer"
-                title="Refresh file tree"
-                >
+              </IconBtn>
+              <IconBtn title="Refresh" onClick={onRefresh}>
                 <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-                </button>
-            )}
-            <button
-                onClick={onCollapse}
-                className="p-1.5 rounded-md text-shell-text-muted hover:text-shell-text
-                hover:bg-shell-surface-hover transition-colors duration-150 cursor-pointer"
-                title="Collapse Sidebar"
-            >
-                <ChevronLeft size={16} />
-            </button>
-          </div>
+              </IconBtn>
+            </>
+          )}
+          <IconBtn title="Hide sidebar" onClick={onCollapse}>
+            <ChevronLeft size={14} />
+          </IconBtn>
         </div>
 
-        <motion.button
-          onClick={onSelectRoot}
-          className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl
-            text-[12.5px] font-semibold transition-all duration-200 cursor-pointer
-            ${!rootPath 
-              ? "bg-shell-accent text-white shadow-lg shadow-shell-accent/25 border-none animate-pulse-subtle" 
-              : "bg-shell-accent/10 text-shell-accent border border-shell-accent/20 hover:bg-shell-accent/20 hover:border-shell-accent/30 shadow-sm"}`}
-          whileTap={{ scale: 0.97 }}
-        >
-          <FolderSearch size={16} />
-          {rootPath ? "Change Folder" : "Select Root"}
-        </motion.button>
-      </div>
-
-      {/* Modern Tab Toggle */}
-      <div className="flex-shrink-0 px-4 py-2 border-b border-shell-border-subtle bg-shell-surface-hover/20">
-        <div className="flex bg-shell-bg/50 p-1 rounded-xl border border-shell-border">
-          <button
-            onClick={() => setActiveTab("explorer")}
-            className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all ${
-              activeTab === "explorer"
-                ? "bg-shell-surface text-shell-accent shadow-sm"
-                : "text-shell-text-muted hover:text-shell-text"
-            }`}
-          >
-            <FolderSearch size={12} />
-            Explorer
-          </button>
-          <button
-            onClick={() => setActiveTab("search")}
-            className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all ${
-              activeTab === "search"
-                ? "bg-shell-surface text-shell-accent shadow-sm"
-                : "text-shell-text-muted hover:text-shell-text"
-            }`}
-          >
-            <Search size={12} />
+        <div className="mt-2 flex border-b border-shell-border">
+          <TabButton active={activeTab === "explorer"} onClick={() => setActiveTab("explorer")}>
+            Files
+          </TabButton>
+          <TabButton active={activeTab === "search"} onClick={() => setActiveTab("search")}>
             Search
-            {searchBadge && (
-              <span className={`min-w-5 rounded-full px-1.5 py-0.5 text-[9px] font-black tracking-normal ${
-                activeTab === "search"
-                  ? "bg-shell-accent/15 text-shell-accent"
-                  : "bg-shell-surface text-shell-text-muted border border-shell-border"
-              }`}>
-                {searchBadge}
-              </span>
-            )}
-          </button>
+            {searchBadge ? <span className="text-[10px] text-shell-text-muted">{searchBadge}</span> : null}
+          </TabButton>
         </div>
       </div>
 
       <div className={activeTab === "explorer" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
-          {/* Root info */}
-          {rootPath && (
-            <div className="flex-shrink-0 px-4 py-2 border-b border-shell-border-subtle">
-              <div className="flex items-center justify-between mb-1">
-                 <p className="text-[11px] text-shell-text-muted uppercase tracking-wider font-semibold">
-                    Workspace
-                </p>
-                <div className="flex items-center gap-1.5">
-                   <StatPill label="F" value={statsLoading && !directoryStats ? ".." : String(directoryStats?.file_count ?? 0)} />
-                   <StatPill label="S" value={statsLoading && !directoryStats ? ".." : formatBytes(directoryStats?.total_size ?? 0)} />
-                </div>
-              </div>
-              <p className="text-[12px] text-shell-text-secondary truncate font-medium" title={rootPath}>
-                {rootName}
+        {rootPath && (
+          <div className="flex-shrink-0 px-3 py-2 border-b border-shell-border-subtle space-y-2">
+            {statsLine && (
+              <p className="text-[11px] text-shell-text-muted truncate" title={rootPath}>
+                {statsLine}
               </p>
-              
-              <div className="relative mt-3">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-shell-text-muted" />
-                <input
-                  ref={filterInputRef}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Filter explorer..."
-                  className="w-full rounded-lg border border-shell-border bg-shell-bg pl-9 pr-9 py-2 text-[12px] text-shell-text placeholder:text-shell-text-muted outline-none transition-colors focus:border-shell-accent/40"
-                />
-                {hasActiveSearch && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-shell-text-muted hover:text-shell-text hover:bg-shell-surface-hover transition-colors cursor-pointer"
-                    title="Clear filter"
-                  >
-                    <X size={12} />
-                  </button>
-                )}
-              </div>
-
-              {formattedError && (
-                <div className="mt-3 rounded-lg border border-shell-error/20 bg-shell-error/10 px-3 py-2">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-shell-error/80">
-                    Explorer Error
-                  </p>
-                  <p className="mt-1 text-[11px] leading-relaxed text-shell-text-secondary">
-                    {formattedError}
-                  </p>
-                </div>
+            )}
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-shell-text-muted" />
+              <input
+                ref={filterInputRef}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Filter files…"
+                className="w-full rounded-md border border-shell-border bg-shell-bg pl-8 pr-8 py-1.5 text-[12px] text-shell-text placeholder:text-shell-text-muted outline-none focus:border-shell-accent/50"
+              />
+              {hasActiveSearch && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-shell-text-muted hover:text-shell-text cursor-pointer"
+                  title="Clear filter"
+                >
+                  <X size={12} />
+                </button>
               )}
             </div>
-          )}
-
-          {/* File Tree */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden">
-            {loading && !fileTree.length ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 size={20} className="animate-spin text-shell-accent" />
-              </div>
-            ) : rootPath ? (
-              filteredTree.length > 0 ? (
-                <>
-                  {!hasActiveSearch && (
-                    <div className="mb-4">
-                      {/* Pinned Files Section */}
-                      {pinnedFiles.length > 0 && (
-                        <div className="mb-4">
-                          <div className="px-5 py-2 mt-2 flex items-center justify-between gap-3 text-[10px] font-bold text-shell-text-muted uppercase tracking-widest">
-                            <div className="flex items-center gap-2">
-                              <Pin size={12} className="opacity-70 text-shell-accent" />
-                              <span>Pinned Files</span>
-                            </div>
-                          </div>
-                          <div className="px-2 space-y-0.5">
-                            {pinnedFiles.map(file => {
-                              const isActive = activeFilePath === file.path;
-                              return (
-                                <div
-                                  key={`pinned-${file.path}`}
-                                  className={`w-full flex items-center justify-between rounded-lg transition-colors group/pin ${
-                                    isActive 
-                                      ? "bg-shell-accent/10 text-shell-accent" 
-                                      : "text-shell-text-secondary hover:bg-shell-surface hover:text-shell-text"
-                                  }`}
-                                >
-                                  <button
-                                    onClick={() => onFileSelect(file)}
-                                    className="flex-1 flex items-center gap-2 px-3 py-1.5 text-left truncate cursor-pointer"
-                                  >
-                                    {getSidebarFileIcon(file.extension, file.name, isActive)}
-                                    <span className="text-[12px] truncate">{file.name}</span>
-                                  </button>
-                                  <button
-                                    onClick={() => onTogglePin(file)}
-                                    className="p-1 mr-1 text-shell-text-muted hover:text-shell-accent rounded transition-colors opacity-0 group-hover/pin:opacity-100 cursor-pointer"
-                                    title="Unpin file"
-                                  >
-                                    <PinOff size={11} />
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Recent Files Section */}
-                      <div className="px-5 py-2 mt-2 flex items-center justify-between gap-3 text-[10px] font-bold text-shell-text-muted uppercase tracking-widest border-t border-shell-border/40">
-                        <div className="flex items-center gap-2">
-                          <Clock size={12} className="opacity-70" />
-                          <span>Recent Files</span>
-                        </div>
-                        {recentFiles.length > 0 && (
-                          <button
-                            onClick={onClearRecentFiles}
-                            className="text-[10px] font-bold uppercase tracking-[0.18em] text-shell-text-muted hover:text-shell-accent transition-colors cursor-pointer"
-                          >
-                            Clear
-                          </button>
-                        )}
-                      </div>
-                      {recentFiles.length > 0 ? (
-                        <div className="px-2 space-y-0.5">
-                          {recentFiles.map(file => {
-                            const isActive = activeFilePath === file.path;
-                            return (
-                              <button
-                                key={`recent-${file.path}`}
-                                onClick={() => onFileSelect(file)}
-                                className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-left transition-colors cursor-pointer ${
-                                  isActive 
-                                    ? "bg-shell-accent/10 text-shell-accent" 
-                                    : "text-shell-text-secondary hover:bg-shell-surface hover:text-shell-text"
-                                }`}
-                              >
-                                {getSidebarFileIcon(file.extension, file.name, isActive)}
-                                <span className="text-[12px] truncate">{file.name}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div className="mx-4 rounded-xl border border-dashed border-shell-border bg-shell-bg/40 px-4 py-3 text-[11px] leading-relaxed text-shell-text-muted">
-                          Open files in this workspace and they will appear here for quick access.
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {!hasActiveSearch && (
-                    <div className="px-5 py-2 mt-2 flex items-center gap-2 text-[10px] font-bold text-shell-text-muted uppercase tracking-widest border-t border-shell-border/40">
-                      <span>Files</span>
-                    </div>
-                  )}
-                  <FileTree
-                    nodes={filteredTree}
-                    activeFilePath={activeFilePath}
-                    selectedSourcePaths={selectedSourcePaths}
-                    onFileSelect={onFileSelect}
-                    onContextMenu={onContextMenu}
-                    onToggleSource={onToggleSource}
-                    forceExpandAll={hasActiveSearch}
-                  />
-                </>
-              ) : (
-                <div className="px-4 py-12 text-center">
-                  <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-shell-surface-hover flex items-center justify-center">
-                    <Search size={22} className="text-shell-text-muted" />
-                  </div>
-                  <p className="text-[12.5px] text-shell-text-muted leading-relaxed">
-                    No files matched "{searchQuery.trim()}".
-                  </p>
-                </div>
-              )
-            ) : (
-              <div className="px-4 py-10 text-center">
-                <motion.div
-                  animate={{ opacity: [0.6, 1, 0.6], scale: [0.98, 1.02, 0.98] }}
-                  transition={{ ease: "easeInOut", duration: 3, repeat: Infinity }}
-                  className="w-12 h-12 mx-auto mb-4 rounded-xl bg-gradient-to-br from-shell-accent/10 to-purple-500/10 border border-shell-border flex items-center justify-center shadow-inner"
-                >
-                  <FolderSearch size={24} className="text-shell-accent/60" />
-                </motion.div>
-                <h3 className="text-[13px] font-semibold text-shell-text mb-2">Open a workspace</h3>
-                <p className="text-[12px] text-shell-text-muted leading-relaxed max-w-[220px] mx-auto mb-5">
-                  Choose a folder on your machine to browse notes, PDFs, and study materials.
-                </p>
-                <button
-                  type="button"
-                  onClick={onSelectRoot}
-                  className="inline-flex items-center justify-center rounded-lg bg-shell-accent px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-shell-accent-hover cursor-pointer mb-6"
-                >
-                  Open workspace
-                </button>
-                <ul className="text-left text-[11px] text-shell-text-secondary space-y-2 max-w-[220px] mx-auto mb-5">
-                  <li className="flex items-start gap-2">
-                    <span className="text-shell-accent mt-0.5">•</span>
-                    <span>Browse and edit Markdown, code, and notebooks</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-shell-accent mt-0.5">•</span>
-                    <span>Annotate PDFs and preview media locally</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-shell-accent mt-0.5">•</span>
-                    <span>AI chat via local FreeRouter (optional)</span>
-                  </li>
-                </ul>
-                <a
-                  href="https://github.com/tom-schneidr/FreeRouter#readme"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-[11px] text-shell-accent hover:text-shell-accent-hover underline underline-offset-2"
-                >
-                  FreeRouter setup guide
-                </a>
-              </div>
+            {formattedError && (
+              <p className="text-[11px] text-shell-error leading-relaxed">{formattedError}</p>
             )}
           </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          {loading && !fileTree.length ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 size={18} className="animate-spin text-shell-text-muted" />
+            </div>
+          ) : rootPath ? (
+            filteredTree.length > 0 ? (
+              <>
+                {!hasActiveSearch && quickAccessFiles.length > 0 && (
+                  <div className="px-2 py-2 border-b border-shell-border-subtle">
+                    <div className="flex items-center justify-between px-1 mb-1">
+                      <span className="text-[11px] text-shell-text-muted">Recent</span>
+                      {recentFiles.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={onClearRecentFiles}
+                          className="text-[11px] text-shell-text-muted hover:text-shell-text cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-0.5">
+                      {quickAccessFiles.map((file) => (
+                        <QuickFileRow
+                          key={file.path}
+                          file={file}
+                          isActive={activeFilePath === file.path}
+                          onSelect={() => onFileSelect(file)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <FileTree
+                  nodes={filteredTree}
+                  activeFilePath={activeFilePath}
+                  selectedSourcePaths={selectedSourcePaths}
+                  onFileSelect={onFileSelect}
+                  onContextMenu={onContextMenu}
+                  onToggleSource={onToggleSource}
+                  forceExpandAll={hasActiveSearch}
+                />
+              </>
+            ) : (
+              <p className="px-4 py-8 text-center text-[12px] text-shell-text-muted">
+                No matches for &ldquo;{searchQuery.trim()}&rdquo;
+              </p>
+            )
+          ) : (
+            <div className="px-4 py-12 text-center">
+              <FolderSearch size={28} className="mx-auto mb-3 text-shell-text-muted" />
+              <p className="text-[13px] text-shell-text-secondary mb-4">
+                Choose a folder to browse your study materials.
+              </p>
+              <button
+                type="button"
+                onClick={onSelectRoot}
+                className="rounded-md bg-shell-accent px-3 py-1.5 text-[12px] font-medium text-white hover:bg-shell-accent-hover cursor-pointer"
+              >
+                Open folder
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className={activeTab === "search" ? "flex-1 overflow-hidden" : "hidden"}>
@@ -482,22 +304,51 @@ export default function Sidebar({
           onResultsChange={setSearchResultCount}
         />
       </div>
-
-      {/* Footer */}
-      <div className="flex-shrink-0 px-4 py-2 border-t border-shell-border">
-        <p className="text-[10px] text-shell-text-muted text-center">
-          StudyShell v{APP_VERSION}
-        </p>
-      </div>
     </div>
   );
 }
 
-function StatPill({ label, value }: { label: string; value: string }) {
+function IconBtn({
+  title,
+  onClick,
+  children,
+}: {
+  title: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="rounded-lg border border-shell-border bg-shell-surface-hover/50 px-2 py-1.5">
-      <p className="text-shell-text-muted uppercase tracking-wider">{label}</p>
-      <p className="mt-0.5 truncate text-[11px] font-semibold text-shell-text">{value}</p>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className="p-1.5 rounded-md text-shell-text-muted hover:text-shell-text hover:bg-shell-surface-hover transition-colors cursor-pointer"
+    >
+      {children}
+    </button>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-1 flex items-center justify-center gap-1.5 pb-2 text-[12px] font-medium border-b-2 transition-colors cursor-pointer ${
+        active
+          ? "border-shell-accent text-shell-text"
+          : "border-transparent text-shell-text-muted hover:text-shell-text"
+      }`}
+    >
+      {children}
+    </button>
   );
 }

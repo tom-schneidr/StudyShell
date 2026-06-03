@@ -158,34 +158,6 @@ body,
   );
 }
 
-/* ===== Animated Background Glow ===== */
-.bg-glow {
-  position: fixed;
-  top: -200px;
-  left: -200px;
-  width: 500px;
-  height: 500px;
-  background: radial-gradient(
-    circle,
-    rgba(108, 138, 255, 0.08) 0%,
-    transparent 70%
-  );
-  pointer-events: none;
-  z-index: 0;
-  animation: glow-drift 20s ease-in-out infinite alternate;
-}
-
-@keyframes glow-drift {
-  0% {
-    transform: translate(0, 0);
-  }
-  50% {
-    transform: translate(100px, 150px);
-  }
-  100% {
-    transform: translate(-50px, 100px);
-  }
-}
 
 /* ===== TipTap Editor ===== */
 .tiptap-editor .ProseMirror {
@@ -421,39 +393,11 @@ body,
   max-width: 100%;
 }
 
-/* ===== Premium UI Effects ===== */
-.bg-glow {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 600px;
-  background: radial-gradient(circle at 50% -100px, var(--color-shell-accent-hover) 0%, transparent 60%);
-  opacity: 0.15;
-  pointer-events: none;
-  z-index: 0;
-}
-
 .glass {
-  background: rgba(26, 26, 31, 0.85);
-  backdrop-filter: blur(12px) saturate(180%);
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.glow-text {
-  text-shadow: 0 0 20px var(--color-shell-accent);
-}
-
-.modern-text-input {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
-}
-
-.modern-text-input:focus {
-  transform: translateY(-2px);
-  box-shadow: 0 15px 50px -12px rgba(0, 0, 0, 0.7);
-  border-color: var(--color-shell-accent) !important;
+  background: var(--color-glass-bg);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid var(--color-glass-border);
 }
 /* ===== AI Markdown Styles ===== */
 .ai-markdown {

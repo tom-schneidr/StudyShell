@@ -1125,11 +1125,9 @@ export default function App() {
 
   return (
     <div className="h-screen w-screen flex bg-shell-bg overflow-hidden relative text-shell-text select-none">
-      <div className="bg-glow" />
-
       {sidebarWidth > 0 && (
           <div 
-            className="flex-shrink-0 z-10 relative group h-full border-r border-shell-border bg-shell-surface/30 shadow-2xl overflow-hidden"
+            className="flex-shrink-0 z-10 relative group h-full border-r border-shell-border bg-shell-surface overflow-hidden"
             style={{ width: sidebarWidth }}
           >
             <Sidebar
@@ -1171,45 +1169,26 @@ export default function App() {
       )}
 
       <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden bg-shell-bg relative">
-        <div className="h-10 border-b border-shell-border bg-shell-surface/10 flex items-center justify-between px-2">
-          <div className="flex items-center gap-1">
-            {sidebarWidth === 0 && (
-                <button 
-                  onClick={() => setSidebarWidth(DEFAULT_SIDEBAR_WIDTH)}
-                  className="p-1.5 rounded-lg text-shell-text-muted hover:text-shell-accent hover:bg-shell-accent/10 transition-all cursor-pointer"
-                  title="Open Explorer"
-                >
-                  <Files size={16} />
-                </button>
-            )}
-            <div className="flex items-center gap-2 text-[10px] ml-2 font-bold text-shell-text-muted uppercase tracking-[0.2em] truncate">
-              <span className="w-1 h-1 rounded-full bg-shell-accent/30" />
-              {activeFile?.name || "STUDYSHELL"}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <StudyTimer />
-            <div className="h-4 w-px bg-shell-border mx-1" />
-            <div className="flex items-center gap-1">
-            <button 
-              onClick={() => setTheme(prev => (prev === "dark" ? "light" : "dark"))}
-              className="p-1.5 rounded-lg text-shell-text-muted hover:text-shell-accent hover:bg-shell-accent/10 transition-all cursor-pointer"
-              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+        <div className="h-9 flex-shrink-0 border-b border-shell-border flex items-center justify-end gap-1 px-2">
+          {sidebarWidth === 0 && (
+            <button
+              onClick={() => setSidebarWidth(DEFAULT_SIDEBAR_WIDTH)}
+              className="mr-auto p-1.5 rounded-md text-shell-text-muted hover:text-shell-text hover:bg-shell-surface-hover transition-colors cursor-pointer"
+              title="Show sidebar"
             >
-              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+              <Files size={15} />
             </button>
-            {!showChatPanel && (
-                <button 
-                  onClick={() => setShowChatPanel(true)}
-                  className="p-1.5 rounded-lg text-shell-text-muted hover:text-shell-accent hover:bg-shell-accent/10 transition-all cursor-pointer"
-                  title="Open AI Assistant"
-                >
-                  <MessageSquareText size={16} />
-                </button>
-            )}
-            </div>
-          </div>
+          )}
+          <StudyTimer />
+          {!showChatPanel && (
+            <button
+              onClick={() => setShowChatPanel(true)}
+              className="p-1.5 rounded-md text-shell-text-muted hover:text-shell-text hover:bg-shell-surface-hover transition-colors cursor-pointer"
+              title="Open chat"
+            >
+              <MessageSquareText size={15} />
+            </button>
+          )}
         </div>
 
         <div className="flex-1 min-h-0 relative">
@@ -1246,7 +1225,7 @@ export default function App() {
       {/* AI Assistant Side Panel */}
       {showChatPanel && (
         <div 
-          className="flex-shrink-0 z-10 relative group h-full border-l border-shell-border bg-shell-surface/40 overflow-hidden"
+          className="flex-shrink-0 z-10 relative group h-full border-l border-shell-border bg-shell-surface overflow-hidden"
           style={{ width: chatWidth }}
         >
           {/* Chat Resize Handle */}

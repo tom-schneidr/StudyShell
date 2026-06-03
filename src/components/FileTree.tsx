@@ -1,21 +1,8 @@
 import { useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  ChevronRight,
-  Folder,
-  FolderOpen,
-  FileText,
-  FileType,
-  File,
-  FileCode,
-  Sparkles,
-  Image as ImageIcon,
-  BookOpen,
-  Film,
-  Music
-} from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ChevronRight, Folder, FolderOpen, Sparkles } from "lucide-react";
 import type { FileNode } from "../types";
-import { getFileType } from "../types";
+import { FileTypeIcon } from "../utils/fileIcons";
 import { canSelectSource } from "../utils/sourceSelection";
 
 interface FileTreeProps {
@@ -27,31 +14,6 @@ interface FileTreeProps {
   onToggleSource: (node: FileNode) => void;
   forceExpandAll?: boolean;
   depth?: number;
-}
-
-function getFileIcon(extension: string | null, name?: string) {
-  switch (getFileType(extension, name)) {
-    case "flashcard":
-      return <Sparkles size={15} className="text-amber-400 fill-amber-400/10 flex-shrink-0" />;
-    case "markdown":
-      return <FileText size={15} className="text-blue-400" />;
-    case "pdf":
-      return <FileType size={15} className="text-red-400" />;
-    case "text":
-      return <FileText size={15} className="text-shell-text-secondary" />;
-    case "code":
-      return <FileCode size={15} className="text-green-400" />;
-    case "image":
-      return <ImageIcon size={15} className="text-purple-400" />;
-    case "notebook":
-      return <BookOpen size={15} className="text-orange-400" />;
-    case "video":
-      return <Film size={15} className="text-cyan-400" />;
-    case "audio":
-      return <Music size={15} className="text-emerald-400" />;
-    default:
-      return <File size={15} className="text-shell-text-muted" />;
-  }
 }
 
 function TreeNode({
@@ -81,9 +43,7 @@ function TreeNode({
 
   const handleClick = useCallback(() => {
     if (node.is_dir) {
-      if (forceExpandAll) {
-        return;
-      }
+      if (forceExpandAll) return;
       setIsOpen((prev) => !prev);
     } else {
       onFileSelect(node);
@@ -92,50 +52,57 @@ function TreeNode({
 
   return (
     <div>
-      <motion.div
-        className={`
-          flex items-center gap-1.5 py-[5px] pr-3 cursor-pointer select-none
-          rounded-md transition-colors duration-150 group
-          ${isActive
+      <div
+        className={`group flex items-center gap-1 py-1 pr-2 cursor-pointer select-none rounded-md mx-1 ${
+          isActive
             ? "bg-shell-accent/10 text-shell-accent"
             : "text-shell-text-secondary hover:bg-shell-surface-hover hover:text-shell-text"
-          }
-        `}
-        style={{ paddingLeft: `${depth * 16 + 8}px` }}
+        }`}
+        style={{ paddingLeft: `${depth * 14 + 8}px` }}
         onClick={handleClick}
-        onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, node); }}
-        whileTap={{ scale: 0.98 }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          onContextMenu(e, node);
+        }}
       >
         {node.is_dir ? (
           <>
-            <motion.div animate={{ rotate: isExpanded ? 90 : 0 }}>
-              <ChevronRight size={14} className="text-shell-text-muted flex-shrink-0" />
-            </motion.div>
+            <ChevronRight
+              size={13}
+              className={`text-shell-text-muted flex-shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+            />
             {isExpanded ? (
-              <FolderOpen size={15} className="text-shell-accent flex-shrink-0" />
+              <FolderOpen size={14} className="text-shell-text-muted flex-shrink-0" />
             ) : (
-              <Folder size={15} className="text-shell-accent/70 flex-shrink-0" />
+              <Folder size={14} className="text-shell-text-muted flex-shrink-0" />
             )}
           </>
         ) : (
           <>
-            <span className="w-[14px] flex-shrink-0" />
-            {getFileIcon(node.extension, node.name)}
+            <span className="w-[13px] flex-shrink-0" />
+            <FileTypeIcon extension={node.extension} name={node.name} size={14} active={isActive} />
           </>
         )}
-        <span className="truncate text-[12.5px] font-medium flex-1">{node.name}</span>
-        
+        <span className="truncate text-[12px] flex-1">{node.name}</span>
+
         {!node.is_dir && canUseAsSource && (
-            <button
-                onClick={(e) => { e.stopPropagation(); onToggleSource(node); }}
-                className={`p-1 rounded hover:bg-shell-accent/20 transition-all cursor-pointer 
-                ${isSelectedSource ? "text-shell-accent opacity-100" : "text-shell-text-muted opacity-0 group-hover:opacity-100"}`}
-                title="Use as AI source"
-            >
-                <Sparkles size={12} className={isSelectedSource ? "fill-shell-accent/20" : ""} />
-            </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSource(node);
+            }}
+            className={`p-0.5 rounded transition-opacity cursor-pointer ${
+              isSelectedSource
+                ? "text-shell-accent opacity-100"
+                : "text-shell-text-muted opacity-0 group-hover:opacity-100 hover:opacity-100"
+            }`}
+            title="Add to chat context"
+          >
+            <Sparkles size={11} className={isSelectedSource ? "fill-shell-accent/20" : ""} />
+          </button>
         )}
-      </motion.div>
+      </div>
 
       <AnimatePresence>
         {node.is_dir && isExpanded && node.children && (
@@ -176,7 +143,7 @@ export default function FileTree({
   depth = 0,
 }: FileTreeProps) {
   return (
-    <div className="py-1">
+    <div className="py-1 group">
       {nodes.map((node) => (
         <TreeNode
           key={node.path}

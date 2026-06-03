@@ -77,8 +77,7 @@ export default function SettingsView({
                   <Settings size={20} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-shell-text tracking-tight">Preferences</h2>
-                  <p className="text-[11px] text-shell-text-muted font-medium uppercase tracking-wider">Configure your academic environment</p>
+                  <h2 className="text-base font-semibold text-shell-text">Settings</h2>
                 </div>
               </div>
               <button
@@ -105,7 +104,7 @@ export default function SettingsView({
                     <section className="space-y-4">
                         <div className="flex items-center gap-2">
                              <Sparkles size={16} className="text-shell-accent" />
-                             <h3 className="text-sm font-bold text-shell-text uppercase tracking-widest">{FREEROUTER_PRODUCT_NAME}</h3>
+                             <h3 className="text-sm font-medium text-shell-text">{FREEROUTER_PRODUCT_NAME}</h3>
                         </div>
 
                         <FreeRouterStatus
@@ -139,7 +138,7 @@ export default function SettingsView({
                     <section className="space-y-4">
                          <div className="flex items-center gap-2">
                              <Layout size={16} className="text-shell-accent" />
-                             <h3 className="text-sm font-bold text-shell-text uppercase tracking-widest">Appearance</h3>
+                             <h3 className="text-sm font-medium text-shell-text">Appearance</h3>
                         </div>
                         
                         <div className="flex items-center justify-between p-4 rounded-xl bg-shell-bg/40 border border-shell-border">

@@ -465,16 +465,9 @@ export default function MarkdownEditor({
         )}
 
         {/* Edit mode label for raw markdown */}
-        {isEditMode && isMarkdown && (
-          <span className="text-[11px] text-shell-text-muted font-medium uppercase tracking-wider">
-            Markdown Source
-          </span>
-        )}
-
-        {/* Preview label */}
-        {!isEditMode && isMarkdown && (
-          <span className="text-[11px] text-shell-text-muted font-medium uppercase tracking-wider">
-            Preview
+        {isMarkdown && (
+          <span className="text-[11px] text-shell-text-muted">
+            {isEditMode ? "Source" : "Preview"}
           </span>
         )}
 
@@ -523,17 +516,12 @@ export default function MarkdownEditor({
         </div>
 
         {isMarkdown && headings.length > 0 && (
-          <aside className="hidden xl:flex w-64 flex-shrink-0 flex-col border-l border-shell-border bg-shell-bg/30">
-            <div className="px-4 py-3 border-b border-shell-border">
-              <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-shell-text-muted">
-                <ListTree size={13} />
-                <span>Contents</span>
-              </div>
-              <p className="mt-1 text-[11px] text-shell-text-secondary">
-                {headings.length} heading{headings.length === 1 ? "" : "s"}
-              </p>
+          <aside className="hidden xl:flex w-52 flex-shrink-0 flex-col border-l border-shell-border bg-shell-bg">
+            <div className="px-3 py-2 border-b border-shell-border flex items-center gap-1.5 text-[11px] text-shell-text-muted">
+              <ListTree size={12} />
+              <span>Outline</span>
             </div>
-            <div className="flex-1 overflow-y-auto px-2 py-3 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto px-1 py-2">
               {headings.map((heading: MarkdownHeading) => (
                 <button
                   key={heading.id}

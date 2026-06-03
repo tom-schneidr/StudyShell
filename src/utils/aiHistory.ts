@@ -1,5 +1,4 @@
-import type { ChatMessage, VertexModel } from "../types.ts";
-import { parseStoredVertexModel } from "./appPreferences.ts";
+import type { ChatMessage } from "../types.ts";
 
 export const CHAT_HISTORY_LIMIT = 200;
 
@@ -8,7 +7,6 @@ interface StoredChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: string;
-  model?: VertexModel;
 }
 
 export function limitChatHistory(messages: ChatMessage[], limit = CHAT_HISTORY_LIMIT): ChatMessage[] {
@@ -21,7 +19,6 @@ export function serializeChatHistory(messages: ChatMessage[]): string {
     role: message.role,
     content: message.content,
     timestamp: message.timestamp.toISOString(),
-    ...(message.model ? { model: message.model } : {}),
   }));
 
   return JSON.stringify(storedMessages);
@@ -57,16 +54,11 @@ export function deserializeChatHistory(raw: string): ChatMessage[] {
       continue;
     }
 
-    const model = typeof entry.model === "string"
-      ? parseStoredVertexModel(entry.model, undefined as VertexModel | undefined)
-      : undefined;
-
     messages.push({
       id,
       role,
       content,
       timestamp,
-      ...(model ? { model } : {}),
     });
   }
 

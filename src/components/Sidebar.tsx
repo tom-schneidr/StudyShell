@@ -24,7 +24,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import FileTree from "./FileTree";
 import SearchPanel from "./SearchPanel";
-import type { DirectoryStats, FileNode } from "../types";
+import type { DirectoryStats, FileNode, SearchResult } from "../types";
 import { formatBytes, getFileType } from "../types";
 
 function getSidebarFileIcon(extension: string | null, name?: string, active = false) {
@@ -83,7 +83,7 @@ interface SidebarProps {
   onCreateRootNote: () => void;
   onCreateRootFolder: () => void;
   onCollapse: () => void;
-  onSearch: (query: string) => Promise<any[]>;
+  onSearch: (query: string) => Promise<SearchResult[]>;
 }
 
 export default function Sidebar({
@@ -427,7 +427,7 @@ export default function Sidebar({
                 </div>
               )
             ) : (
-              <div className="px-4 py-12 text-center">
+              <div className="px-4 py-10 text-center">
                 <motion.div
                   animate={{ opacity: [0.6, 1, 0.6], scale: [0.98, 1.02, 0.98] }}
                   transition={{ ease: "easeInOut", duration: 3, repeat: Infinity }}
@@ -435,9 +435,39 @@ export default function Sidebar({
                 >
                   <FolderSearch size={24} className="text-shell-accent/60" />
                 </motion.div>
-                <p className="text-[12.5px] text-shell-text-muted leading-relaxed max-w-[200px] mx-auto">
-                  Select a root folder to begin exploring your coursework.
+                <h3 className="text-[13px] font-semibold text-shell-text mb-2">Open a workspace</h3>
+                <p className="text-[12px] text-shell-text-muted leading-relaxed max-w-[220px] mx-auto mb-5">
+                  Choose a folder on your machine to browse notes, PDFs, and study materials.
                 </p>
+                <button
+                  type="button"
+                  onClick={onSelectRoot}
+                  className="inline-flex items-center justify-center rounded-lg bg-shell-accent px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-shell-accent-hover cursor-pointer mb-6"
+                >
+                  Open workspace
+                </button>
+                <ul className="text-left text-[11px] text-shell-text-secondary space-y-2 max-w-[220px] mx-auto mb-5">
+                  <li className="flex items-start gap-2">
+                    <span className="text-shell-accent mt-0.5">•</span>
+                    <span>Browse and edit Markdown, code, and notebooks</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-shell-accent mt-0.5">•</span>
+                    <span>Annotate PDFs and preview media locally</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-shell-accent mt-0.5">•</span>
+                    <span>AI chat via local FreeRouter (optional)</span>
+                  </li>
+                </ul>
+                <a
+                  href="https://github.com/tom-schneidr/FreeRouter#readme"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[11px] text-shell-accent hover:text-shell-accent-hover underline underline-offset-2"
+                >
+                  FreeRouter setup guide
+                </a>
               </div>
             )}
           </div>

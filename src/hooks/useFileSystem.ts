@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import type { DirectoryStats, FileNode, FsChangeEvent } from "../types";
+import type { DirectoryStats, FileNode, FsChangeEvent, SearchResult } from "../types";
 import { STORAGE_KEYS, parseStoredRootPath } from "../utils/appPreferences";
 
 export function useFileSystem() {
@@ -143,9 +143,9 @@ export function useFileSystem() {
   );
 
   const searchFiles = useCallback(
-    async (query: string): Promise<any[]> => {
+    async (query: string): Promise<SearchResult[]> => {
       if (!rootPath) return [];
-      return invoke<any[]>("search_files", { path: rootPath, query });
+      return invoke<SearchResult[]>("search_files", { path: rootPath, query });
     },
     [rootPath]
   );

@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
+import type { PDFPageProxy } from "pdfjs-dist";
 import {
   ZoomOut,
   ChevronLeft,
@@ -17,7 +18,7 @@ import {
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import PdfInkCanvas from "./PdfInkCanvas";
 import type { PdfAnnotationData, PageAnnotations } from "../types";
-import { useFileSystem } from "../hooks/useFilesystem";
+import { useFileSystem } from "../hooks/useFileSystem";
 import { useToast } from "./ToastProvider";
 import ConfirmDialog from "./ConfirmDialog";
 import { buildExportCopyFilename } from "../utils/pathUtils";
@@ -180,10 +181,11 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
     setError(null);
   }
 
-  const handlePageRenderSuccess = useCallback((page: any) => {
+  const handlePageRenderSuccess = useCallback((page: PDFPageProxy) => {
+    const viewport = page.getViewport({ scale: 1 });
     setPageDimensions(prev => ({
         ...prev,
-        [page.pageNumber]: { width: page.width, height: page.height }
+        [page.pageNumber]: { width: viewport.width, height: viewport.height }
     }));
   }, []);
 

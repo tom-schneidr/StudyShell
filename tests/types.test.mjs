@@ -1,15 +1,14 @@
 import assert from "node:assert/strict";
 
 import { cellSourceToString, formatBytes, getFileType } from "../src/types.ts";
+import { FREEROUTER_MODEL } from "../src/utils/freerouter.ts";
 import {
   APP_VERSION,
   DEFAULT_SYSTEM_PROMPT,
   DEFAULT_USE_SEARCH,
-  DEFAULT_VERTEX_MODEL,
   parseStoredBoolean,
   parseStoredRootPath,
   parseStoredString,
-  parseStoredVertexModel,
 } from "../src/utils/appPreferences.ts";
 import {
   buildChatContext,
@@ -32,8 +31,8 @@ import {
 import { filterFileTree } from "../src/utils/fileTreeFilter.ts";
 import {
   getChatPlaceholder,
-  getVertexConfigErrorMessage,
-  vertexConfigGuidance,
+  aiConfigGuidance,
+  getAiConfigErrorMessage,
 } from "../src/utils/aiConfig.ts";
 import {
   extractJsonArrayCandidate,
@@ -304,17 +303,15 @@ assert.equal(filterFileTree(fileTree, "coursework")[0].children.length, 1);
 assert.equal(filterFileTree(fileTree, "week 1")[0].children[0].children.length, 1);
 assert.equal(filterFileTree(fileTree, "missing").length, 0);
 
-assert.match(getVertexConfigErrorMessage(), /Vertex AI is not configured/);
-assert.match(getVertexConfigErrorMessage(), /PROJECT_ID/);
-assert.equal(getChatPlaceholder(null, false), "Checking Vertex AI setup...");
-assert.equal(getChatPlaceholder(false, true), "Configure Vertex AI to start chatting...");
+assert.match(getAiConfigErrorMessage(), /FreeRouter is not reachable/);
+assert.match(getAiConfigErrorMessage(), /FREEROUTER_BASE_URL/);
+assert.equal(getChatPlaceholder(null, false), "Checking FreeRouter connection...");
+assert.equal(getChatPlaceholder(false, true), "Start FreeRouter to begin chatting...");
 assert.equal(getChatPlaceholder(true, false), "Ask your sources...");
-assert.equal(getChatPlaceholder(true, true), "Search and ask...");
-assert.match(vertexConfigGuidance, /Google application default credentials/);
+assert.equal(getChatPlaceholder(true, true), "Search the web and ask...");
+assert.match(aiConfigGuidance, /127\.0\.0\.1:8000/);
 assert.equal(APP_VERSION, "0.2.1");
-assert.equal(parseStoredVertexModel(null), DEFAULT_VERTEX_MODEL);
-assert.equal(parseStoredVertexModel("gemini-2.5-pro"), "gemini-2.5-pro");
-assert.equal(parseStoredVertexModel("bad-model"), DEFAULT_VERTEX_MODEL);
+assert.equal(FREEROUTER_MODEL, "auto");
 assert.equal(parseStoredBoolean("true", DEFAULT_USE_SEARCH), true);
 assert.equal(parseStoredBoolean("false", true), false);
 assert.equal(parseStoredBoolean("not-a-bool", true), true);
@@ -799,14 +796,13 @@ const chatHistory = [
     role: "assistant",
     content: "Hi there",
     timestamp: new Date("2026-01-01T00:00:01.000Z"),
-    model: "gemini-2.5-flash",
   },
 ];
 const serializedHistory = serializeChatHistory(chatHistory);
 const parsedHistory = deserializeChatHistory(serializedHistory);
 assert.equal(parsedHistory.length, 2);
 assert.equal(parsedHistory[0].timestamp.toISOString(), "2026-01-01T00:00:00.000Z");
-assert.equal(parsedHistory[1].model, "gemini-2.5-flash");
+assert.equal(parsedHistory[1].content, "Hi there");
 assert.deepEqual(deserializeChatHistory("{"), []);
 assert.deepEqual(deserializeChatHistory('{"bad":true}'), []);
 assert.deepEqual(

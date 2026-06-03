@@ -1,18 +1,18 @@
-export const vertexConfigGuidance =
-  "Set PROJECT_ID in .env and make sure Google application default credentials are available on this machine.";
+export const aiConfigGuidance =
+  "Start FreeRouter locally (default http://127.0.0.1:8000/v1) and set FREEROUTER_BASE_URL in .env if you use a different host or port.";
 
-export function getVertexConfigErrorMessage(): string {
-  return `Vertex AI is not configured. ${vertexConfigGuidance}`;
+export function getAiConfigErrorMessage(): string {
+  return `FreeRouter is not reachable. ${aiConfigGuidance}`;
 }
 
 export function getChatPlaceholder(isConfigured: boolean | null, useSearch: boolean): string {
   if (isConfigured === null) {
-    return "Checking Vertex AI setup...";
+    return "Checking FreeRouter connection...";
   }
 
   if (!isConfigured) {
-    return "Configure Vertex AI to start chatting...";
+    return "Start FreeRouter to begin chatting...";
   }
 
-  return useSearch ? "Search and ask..." : "Ask your sources...";
+  return useSearch ? "Search the web and ask..." : "Ask your sources...";
 }

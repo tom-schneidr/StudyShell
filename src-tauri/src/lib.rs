@@ -1,8 +1,8 @@
+mod ai_client;
 mod filesystem;
-mod vertex_client;
 mod watcher;
 
-use vertex_client::VertexState;
+use ai_client::AiClientState;
 use watcher::WatcherState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -14,7 +14,7 @@ pub fn create_app() -> tauri::Builder<tauri::Wry> {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(WatcherState::new())
-        .manage(VertexState::new())
+        .manage(AiClientState::new())
         .invoke_handler(tauri::generate_handler![
             // Filesystem commands
             filesystem::list_directory,
@@ -34,11 +34,12 @@ pub fn create_app() -> tauri::Builder<tauri::Wry> {
             // Watcher commands
             watcher::start_watching,
             watcher::stop_watching,
-            // Vertex AI commands
-            vertex_client::chat_with_ai,
-            vertex_client::summarize_files,
-            vertex_client::generate_study_guide,
-            vertex_client::stream_chat_with_ai,
-            vertex_client::check_vertex_config,
+            // FreeRouter / OpenAI-compatible AI commands
+            ai_client::chat_with_ai,
+            ai_client::summarize_files,
+            ai_client::generate_study_guide,
+            ai_client::stream_chat_with_ai,
+            ai_client::get_ai_status,
+            ai_client::check_ai_config,
         ])
 }

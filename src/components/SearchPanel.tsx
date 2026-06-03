@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Search, FileText, Loader2, Hash, AlertCircle, X } from "lucide-react";
-import type { FileNode } from "../types";
+import type { FileNode, SearchResult } from "../types";
 import { getPathBaseName, getPathExtension, getRelativePathFromRoot } from "../utils/pathUtils";
 import {
   formatSearchError,
@@ -11,12 +11,6 @@ import {
   normalizeSearchQuery,
   shouldExecuteSearch,
 } from "../utils/searchResults";
-
-interface SearchResult {
-  path: string;
-  line_number: number;
-  content: string;
-}
 
 interface SearchPanelProps {
   onSearch: (query: string) => Promise<SearchResult[]>;

@@ -10,6 +10,7 @@ import {
   Edit3,
   Lightbulb
 } from "lucide-react";
+import type { StudyAI } from "../hooks/useStudyAI";
 import type { FileNode } from "../types";
 import type { FlashcardCard } from "../utils/flashcards";
 import { getPathBaseName, getParentPath } from "../utils/pathUtils";
@@ -23,7 +24,7 @@ interface FlashcardStudioProps {
   onSave: (content: string) => void;
   onFileSelect: (node: FileNode) => void;
   fileTree: FileNode[];
-  ai: any;
+  ai: StudyAI;
 }
 
 export default function FlashcardStudio({

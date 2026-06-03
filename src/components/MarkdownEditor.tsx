@@ -28,7 +28,7 @@ import {
   buildPastedImageFilename,
   insertTextAtSelection,
 } from "../utils/markdownAssets";
-import { getMarkdownHeadingOffset, parseMarkdownHeadings } from "../utils/markdownHeadings";
+import { getMarkdownHeadingOffset, parseMarkdownHeadings, type MarkdownHeading } from "../utils/markdownHeadings";
 
 interface MarkdownEditorProps {
   content: string;
@@ -534,7 +534,7 @@ export default function MarkdownEditor({
               </p>
             </div>
             <div className="flex-1 overflow-y-auto px-2 py-3 custom-scrollbar">
-              {headings.map((heading: any) => (
+              {headings.map((heading: MarkdownHeading) => (
                 <button
                   key={heading.id}
                   onClick={() => handleHeadingSelect(heading.line, heading.id)}

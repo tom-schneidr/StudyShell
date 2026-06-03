@@ -13,26 +13,33 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
-  model?: VertexModel;
 }
 
 /// Supported file types for the editor
 export type FileType = "markdown" | "text" | "pdf" | "image" | "video" | "audio" | "notebook" | "code" | "svg" | "flashcard" | "unsupported";
 
-/// Vertex AI model options
-export type VertexModel = "gemini-3.1-pro-preview" | "gemini-3-flash-preview" | "gemini-2.5-pro" | "gemini-2.5-flash";
-
-export const modelLabels: Record<VertexModel, string> = {
-  "gemini-3.1-pro-preview": "Gemini 3.1 Pro (Preview)",
-  "gemini-3-flash-preview": "Gemini 3 Flash (Preview)",
-  "gemini-2.5-pro": "Gemini 2.5 Pro",
-  "gemini-2.5-flash": "Gemini 2.5 Flash",
-};
-
 /// Filesystem change event from the watcher
 export interface FsChangeEvent {
   path: string;
   kind: string;
+}
+
+/// Full-text workspace search hit from the Rust backend
+export interface SearchResult {
+  path: string;
+  line_number: number;
+  content: string;
+}
+
+/// Payload for Tauri native drag-and-drop events
+export interface TauriDragDropPayload {
+  paths: string[];
+  position?: { x: number; y: number };
+}
+
+/// Custom event detail for in-app "explain selection" actions
+export interface StudyShellExplainEventDetail {
+  text?: string;
 }
 
 /// Directory statistics

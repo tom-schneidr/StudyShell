@@ -6,7 +6,7 @@
 > **CRITICAL RULES FOR IMPLEMENTATION:**
 > 1. **Do NOT create extra clutter files.** Keep components consolidated. Do not extract tiny sub-components into separate files unless absolutely necessary for performance (e.g., heavy `useMemo` isolation).
 > 2. **Never use `window.alert`, `window.confirm`, or `window.prompt`.** They block the Tauri main thread and ruin the premium aesthetic. Use the existing `ConfirmDialog` or build a custom React overlay.
-> 3. **Tauri IPC:** Always mirror frontend hook methods (`useFileSystem`, `useVertexAI`) with matching Rust backend commands (`#[tauri::command]`).
+> 3. **Tauri IPC:** Always mirror frontend hook methods (`useFileSystem`, `useStudyAI`) with matching Rust backend commands (`#[tauri::command]`).
 > 4. **No Tailwind utility clutter in TS logic:** Keep complex class string manipulations clean using template literals or extracted consts. Rely on existing CSS variables (`var(--color-shell-...)`).
 > 5. **Clean up after yourself:** If a feature deletes a file, ensure associated states (active file, AI context sources) are cleared.
 
@@ -82,8 +82,8 @@
 ### 3.1. AI Flashcard Generator
 **Priority:** Medium
 **Approach:**
-- **Backend:** `vertex_client.rs` -> `generate_flashcards(paths, model)`. Prompt the model to return ONLY a JSON array structure: `[{ "front": "Q", "back": "A" }]`.
-- **Frontend Regex:** Gemini models often forcefully wrap JSON in markdown blockquotes (\`\`\`json). Before running `JSON.parse()`, run a regex replacement to strip these fences, or the parser will crash.
+- **Backend:** `ai_client.rs` -> `generate_flashcards(paths, model)`. Prompt the model to return ONLY a JSON array structure: `[{ "front": "Q", "back": "A" }]`.
+- **Frontend Regex:** Models often forcefully wrap JSON in markdown blockquotes (\`\`\`json). Before running `JSON.parse()`, run a regex replacement to strip these fences, or the parser will crash.
 - **UI:** `FlashcardViewer.tsx` using Framer Motion 3D transforms (`rotateY`) to flip cards.
 - **Storage:** Persist generated flashcards as a sidecar JSON file in the target directory (e.g., `biology-notes.flashcards.json`) so the user can review them later without regenerating.
 
@@ -92,12 +92,12 @@
 **Approach:**
 - In `MarkdownEditor.tsx` or `PdfViewer.tsx`, listen to text selection events (`window.getSelection()`).
 - If text is selected, float a small absolute-positioned popover (using the new `.glass-layer-2` style from #5.5) near the cursor with options: "Explain", "Summarize".
-- Clicking these copies the highlighted text, prepends a prompt ("Explain this text: ..."), and submits it directly to the `useVertexAI` instance, jumping focus to the Chat panel.
+- Clicking these copies the highlighted text, prepends a prompt ("Explain this text: ..."), and submits it directly to the `useStudyAI` instance, jumping focus to the Chat panel.
 
 ### 3.4. AI Chat History Persistence
 **Priority:** Low
 **Approach:**
-- The chat context (`messages` array in `useVertexAI.ts`) is currently lost on reload.
+- The chat context (`messages` array in `useStudyAI.ts`) is currently lost on reload.
 - **Storage:** Since chat arrays can grow large, write a background Tauri command to save history to a local SQLite DB or a JSON file in the app's `appData` directory, OR just use `localStorage` with a hard length cap (e.g., store only the last 200 messages). Serialize using `JSON.stringify`.
 
 ---

@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import type { FileNode } from "../types";
-import type { useFileSystem } from "./useFilesystem";
+import type { useFileSystem } from "./useFileSystem";
 import { useToast } from "../components/ToastProvider";
 import {
   buildDirectoryPath,

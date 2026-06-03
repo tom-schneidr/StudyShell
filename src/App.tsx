@@ -24,11 +24,11 @@ import {
   Sun,
   Moon
 } from "lucide-react";
-import { useFileSystem } from "./hooks/useFilesystem";
+import { useFileSystem } from "./hooks/useFileSystem";
 import { useFileSystemActions } from "./hooks/useFileSystemActions";
-import { useVertexAI } from "./hooks/useVertexAI";
+import { useStudyAI } from "./hooks/useStudyAI";
 import { useToast } from "./components/ToastProvider";
-import type { FileNode, NotebookData } from "./types";
+import type { FileNode, NotebookData, PdfAnnotationData, StudyShellExplainEventDetail, TauriDragDropPayload } from "./types";
 import { getFileType } from "./types";
 import { buildChatContext, canUseFileAsChatContext } from "./utils/chatContext";
 import { parseFlashcardsResponse, parseQuizResponse, type FlashcardCard, type QuizQuestion } from "./utils/flashcards";
@@ -124,7 +124,7 @@ export default function App() {
   const [activeFile, setActiveFile] = useState<FileNode | null>(null);
 
   const fs = useFileSystem();
-  const ai = useVertexAI();
+  const ai = useStudyAI();
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [binaryData, setBinaryData] = useState<Uint8Array | null>(null);
   const [binaryLoading, setBinaryLoading] = useState(false);
@@ -177,7 +177,7 @@ export default function App() {
     questions: [],
   });
 
-  const [pdfAnnotations, setPdfAnnotations] = useState<Record<string, any>>({});
+  const [pdfAnnotations, setPdfAnnotations] = useState<Record<string, PdfAnnotationData>>({});
   const lastPersistedPdfAnnotationsRef = useRef<Record<string, string>>({});
 
   const [contextMenu, setContextMenu] = useState<{
@@ -582,9 +582,9 @@ export default function App() {
     const setupDnd = async () => {
       unlistenFuncs.push(await listen("tauri://drag-enter", () => setIsDragging(true)));
       unlistenFuncs.push(await listen("tauri://drag-leave", () => setIsDragging(false)));
-      unlistenFuncs.push(await listen<any>("tauri://drag-drop", async (event) => {
+      unlistenFuncs.push(await listen<TauriDragDropPayload>("tauri://drag-drop", async (event) => {
         setIsDragging(false);
-        const paths = event.payload.paths as string[];
+        const paths = event.payload.paths;
         if (paths.length > 0 && fs.rootPath) {
           try {
             const targetDir = activeFile?.is_dir ? activeFile.path : (activeFile ? resolveCreationDirectory(activeFile) : fs.rootPath);
@@ -600,8 +600,8 @@ export default function App() {
 
     setupDnd();
 
-    const handleExplain = (e: any) => {
-        const text = e.detail?.text;
+    const handleExplain = (e: Event) => {
+        const text = (e as CustomEvent<StudyShellExplainEventDetail>).detail?.text;
         if (text) {
             setShowChatPanel(true);
             void handleSendChatMessage(`Explain this content in detail:\n\n> ${text}`);
@@ -733,7 +733,7 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [pdfAnnotations, fs.writeFile]);
 
-  const handleUpdatePdfAnnotations = useCallback((path: string, annotations: any) => {
+  const handleUpdatePdfAnnotations = useCallback((path: string, annotations: PdfAnnotationData) => {
     setPdfAnnotations(prev => ({
         ...prev,
         [path]: annotations
@@ -1269,14 +1269,14 @@ export default function App() {
             messages={ai.messages}
             loading={ai.loading}
             error={ai.error}
-            model={ai.model}
+            aiStatus={ai.aiStatus}
             isConfigured={ai.isConfigured}
             useSearch={ai.useSearch}
             activeFileName={activeFile?.name || null}
             activeFileContent={fileContent}
             selectedSources={selectedSources}
             onSendMessage={handleSendChatMessage}
-            onModelChange={ai.setModel}
+            onRefreshAiStatus={ai.refreshAiStatus}
             onSearchChange={ai.setUseSearch}
             onClearChat={ai.clearChat}
             canClearChat={canClearChat}
@@ -1379,6 +1379,9 @@ export default function App() {
           onSystemPromptChange={ai.setSystemPrompt}
           theme={theme}
           onThemeChange={setTheme}
+          aiStatus={ai.aiStatus}
+          isAiConfigured={ai.isConfigured}
+          onRefreshAiStatus={ai.refreshAiStatus}
         />
       </Suspense>
     </div>

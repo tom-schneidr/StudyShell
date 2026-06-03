@@ -2,15 +2,21 @@
   "name": "studyshell",
   "private": true,
   "version": "0.2.1",
-  "description": "A Tauri-powered desktop study workspace with local file browsing, PDF annotation, note editing, and Vertex AI study assistance.",
+  "description": "A Tauri-powered desktop study workspace with local file browsing, PDF annotation, note editing, and FreeRouter study assistance.",
+  "author": "Tom Schneidr",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types tests/types.test.mjs",
+    "prebuild": "node scripts/sync-version.mjs",
+    "preversion": "node scripts/sync-version.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "verify": "npm run typecheck && npm run test && cargo test --manifest-path src-tauri/Cargo.toml"
   },
   "repository": {
     "type": "git",

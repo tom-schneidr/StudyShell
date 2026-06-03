@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, FileText, FileType, File, GraduationCap, Loader2, Image as ImageIcon, BookOpen, Film, Music, Sparkles } from "lucide-react";
 import { Splitpanes, Pane } from "splitpanes";
 import "splitpanes/dist/splitpanes.css";
+import type { StudyAI } from "../hooks/useStudyAI";
 import type { FileNode, NotebookData, PdfAnnotationData } from "../types";
 import { getFileType, getMimeType } from "../types";
 
@@ -36,7 +37,7 @@ interface EditorProps {
   secondNotebookData?: NotebookData | null;
   onCloseSecondPane?: () => void;
   fileTree?: FileNode[];
-  ai?: any;
+  ai?: StudyAI;
 }
 
 export default function Editor({
@@ -91,7 +92,7 @@ export default function Editor({
     
     switch (type) {
       case "flashcard":
-        return content !== null ? (
+        return content !== null && ai ? (
           <Suspense fallback={<ContentLoading label="Loading Flashcard Studio..." />}>
             <FlashcardStudio
               content={content}
@@ -102,6 +103,8 @@ export default function Editor({
               ai={ai}
             />
           </Suspense>
+        ) : content !== null ? (
+          <div className="flex items-center justify-center h-full text-shell-text-muted">AI assistant unavailable for flashcards.</div>
         ) : (
           <div className="flex items-center justify-center h-full text-shell-text-muted">Loading Flashcard Studio...</div>
         );
@@ -393,6 +396,12 @@ function EmptyState() {
         <h2 className="text-2xl font-bold text-shell-text mb-3 tracking-tight">Focus Your Learning</h2>
         <p className="text-sm text-shell-text-secondary max-w-[320px] mx-auto leading-relaxed mb-10">
           Open a file to start studying, or use the AI Assistant to generate summaries and guides.
+        </p>
+        <p className="text-xs text-shell-text-muted mb-10">
+          Tip: press <kbd className="px-1.5 py-0.5 rounded bg-shell-surface-hover border border-shell-border font-mono text-[10px]">Ctrl</kbd>
+          {" + "}
+          <kbd className="px-1.5 py-0.5 rounded bg-shell-surface-hover border border-shell-border font-mono text-[10px]">K</kbd>
+          {" "}for the command palette.
         </p>
 
         <div className="flex items-center justify-center gap-4">

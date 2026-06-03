@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { ChatMessage, VertexModel } from "../types";
+import type { ChatMessage } from "../types";
 import { generateId } from "../types";
-import { getVertexConfigErrorMessage } from "../utils/aiConfig";
+import { getAiConfigErrorMessage } from "../utils/aiConfig";
 import { deserializeChatHistory, serializeChatHistory } from "../utils/aiHistory";
 import {
   DEFAULT_SYSTEM_PROMPT,
@@ -11,31 +11,64 @@ import {
   STORAGE_KEYS,
   parseStoredBoolean,
   parseStoredString,
-  parseStoredVertexModel,
 } from "../utils/appPreferences";
+import { FREEROUTER_DEFAULT_BASE_URL, FREEROUTER_MODEL } from "../utils/freerouter";
 
-export function useVertexAI() {
+export interface AiStatus {
+  baseUrl: string;
+  reachable: boolean;
+  model: typeof FREEROUTER_MODEL;
+}
+
+function normalizeAiStatus(raw: {
+  base_url: string;
+  reachable: boolean;
+  model: string;
+}): AiStatus {
+  return {
+    baseUrl: raw.base_url || FREEROUTER_DEFAULT_BASE_URL,
+    reachable: raw.reachable,
+    model: FREEROUTER_MODEL,
+  };
+}
+
+export function useStudyAI() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [model, setModel] = useState<VertexModel>(() =>
-    parseStoredVertexModel(window.localStorage.getItem(STORAGE_KEYS.vertexModel)),
-  );
   const [useSearch, setUseSearch] = useState(() =>
     parseStoredBoolean(window.localStorage.getItem(STORAGE_KEYS.useSearch), DEFAULT_USE_SEARCH),
   );
-  const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
+  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
   const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState<string>(() =>
     parseStoredString(window.localStorage.getItem(STORAGE_KEYS.systemPrompt), DEFAULT_SYSTEM_PROMPT),
   );
   const streamAbortRef = useRef<(() => void) | null>(null);
 
-  useEffect(() => {
-    invoke<boolean>("check_vertex_config")
-      .then(setIsConfigured)
-      .catch(() => setIsConfigured(false));
+  const isConfigured = aiStatus?.reachable ?? null;
+
+  const refreshAiStatus = useCallback(async () => {
+    try {
+      const status = await invoke<{ base_url: string; reachable: boolean; model: string }>(
+        "get_ai_status",
+      );
+      const normalized = normalizeAiStatus(status);
+      setAiStatus(normalized);
+      return normalized;
+    } catch {
+      setAiStatus({
+        baseUrl: FREEROUTER_DEFAULT_BASE_URL,
+        reachable: false,
+        model: FREEROUTER_MODEL,
+      });
+      return null;
+    }
   }, []);
+
+  useEffect(() => {
+    void refreshAiStatus();
+  }, [refreshAiStatus]);
 
   useEffect(() => {
     try {
@@ -68,10 +101,6 @@ export function useVertexAI() {
   }, [hasLoadedHistory, messages]);
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEYS.vertexModel, model);
-  }, [model]);
-
-  useEffect(() => {
     window.localStorage.setItem(STORAGE_KEYS.useSearch, String(useSearch));
   }, [useSearch]);
 
@@ -79,29 +108,18 @@ export function useVertexAI() {
     window.localStorage.setItem(STORAGE_KEYS.systemPrompt, systemPrompt);
   }, [systemPrompt]);
 
-  const checkConfig = useCallback(async () => {
-    try {
-      const configured = await invoke<boolean>("check_vertex_config");
-      setIsConfigured(configured);
-      return configured;
-    } catch {
-      setIsConfigured(false);
-      return false;
-    }
-  }, []);
-
   const ensureConfigured = useCallback(async () => {
-    if (isConfigured === true) {
+    if (aiStatus?.reachable === true) {
       return true;
     }
 
-    const configured = await checkConfig();
-    if (!configured) {
-      setError(getVertexConfigErrorMessage());
+    const status = await refreshAiStatus();
+    if (!status?.reachable) {
+      setError(getAiConfigErrorMessage());
     }
 
-    return configured;
-  }, [checkConfig, isConfigured]);
+    return status?.reachable === true;
+  }, [aiStatus?.reachable, refreshAiStatus]);
 
   const sendMessage = useCallback(
     async (content: string, context?: string) => {
@@ -123,7 +141,7 @@ export function useVertexAI() {
         const response = await invoke<string>("chat_with_ai", {
           message: content,
           context: context || null,
-          model,
+          model: FREEROUTER_MODEL,
           useSearch,
           systemPrompt,
         });
@@ -151,7 +169,7 @@ export function useVertexAI() {
         setLoading(false);
       }
     },
-    [ensureConfigured, model, systemPrompt, useSearch]
+    [ensureConfigured, systemPrompt, useSearch],
   );
 
   const sendMessageStreaming = useCallback(
@@ -178,12 +196,11 @@ export function useVertexAI() {
       setLoading(true);
       setError(null);
 
-      // Cleanup previous stream if any
       if (streamAbortRef.current) streamAbortRef.current();
 
       try {
         let accumulatedContent = "";
-        
+
         const unlisten = await listen<{ chunk: string; done: boolean; error: string | null }>(
           "ai-stream-chunk",
           (event) => {
@@ -203,10 +220,10 @@ export function useVertexAI() {
             accumulatedContent += event.payload.chunk;
             setMessages((prev) =>
               prev.map((msg) =>
-                msg.id === assistantId ? { ...msg, content: accumulatedContent } : msg
-              )
+                msg.id === assistantId ? { ...msg, content: accumulatedContent } : msg,
+              ),
             );
-          }
+          },
         );
 
         streamAbortRef.current = unlisten;
@@ -214,7 +231,7 @@ export function useVertexAI() {
         await invoke("stream_chat_with_ai", {
           message: content,
           context: context || null,
-          model,
+          model: FREEROUTER_MODEL,
           useSearch,
           systemPrompt,
         });
@@ -222,18 +239,18 @@ export function useVertexAI() {
         setError(`Streaming failed: ${e}`);
         setLoading(false);
         if (streamAbortRef.current) {
-            streamAbortRef.current();
-            streamAbortRef.current = null;
+          streamAbortRef.current();
+          streamAbortRef.current = null;
         }
       }
     },
-    [ensureConfigured, model, systemPrompt, useSearch]
+    [ensureConfigured, systemPrompt, useSearch],
   );
 
   const summarizeFiles = useCallback(
     async (paths: string[]) => {
       if (!(await ensureConfigured())) {
-        throw new Error(getVertexConfigErrorMessage());
+        throw new Error(getAiConfigErrorMessage());
       }
 
       setLoading(true);
@@ -241,7 +258,7 @@ export function useVertexAI() {
       try {
         const response = await invoke<string>("summarize_files", {
           paths,
-          model,
+          model: FREEROUTER_MODEL,
           useSearch,
         });
         const assistantMsg: ChatMessage = {
@@ -259,13 +276,13 @@ export function useVertexAI() {
         setLoading(false);
       }
     },
-    [ensureConfigured, model, useSearch]
+    [ensureConfigured, useSearch],
   );
 
   const generateStudyGuide = useCallback(
     async (paths: string[]) => {
       if (!(await ensureConfigured())) {
-        throw new Error(getVertexConfigErrorMessage());
+        throw new Error(getAiConfigErrorMessage());
       }
 
       setLoading(true);
@@ -273,7 +290,7 @@ export function useVertexAI() {
       try {
         const response = await invoke<string>("generate_study_guide", {
           paths,
-          model,
+          model: FREEROUTER_MODEL,
           useSearch,
         });
         const assistantMsg: ChatMessage = {
@@ -291,7 +308,7 @@ export function useVertexAI() {
         setLoading(false);
       }
     },
-    [ensureConfigured, model, useSearch]
+    [ensureConfigured, useSearch],
   );
 
   const clearChat = useCallback(() => {
@@ -303,14 +320,13 @@ export function useVertexAI() {
     messages,
     loading,
     error,
-    model,
     useSearch,
     isConfigured,
+    aiStatus,
+    refreshAiStatus,
     sendMessage,
     sendMessageStreaming,
-    setModel,
     setUseSearch,
-    checkConfig,
     summarizeFiles,
     generateStudyGuide,
     clearChat,
@@ -318,3 +334,5 @@ export function useVertexAI() {
     setSystemPrompt,
   };
 }
+
+export type StudyAI = ReturnType<typeof useStudyAI>;

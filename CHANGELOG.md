@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **Portfolio polish pass**: GitHub Actions CI (TypeScript + Node tests + Rust tests), `.env.example`, and rewritten README with architecture overview.
+- **Developer scripts**: `npm run tauri:dev`, `npm run tauri:build`, `npm run verify`, and `scripts/sync-version.mjs` to keep version metadata in sync.
+- **First-run UX**: sidebar workspace empty state with Open workspace CTA, feature bullets, and FreeRouter setup link.
+
+### Changed
+- **Documentation**: internal roadmap moved to `docs/ROADMAP.md`; CONTRIBUTING updated for the Tauri dev workflow.
+- **Branding**: app favicon uses StudyShell icon instead of the Vite default.
+- **TypeScript**: `StudyAI`, `SearchResult`, `PdfAnnotationData`, and Tauri drag-drop payloads typed at component boundaries.
+
+### Removed
+- **Legacy Vertex naming**: deprecated `useVertexAI` shim, `check_vertex_config` Tauri command, and unused Vertex config aliases.
+
 ## [Unreleased] - 2026-04-16
 
 ### Fixed

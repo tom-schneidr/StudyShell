@@ -129,7 +129,7 @@ Or run individually:
 ```bash
 npm run typecheck
 npm run test
-cargo test --manifest-path src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml --lib
 ```
 
 ## License

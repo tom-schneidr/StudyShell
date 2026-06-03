@@ -68,7 +68,7 @@ flowchart TB
 
 ## Prerequisites
 
-- Node.js 20+ and npm
+- Node.js 22+ and npm
 - Rust toolchain
 - [FreeRouter](https://github.com/tom-schneidr/FreeRouter) running locally (default `http://127.0.0.1:8000/v1`)
 
@@ -131,10 +131,6 @@ npm run typecheck
 npm run test
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

@@ -8,7 +8,8 @@
 - **First-run UX**: sidebar workspace empty state with Open workspace CTA, feature bullets, and FreeRouter setup link.
 
 ### Changed
-- **Documentation**: internal roadmap moved to `docs/ROADMAP.md`; CONTRIBUTING updated for the Tauri dev workflow.
+- **Documentation**: internal roadmap moved to `docs/ROADMAP.md`.
+- **CI**: Node 22 for frontend tests (`--experimental-strip-types`); Linux system deps for Rust/Tauri builds on GitHub Actions.
 - **Branding**: app favicon uses StudyShell icon instead of the Vite default.
 - **TypeScript**: `StudyAI`, `SearchResult`, `PdfAnnotationData`, and Tauri drag-drop payloads typed at component boundaries.
 

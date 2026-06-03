@@ -137,6 +137,25 @@ export default function App() {
     return [];
   });
 
+  const [pinnedFiles, setPinnedFiles] = useState<FileNode[]>(() => {
+    try {
+      const stored = localStorage.getItem("pinnedFiles");
+      return stored ? JSON.parse(stored) : [];
+    } catch {}
+    return [];
+  });
+
+  const handleTogglePinFile = useCallback((node: FileNode) => {
+    setPinnedFiles((prev) => {
+      const isAlreadyPinned = prev.some((f) => f.path === node.path);
+      const next = isAlreadyPinned
+        ? prev.filter((f) => f.path !== node.path)
+        : [...prev, node];
+      localStorage.setItem("pinnedFiles", JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const [showChatPanel, setShowChatPanel] = useState(() => readStoredChatPanelVisible(window.localStorage));
   const [selectedSources, setSelectedSources] = useState<FileNode[]>([]);
   const [sidebarWidth, setSidebarWidth] = useState(() => readStoredSidebarWidth(window.localStorage));
@@ -276,7 +295,7 @@ export default function App() {
       setActiveFile(node);
       resetFileState();
 
-      const fileType = getFileType(node.extension);
+      const fileType = getFileType(node.extension, node.name);
 
       switch (fileType) {
         case "pdf":
@@ -328,6 +347,7 @@ export default function App() {
           break;
         }
 
+        case "flashcard":
         case "markdown":
         case "text":
         default: {
@@ -360,6 +380,11 @@ export default function App() {
     setRecentFiles((prev) => {
       const next = normalizeRecentFiles(remapFileNodeList(prev, oldPath, newPath, exactName));
       localStorage.setItem("recentFiles", serializeRecentFiles(next));
+      return next;
+    });
+    setPinnedFiles((prev) => {
+      const next = remapFileNodeList(prev, oldPath, newPath, exactName);
+      localStorage.setItem("pinnedFiles", JSON.stringify(next));
       return next;
     });
     setPdfAnnotations((prev) => remapRecordKeys(prev, oldPath, newPath));
@@ -412,7 +437,7 @@ export default function App() {
     setSecondNotebookData(null);
     setRestoredSecondPanePath(null);
 
-    const fileType = getFileType(node.extension);
+    const fileType = getFileType(node.extension, node.name);
     try {
         if (fileType === "pdf" || fileType === "image" || fileType === "video" || fileType === "audio") {
             setSecondBinaryLoading(true);
@@ -489,12 +514,24 @@ export default function App() {
         );
         if (response) {
             const cards = parseFlashcardsResponse(response);
-            setFlashcardSession({ isOpen: true, cards });
+            const targetPath = activeFile.path.replace(/\.[^/.]+$/, "") + ".flashcards.json";
+            await fs.writeFile(targetPath, JSON.stringify(cards, null, 2));
+            await fs.refreshTree();
+            toast.success("Flashcards generated and saved locally.");
+            
+            const newNode: FileNode = {
+              name: getPathBaseName(targetPath),
+              path: targetPath,
+              is_dir: false,
+              extension: "json",
+              children: null
+            };
+            setTimeout(() => handleFileSelect(newNode), 100);
         }
     } catch (e) {
         toast.error("Failed to generate flashcards.");
     }
-  }, [activeFile, fileContent, ai, toast]);
+  }, [activeFile, fileContent, ai, toast, fs, handleFileSelect]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -602,6 +639,12 @@ export default function App() {
     setRecentFiles((prev) => {
       const next = filterRecentFilesForWorkspace(prev, fs.rootPath, liveFilePaths);
       localStorage.setItem("recentFiles", serializeRecentFiles(next));
+      return next;
+    });
+
+    setPinnedFiles((prev) => {
+      const next = filterFileNodesByPaths(prev, liveFilePaths);
+      localStorage.setItem("pinnedFiles", JSON.stringify(next));
       return next;
     });
   }, [activeFile, fs.rootPath, liveFilePaths, resetFileState, resetSecondPaneState, secondActiveFile]);
@@ -736,6 +779,11 @@ export default function App() {
           liveFilePaths,
         );
         localStorage.setItem("recentFiles", serializeRecentFiles(next));
+        return next;
+      });
+      setPinnedFiles((prev) => {
+        const next = removeFileNodesWithinPath(prev, deleteTarget.path);
+        localStorage.setItem("pinnedFiles", JSON.stringify(next));
         return next;
       });
 
@@ -1094,6 +1142,8 @@ export default function App() {
               activeFilePath={activeFile?.path || null}
               selectedSourcePaths={selectedSources.map(s => s.path)}
               recentFiles={recentFiles}
+              pinnedFiles={pinnedFiles}
+              onTogglePin={handleTogglePinFile}
               onClearRecentFiles={handleClearRecentFiles}
               onSelectRoot={fs.selectRootFolder}
               onRefresh={() => fs.refreshTree()}
@@ -1183,6 +1233,8 @@ export default function App() {
             secondBinaryData={secondBinaryData}
             secondBinaryLoading={secondBinaryLoading}
             secondNotebookData={secondNotebookData}
+            fileTree={fs.fileTree}
+            ai={ai}
             onCloseSecondPane={() => {
                 setIsSplit(false);
                 resetSecondPaneState();
@@ -1253,6 +1305,8 @@ export default function App() {
         onCreateStudyGuide={handleCreateStudyGuide}
         onOpenInSidePane={handleSelectSecondFile}
         isSplit={isSplit}
+        pinnedFiles={pinnedFiles}
+        onTogglePin={handleTogglePinFile}
       />
 
       <CreationModal

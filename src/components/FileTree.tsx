@@ -29,8 +29,10 @@ interface FileTreeProps {
   depth?: number;
 }
 
-function getFileIcon(extension: string | null) {
-  switch (getFileType(extension)) {
+function getFileIcon(extension: string | null, name?: string) {
+  switch (getFileType(extension, name)) {
+    case "flashcard":
+      return <Sparkles size={15} className="text-amber-400 fill-amber-400/10 flex-shrink-0" />;
     case "markdown":
       return <FileText size={15} className="text-blue-400" />;
     case "pdf":
@@ -118,7 +120,7 @@ function TreeNode({
         ) : (
           <>
             <span className="w-[14px] flex-shrink-0" />
-            {getFileIcon(node.extension)}
+            {getFileIcon(node.extension, node.name)}
           </>
         )}
         <span className="truncate text-[12.5px] font-medium flex-1">{node.name}</span>

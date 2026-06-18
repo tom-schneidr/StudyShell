@@ -133,7 +133,7 @@ body,
   backdrop-filter: blur(32px) saturate(210%);
   -webkit-backdrop-filter: blur(32px) saturate(210%);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 
+  box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.05),
     0 10px 40px -10px rgba(0, 0, 0, 0.5);
 }
@@ -151,13 +151,8 @@ body,
 }
 
 .glass-highlight {
-  background: linear-gradient(
-    135deg,
-    var(--color-glass-highlight) 0%,
-    transparent 50%
-  );
+  background: linear-gradient(135deg, var(--color-glass-highlight) 0%, transparent 50%);
 }
-
 
 /* ===== TipTap Editor ===== */
 .tiptap-editor .ProseMirror {
@@ -406,8 +401,8 @@ body,
   color: var(--color-shell-text);
 }
 
-.ai-markdown h1, 
-.ai-markdown h2, 
+.ai-markdown h1,
+.ai-markdown h2,
 .ai-markdown h3 {
   color: var(--color-shell-text);
   font-weight: 700;
@@ -416,15 +411,23 @@ body,
   letter-spacing: -0.01em;
 }
 
-.ai-markdown h1 { font-size: 1.25rem; border-bottom: 1px solid var(--color-shell-border); padding-bottom: 0.5rem; }
-.ai-markdown h2 { font-size: 1.1rem; }
-.ai-markdown h3 { font-size: 1rem; }
+.ai-markdown h1 {
+  font-size: 1.25rem;
+  border-bottom: 1px solid var(--color-shell-border);
+  padding-bottom: 0.5rem;
+}
+.ai-markdown h2 {
+  font-size: 1.1rem;
+}
+.ai-markdown h3 {
+  font-size: 1rem;
+}
 
 .ai-markdown p {
   margin-bottom: 0.75rem;
 }
 
-.ai-markdown ul, 
+.ai-markdown ul,
 .ai-markdown ol {
   padding-left: 1.25rem;
   margin-bottom: 1rem;
@@ -434,8 +437,12 @@ body,
   margin-bottom: 0.4rem;
 }
 
-.ai-markdown ul { list-style-type: disc; }
-.ai-markdown ol { list-style-type: decimal; }
+.ai-markdown ul {
+  list-style-type: disc;
+}
+.ai-markdown ol {
+  list-style-type: decimal;
+}
 
 .ai-markdown code {
   background: var(--color-shell-surface-hover);

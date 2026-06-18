@@ -73,21 +73,33 @@ export default function CreationModal({
             className="relative w-full max-w-md glass-layer-2 overflow-hidden rounded-2xl shadow-2xl border border-shell-border"
           >
             <div className="bg-glow opacity-30 h-40" />
-            
+
             <div className="relative p-6">
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-xl ${
-                    mode === "file" ? "bg-shell-accent/10 text-shell-accent" : 
-                    mode === "folder" ? "bg-purple-500/10 text-purple-400" :
-                    "bg-shell-warning/10 text-shell-warning"
-                  }`}>
-                    {mode === "file" ? <FilePlus2 size={20} /> : mode === "folder" ? <FolderPlus size={20} /> : <Pencil size={20} />}
+                  <div
+                    className={`p-2 rounded-xl ${
+                      mode === "file"
+                        ? "bg-shell-accent/10 text-shell-accent"
+                        : mode === "folder"
+                          ? "bg-purple-500/10 text-purple-400"
+                          : "bg-shell-warning/10 text-shell-warning"
+                    }`}
+                  >
+                    {mode === "file" ? (
+                      <FilePlus2 size={20} />
+                    ) : mode === "folder" ? (
+                      <FolderPlus size={20} />
+                    ) : (
+                      <Pencil size={20} />
+                    )}
                   </div>
                   <div>
                     <h2 className="text-lg font-bold text-shell-text tracking-tight uppercase">
-                      {mode === "rename" ? "Rename" : `Create New ${mode === "file" ? "Note" : "Folder"}`}
+                      {mode === "rename"
+                        ? "Rename"
+                        : `Create New ${mode === "file" ? "Note" : "Folder"}`}
                     </h2>
                     <p className="text-[11px] text-shell-text-muted font-medium uppercase tracking-wider mt-0.5">
                       Enter a {mode === "rename" ? "new name" : `name for your new ${mode}`}
@@ -120,9 +132,13 @@ export default function CreationModal({
                     )}
                   </div>
                   <div className="absolute bottom-2.5 left-4 flex items-center gap-2">
-                     <span className="text-[9px] font-bold text-shell-text-muted uppercase tracking-[0.15em]">
-                        {mode === "file" ? "Markdown Document" : mode === "folder" ? "Standard Directory" : "Rename Item"}
-                     </span>
+                    <span className="text-[9px] font-bold text-shell-text-muted uppercase tracking-[0.15em]">
+                      {mode === "file"
+                        ? "Markdown Document"
+                        : mode === "folder"
+                          ? "Standard Directory"
+                          : "Rename Item"}
+                    </span>
                   </div>
                 </div>
 
@@ -138,7 +154,9 @@ export default function CreationModal({
                     type="submit"
                     disabled={!name.trim()}
                     className={`flex-2 px-4 py-2.5 rounded-xl text-[13px] font-bold text-white transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${
-                      mode === "rename" ? "bg-shell-warning hover:bg-yellow-500 shadow-lg shadow-shell-warning/20" : "bg-shell-accent hover:bg-shell-accent-hover shadow-lg shadow-shell-accent/20"
+                      mode === "rename"
+                        ? "bg-shell-warning hover:bg-yellow-500 shadow-lg shadow-shell-warning/20"
+                        : "bg-shell-accent hover:bg-shell-accent-hover shadow-lg shadow-shell-accent/20"
                     }`}
                   >
                     {mode === "rename" ? "Rename" : `Create ${mode === "file" ? "Note" : "Folder"}`}

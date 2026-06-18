@@ -45,10 +45,7 @@ import {
   extensionFromImageMimeType,
   insertTextAtSelection,
 } from "../src/utils/markdownAssets.ts";
-import {
-  getMarkdownHeadingOffset,
-  parseMarkdownHeadings,
-} from "../src/utils/markdownHeadings.ts";
+import { getMarkdownHeadingOffset, parseMarkdownHeadings } from "../src/utils/markdownHeadings.ts";
 import {
   buildExportCopyFilename,
   getPathBaseName,
@@ -104,10 +101,7 @@ import {
   getSelectedSourcesSummary,
   normalizeSelectedSources,
 } from "../src/utils/sourceSelection.ts";
-import {
-  resolveCodeLanguage,
-  shouldPersistCodeContent,
-} from "../src/utils/codeEditor.ts";
+import { resolveCodeLanguage, shouldPersistCodeContent } from "../src/utils/codeEditor.ts";
 import {
   CHAT_HISTORY_LIMIT,
   deserializeChatHistory,
@@ -205,7 +199,10 @@ const dedupedContext = buildChatContext([
   },
 ]);
 assert.equal((dedupedContext?.match(/Path: C:\\notes\.md/g) ?? []).length, 1);
-assert.equal(buildChatContext([{ label: "Empty", path: "C:\\empty.txt", content: "   " }]), undefined);
+assert.equal(
+  buildChatContext([{ label: "Empty", path: "C:\\empty.txt", content: "   " }]),
+  undefined,
+);
 
 assert.equal(normalizeMarkdownFileName("Lecture 1"), "Lecture 1.md");
 assert.equal(normalizeMarkdownFileName("summary.md"), "summary.md");
@@ -214,18 +211,24 @@ assert.equal(normalizeMarkdownFileName("weekly notes... "), "weekly notes.md");
 assert.equal(normalizeDirectoryName(" Week <1> "), "Week -1-");
 assert.equal(normalizeDirectoryName(" Topic 1... "), "Topic 1");
 assert.equal(sanitizeEntryName("  exam<review>?  "), "exam-review--");
-assert.equal(suggestUniqueMarkdownFileName(["untitled-note.md"], "untitled-note"), "untitled-note-2.md");
+assert.equal(
+  suggestUniqueMarkdownFileName(["untitled-note.md"], "untitled-note"),
+  "untitled-note-2.md",
+);
 assert.equal(
   suggestUniqueMarkdownFileName(["Lecture 1.md", "Lecture 1-2.md"], "Lecture 1"),
   "Lecture 1-3.md",
 );
-assert.equal(suggestUniqueDirectoryName(["untitled-folder"], "untitled-folder"), "untitled-folder-2");
 assert.equal(
-  suggestUniqueDirectoryName(["Week 1", "Week 1-2"], "Week 1"),
-  "Week 1-3",
+  suggestUniqueDirectoryName(["untitled-folder"], "untitled-folder"),
+  "untitled-folder-2",
 );
+assert.equal(suggestUniqueDirectoryName(["Week 1", "Week 1-2"], "Week 1"), "Week 1-3");
 assert.equal(resolveCreationDirectory({ is_dir: true, path: "C:\\Notes" }), "C:\\Notes");
-assert.equal(resolveCreationDirectory({ is_dir: false, path: "C:\\Notes\\week1.txt" }), "C:\\Notes");
+assert.equal(
+  resolveCreationDirectory({ is_dir: false, path: "C:\\Notes\\week1.txt" }),
+  "C:\\Notes",
+);
 assert.equal(
   buildMarkdownNotePath({ is_dir: true, path: "C:\\Notes" }, "Week 2"),
   "C:\\Notes\\Week 2.md",
@@ -291,7 +294,9 @@ const fileTree = [
 
 assert.equal(filterFileTree(fileTree, "").length, 2);
 assert.deepEqual(listChildNamesForDirectory(fileTree, "C:\\Coursework"), ["Week 1"]);
-assert.deepEqual(listChildNamesForDirectory(fileTree, "C:\\Coursework\\Week 1"), ["lecture-notes.md"]);
+assert.deepEqual(listChildNamesForDirectory(fileTree, "C:\\Coursework\\Week 1"), [
+  "lecture-notes.md",
+]);
 assert.deepEqual(listChildNamesForDirectory(fileTree, "C:\\missing"), []);
 assert.equal(filterFileTree(fileTree, "todo")[0].name, "todo.txt");
 assert.equal(filterFileTree(fileTree, "lecture")[0].name, "Coursework");
@@ -333,7 +338,9 @@ assert.equal(
   '[{"front":"Q1","back":"A1"}]',
 );
 assert.deepEqual(
-  parseFlashcardsResponse('```json\n[{"front":" Term ","back":" Definition "},{"front":"","back":"skip"}]\n```'),
+  parseFlashcardsResponse(
+    '```json\n[{"front":" Term ","back":" Definition "},{"front":"","back":"skip"}]\n```',
+  ),
   [{ front: "Term", back: "Definition" }],
 );
 assert.deepEqual(
@@ -344,7 +351,9 @@ assert.deepEqual(
   ],
 );
 assert.deepEqual(
-  parseFlashcardsResponse('[{"front":"Q1","back":"A1"},{"front":"Q1","back":"A1"},{"front":"Q2","back":"A2"}]'),
+  parseFlashcardsResponse(
+    '[{"front":"Q1","back":"A1"},{"front":"Q1","back":"A1"},{"front":"Q2","back":"A2"}]',
+  ),
   [
     { front: "Q1", back: "A1" },
     { front: "Q2", back: "A2" },
@@ -366,7 +375,14 @@ assert.deepEqual(
   parseQuizResponse(
     '```json\n[{"question":"2+2?","options":["1","2","4","8"],"correctIndex":2,"explanation":"Basic arithmetic"}]\n```',
   ),
-  [{ question: "2+2?", options: ["1", "2", "4", "8"], correctIndex: 2, explanation: "Basic arithmetic" }],
+  [
+    {
+      question: "2+2?",
+      options: ["1", "2", "4", "8"],
+      correctIndex: 2,
+      explanation: "Basic arithmetic",
+    },
+  ],
 );
 // parseQuizResponse: filters entries with out-of-range correctIndex
 assert.deepEqual(
@@ -386,20 +402,13 @@ assert.equal(
   buildMarkdownImageTag("pasted-image-123.png", "_assets/pasted-image-123.png"),
   "\n![pasted-image-123.png](_assets/pasted-image-123.png)\n",
 );
-assert.equal(
-  insertTextAtSelection("alpha omega", 6, 11, "study"),
-  "alpha study",
-);
+assert.equal(insertTextAtSelection("alpha omega", 6, 11, "study"), "alpha study");
 assert.deepEqual(
-  parseMarkdownHeadings([
-    "# Intro",
-    "Some text",
-    "## Deep Dive",
-    "```md",
-    "# Ignored",
-    "```",
-    "## Deep Dive",
-  ].join("\n")),
+  parseMarkdownHeadings(
+    ["# Intro", "Some text", "## Deep Dive", "```md", "# Ignored", "```", "## Deep Dive"].join(
+      "\n",
+    ),
+  ),
   [
     { id: "intro", level: 1, line: 1, text: "Intro" },
     { id: "deep-dive", level: 2, line: 3, text: "Deep Dive" },
@@ -436,10 +445,7 @@ assert.equal(
   remapPathPrefix("/tmp/course/week1/notes.md", "/tmp/course", "/tmp/archive"),
   "/tmp/archive/week1/notes.md",
 );
-assert.equal(
-  remapPathPrefix("/tmp/coursework/notes.md", "/tmp/course", "/tmp/archive"),
-  null,
-);
+assert.equal(remapPathPrefix("/tmp/coursework/notes.md", "/tmp/course", "/tmp/archive"), null);
 assert.equal(
   getRelativePathFromRoot("C:\\Study\\Week 1\\notes.md", "C:\\Study"),
   "Week 1\\notes.md",
@@ -448,10 +454,7 @@ assert.equal(
   getRelativePathFromRoot("/tmp/course/week1/notes.md", "/tmp/course"),
   "week1/notes.md",
 );
-assert.equal(
-  getRelativePathFromRoot("C:\\Study", "C:\\Study"),
-  ".",
-);
+assert.equal(getRelativePathFromRoot("C:\\Study", "C:\\Study"), ".");
 assert.equal(
   getRelativePathFromRoot("C:\\Study Hall\\notes.md", "C:\\Study"),
   "C:\\Study Hall\\notes.md",
@@ -465,11 +468,7 @@ assert.deepEqual(
   { x: 792, y: 576 },
 );
 assert.deepEqual(
-  clampFloatingPosition(
-    { x: 2, y: 3 },
-    { width: 220, height: 180 },
-    { width: 1024, height: 768 },
-  ),
+  clampFloatingPosition({ x: 2, y: 3 }, { width: 220, height: 180 }, { width: 1024, height: 768 }),
   { x: 12, y: 12 },
 );
 assert.equal(clampPdfScale(Number.NaN), DEFAULT_PDF_SCALE);
@@ -496,7 +495,13 @@ assert.equal(shouldPersistCodeContent("const x = 2;", "const x = 1;"), true);
 assert.deepEqual(
   removeFileNodesWithinPath(
     [
-      { name: "notes.md", path: "C:\\Study\\notes.md", is_dir: false, extension: "md", children: null },
+      {
+        name: "notes.md",
+        path: "C:\\Study\\notes.md",
+        is_dir: false,
+        extension: "md",
+        children: null,
+      },
       { name: "Week 1", path: "C:\\Study\\Week 1", is_dir: true, extension: null, children: [] },
       { name: "todo.txt", path: "C:\\todo.txt", is_dir: false, extension: "txt", children: null },
     ],
@@ -514,19 +519,39 @@ assert.deepEqual(
   ),
   [{ name: "Week 10", path: "/tmp/course/week10", is_dir: true, extension: null, children: [] }],
 );
-assert.deepEqual(
-  Array.from(collectFilePaths(fileTree)).sort(),
-  ["C:\\Coursework\\Week 1\\lecture-notes.md", "C:\\todo.txt"],
-);
+assert.deepEqual(Array.from(collectFilePaths(fileTree)).sort(), [
+  "C:\\Coursework\\Week 1\\lecture-notes.md",
+  "C:\\todo.txt",
+]);
 assert.deepEqual(
   filterFileNodesByPaths(
     [
-      { name: "lecture-notes.md", path: "C:\\Coursework\\Week 1\\lecture-notes.md", is_dir: false, extension: "md", children: null },
-      { name: "missing.md", path: "C:\\Coursework\\missing.md", is_dir: false, extension: "md", children: null },
+      {
+        name: "lecture-notes.md",
+        path: "C:\\Coursework\\Week 1\\lecture-notes.md",
+        is_dir: false,
+        extension: "md",
+        children: null,
+      },
+      {
+        name: "missing.md",
+        path: "C:\\Coursework\\missing.md",
+        is_dir: false,
+        extension: "md",
+        children: null,
+      },
     ],
     new Set(["C:\\Coursework\\Week 1\\lecture-notes.md"]),
   ),
-  [{ name: "lecture-notes.md", path: "C:\\Coursework\\Week 1\\lecture-notes.md", is_dir: false, extension: "md", children: null }],
+  [
+    {
+      name: "lecture-notes.md",
+      path: "C:\\Coursework\\Week 1\\lecture-notes.md",
+      is_dir: false,
+      extension: "md",
+      children: null,
+    },
+  ],
 );
 assert.deepEqual(
   filterRecordByPaths(
@@ -542,64 +567,53 @@ assert.deepEqual(
 );
 assert.deepEqual(
   buildWorkspaceCommandTarget(
-    { name: "notes.md", path: "C:\\Study\\notes.md", is_dir: false, extension: "md", children: null },
+    {
+      name: "notes.md",
+      path: "C:\\Study\\notes.md",
+      is_dir: false,
+      extension: "md",
+      children: null,
+    },
     "C:\\Study",
     fileTree,
   ),
   { name: "notes.md", path: "C:\\Study\\notes.md", is_dir: false, extension: "md", children: null },
 );
-assert.deepEqual(
-  buildWorkspaceCommandTarget(null, "C:\\Study", fileTree),
-  {
-    name: "Study",
-    path: "C:\\Study",
-    is_dir: true,
-    extension: null,
-    children: fileTree,
-  },
-);
+assert.deepEqual(buildWorkspaceCommandTarget(null, "C:\\Study", fileTree), {
+  name: "Study",
+  path: "C:\\Study",
+  is_dir: true,
+  extension: null,
+  children: fileTree,
+});
 assert.equal(buildWorkspaceCommandTarget(null, null, fileTree), null);
 assert.equal(hasCommandPaletteMatches(2), true);
 assert.equal(hasCommandPaletteMatches(0), false);
 assert.equal(
-  getDefaultCommandIndex([
-    { disabled: true },
-    { disabled: false },
-    { disabled: false },
-  ]),
+  getDefaultCommandIndex([{ disabled: true }, { disabled: false }, { disabled: false }]),
   1,
 );
 assert.equal(getDefaultCommandIndex([]), -1);
 assert.equal(
-  getNextEnabledCommandIndex(
-    [
-      { disabled: false },
-      { disabled: true },
-      { disabled: false },
-    ],
-    0,
-    1,
-  ),
+  getNextEnabledCommandIndex([{ disabled: false }, { disabled: true }, { disabled: false }], 0, 1),
   2,
 );
 assert.equal(
-  getNextEnabledCommandIndex(
-    [
-      { disabled: false },
-      { disabled: true },
-      { disabled: false },
-    ],
-    2,
-    -1,
-  ),
+  getNextEnabledCommandIndex([{ disabled: false }, { disabled: true }, { disabled: false }], 2, -1),
   0,
 );
 assert.equal(
-  commandMatchesQuery({ label: "New Note", category: "Files", description: "Create a markdown note" }, "markdown"),
+  commandMatchesQuery(
+    { label: "New Note", category: "Files", description: "Create a markdown note" },
+    "markdown",
+  ),
   true,
 );
 assert.equal(
-  commandMatchesQuery({ label: "New Note", category: "Files", description: "Create a markdown note" }, "system"),
+  commandMatchesQuery(
+    { label: "New Note", category: "Files", description: "Create a markdown note" },
+    "system",
+  ),
   false,
 );
 assert.equal(
@@ -616,13 +630,43 @@ assert.equal(
 );
 assert.deepEqual(
   normalizeRecentFiles([
-    { name: "notes.md", path: "C:\\Study\\notes.md", is_dir: false, extension: "md", children: null },
-    { name: "notes.md", path: "C:\\Study\\notes.md", is_dir: false, extension: "md", children: null },
-    { name: "week-1.md", path: "C:\\Study\\week-1.md", is_dir: false, extension: "md", children: null },
+    {
+      name: "notes.md",
+      path: "C:\\Study\\notes.md",
+      is_dir: false,
+      extension: "md",
+      children: null,
+    },
+    {
+      name: "notes.md",
+      path: "C:\\Study\\notes.md",
+      is_dir: false,
+      extension: "md",
+      children: null,
+    },
+    {
+      name: "week-1.md",
+      path: "C:\\Study\\week-1.md",
+      is_dir: false,
+      extension: "md",
+      children: null,
+    },
   ]),
   [
-    { name: "notes.md", path: "C:\\Study\\notes.md", is_dir: false, extension: "md", children: null },
-    { name: "week-1.md", path: "C:\\Study\\week-1.md", is_dir: false, extension: "md", children: null },
+    {
+      name: "notes.md",
+      path: "C:\\Study\\notes.md",
+      is_dir: false,
+      extension: "md",
+      children: null,
+    },
+    {
+      name: "week-1.md",
+      path: "C:\\Study\\week-1.md",
+      is_dir: false,
+      extension: "md",
+      children: null,
+    },
   ],
 );
 assert.equal(
@@ -642,30 +686,84 @@ assert.deepEqual(
   deserializeRecentFiles(
     '[{"name":"notes.md","path":"C:\\\\Study\\\\notes.md","is_dir":false,"extension":"md","children":null},{"name":"bad"}]',
   ),
-  [{ name: "notes.md", path: "C:\\Study\\notes.md", is_dir: false, extension: "md", children: null }],
+  [
+    {
+      name: "notes.md",
+      path: "C:\\Study\\notes.md",
+      is_dir: false,
+      extension: "md",
+      children: null,
+    },
+  ],
 );
 assert.equal(
   serializeRecentFiles([
-    { name: "notes.md", path: "C:\\Study\\notes.md", is_dir: false, extension: "md", children: null },
-    { name: "notes.md", path: "C:\\Study\\notes.md", is_dir: false, extension: "md", children: null },
+    {
+      name: "notes.md",
+      path: "C:\\Study\\notes.md",
+      is_dir: false,
+      extension: "md",
+      children: null,
+    },
+    {
+      name: "notes.md",
+      path: "C:\\Study\\notes.md",
+      is_dir: false,
+      extension: "md",
+      children: null,
+    },
   ]),
   '[{"name":"notes.md","path":"C:\\\\Study\\\\notes.md","is_dir":false,"extension":"md","children":null}]',
 );
 assert.deepEqual(
   filterRecentFilesForWorkspace(
     [
-      { name: "notes.md", path: "C:\\Study\\notes.md", is_dir: false, extension: "md", children: null },
-      { name: "week-1.md", path: "C:\\Study\\week-1.md", is_dir: false, extension: "md", children: null },
-      { name: "other.md", path: "C:\\Other\\other.md", is_dir: false, extension: "md", children: null },
+      {
+        name: "notes.md",
+        path: "C:\\Study\\notes.md",
+        is_dir: false,
+        extension: "md",
+        children: null,
+      },
+      {
+        name: "week-1.md",
+        path: "C:\\Study\\week-1.md",
+        is_dir: false,
+        extension: "md",
+        children: null,
+      },
+      {
+        name: "other.md",
+        path: "C:\\Other\\other.md",
+        is_dir: false,
+        extension: "md",
+        children: null,
+      },
     ],
     "C:\\Study",
     new Set(["C:\\Study\\notes.md"]),
   ),
-  [{ name: "notes.md", path: "C:\\Study\\notes.md", is_dir: false, extension: "md", children: null }],
+  [
+    {
+      name: "notes.md",
+      path: "C:\\Study\\notes.md",
+      is_dir: false,
+      extension: "md",
+      children: null,
+    },
+  ],
 );
 assert.deepEqual(
   filterRecentFilesForWorkspace(
-    [{ name: "notes.md", path: "C:\\Study\\notes.md", is_dir: false, extension: "md", children: null }],
+    [
+      {
+        name: "notes.md",
+        path: "C:\\Study\\notes.md",
+        is_dir: false,
+        extension: "md",
+        children: null,
+      },
+    ],
     null,
     new Set(["C:\\Study\\notes.md"]),
   ),
@@ -710,8 +808,14 @@ assert.equal(formatSearchError(new Error("Disk offline")), "Search failed: Disk 
 assert.equal(formatSearchError("   "), "Search failed. Please try again.");
 assert.equal(formatFilesystemError(null), null);
 assert.equal(formatFilesystemError(""), null);
-assert.equal(formatFilesystemError("Failed to load directory: denied"), "Failed to load directory: denied.");
-assert.equal(formatFilesystemError("Failed to load\n directory:\tdenied "), "Failed to load directory: denied.");
+assert.equal(
+  formatFilesystemError("Failed to load directory: denied"),
+  "Failed to load directory: denied.",
+);
+assert.equal(
+  formatFilesystemError("Failed to load\n directory:\tdenied "),
+  "Failed to load directory: denied.",
+);
 assert.equal(formatFilesystemError("Already punctuated."), "Already punctuated.");
 assert.equal(canSelectSource({ is_dir: false, extension: "md" }), true);
 assert.equal(canSelectSource({ is_dir: false, extension: "txt" }), true);
@@ -719,15 +823,51 @@ assert.equal(canSelectSource({ is_dir: false, extension: "pdf" }), false);
 assert.equal(canSelectSource({ is_dir: true, extension: null }), false);
 assert.deepEqual(
   normalizeSelectedSources([
-    { name: "notes.md", path: "C:\\Study\\notes.md", is_dir: false, extension: "md", children: null },
-    { name: "notes.md", path: "C:\\Study\\notes.md", is_dir: false, extension: "md", children: null },
-    { name: "lecture.pdf", path: "C:\\Study\\lecture.pdf", is_dir: false, extension: "pdf", children: null },
+    {
+      name: "notes.md",
+      path: "C:\\Study\\notes.md",
+      is_dir: false,
+      extension: "md",
+      children: null,
+    },
+    {
+      name: "notes.md",
+      path: "C:\\Study\\notes.md",
+      is_dir: false,
+      extension: "md",
+      children: null,
+    },
+    {
+      name: "lecture.pdf",
+      path: "C:\\Study\\lecture.pdf",
+      is_dir: false,
+      extension: "pdf",
+      children: null,
+    },
     { name: "Week 1", path: "C:\\Study\\Week 1", is_dir: true, extension: null, children: [] },
-    { name: "outline.txt", path: "C:\\Study\\outline.txt", is_dir: false, extension: "txt", children: null },
+    {
+      name: "outline.txt",
+      path: "C:\\Study\\outline.txt",
+      is_dir: false,
+      extension: "txt",
+      children: null,
+    },
   ]),
   [
-    { name: "notes.md", path: "C:\\Study\\notes.md", is_dir: false, extension: "md", children: null },
-    { name: "outline.txt", path: "C:\\Study\\outline.txt", is_dir: false, extension: "txt", children: null },
+    {
+      name: "notes.md",
+      path: "C:\\Study\\notes.md",
+      is_dir: false,
+      extension: "md",
+      children: null,
+    },
+    {
+      name: "outline.txt",
+      path: "C:\\Study\\outline.txt",
+      is_dir: false,
+      extension: "txt",
+      children: null,
+    },
   ],
 );
 assert.equal(canClearSelectedSources(0), false);
@@ -746,10 +886,10 @@ assert.equal(
   true,
 );
 assert.equal(
-  hasDuplicateToast(
-    [{ type: "error", message: "Disk offline" }],
-    { type: "info", message: "Disk offline" },
-  ),
+  hasDuplicateToast([{ type: "error", message: "Disk offline" }], {
+    type: "info",
+    message: "Disk offline",
+  }),
   false,
 );
 assert.equal(parseSidebarTab("search"), "search");
@@ -770,19 +910,13 @@ const serializedTimer = serializeStudyTimerState({
   isActive: true,
   updatedAt: 1_000,
 });
-assert.deepEqual(
-  deserializeStudyTimerState(serializedTimer, 95_000),
-  {
-    mode: "break",
-    seconds: BREAK_DURATION_SECONDS,
-    isActive: false,
-    updatedAt: 95_000,
-  },
-);
-assert.equal(
-  readStudyTimerState({ getItem: () => null }, 2_000).seconds,
-  WORK_DURATION_SECONDS,
-);
+assert.deepEqual(deserializeStudyTimerState(serializedTimer, 95_000), {
+  mode: "break",
+  seconds: BREAK_DURATION_SECONDS,
+  isActive: false,
+  updatedAt: 95_000,
+});
+assert.equal(readStudyTimerState({ getItem: () => null }, 2_000).seconds, WORK_DURATION_SECONDS);
 
 const chatHistory = [
   {
@@ -809,12 +943,17 @@ assert.deepEqual(
   deserializeChatHistory('[{"id":"bad","role":"user","content":"x","timestamp":"nope"}]'),
   [],
 );
-assert.equal(limitChatHistory(Array.from({ length: CHAT_HISTORY_LIMIT + 5 }, (_, index) => ({
-  id: `m-${index}`,
-  role: "user",
-  content: `Message ${index}`,
-  timestamp: new Date("2026-01-01T00:00:00.000Z"),
-}))).length, CHAT_HISTORY_LIMIT);
+assert.equal(
+  limitChatHistory(
+    Array.from({ length: CHAT_HISTORY_LIMIT + 5 }, (_, index) => ({
+      id: `m-${index}`,
+      role: "user",
+      content: `Message ${index}`,
+      timestamp: new Date("2026-01-01T00:00:00.000Z"),
+    })),
+  ).length,
+  CHAT_HISTORY_LIMIT,
+);
 
 const pdfAnnotations = {
   version: 1,
@@ -843,7 +982,12 @@ assert.deepEqual(
   parsePdfAnnotationData(serializePdfAnnotationData(pdfAnnotations)),
   pdfAnnotations,
 );
-assert.equal(parsePdfAnnotationData('{"version":1,"pages":{"zero":{"ink":[],"highlights":[],"notes":[],"textboxes":[]}}}'), null);
+assert.equal(
+  parsePdfAnnotationData(
+    '{"version":1,"pages":{"zero":{"ink":[],"highlights":[],"notes":[],"textboxes":[]}}}',
+  ),
+  null,
+);
 assert.equal(parsePdfAnnotationData('{"version":1,"pages":{"1":{"ink":"bad"}}}'), null);
 assert.equal(parsePdfAnnotationData("not-json"), null);
 

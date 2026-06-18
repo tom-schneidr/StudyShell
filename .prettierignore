@@ -1,0 +1,8 @@
+node_modules
+dist
+dist-ssr
+scratch
+src-tauri/gen
+src-tauri/target
+package-lock.json
+src-tauri/Cargo.lock

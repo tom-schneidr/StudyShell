@@ -20,11 +20,7 @@ export interface AiStatus {
   model: typeof FREEROUTER_MODEL;
 }
 
-function normalizeAiStatus(raw: {
-  base_url: string;
-  reachable: boolean;
-  model: string;
-}): AiStatus {
+function normalizeAiStatus(raw: { base_url: string; reachable: boolean; model: string }): AiStatus {
   return {
     baseUrl: raw.base_url || FREEROUTER_DEFAULT_BASE_URL,
     reachable: raw.reachable,
@@ -42,7 +38,10 @@ export function useStudyAI() {
   const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
   const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState<string>(() =>
-    parseStoredString(window.localStorage.getItem(STORAGE_KEYS.systemPrompt), DEFAULT_SYSTEM_PROMPT),
+    parseStoredString(
+      window.localStorage.getItem(STORAGE_KEYS.systemPrompt),
+      DEFAULT_SYSTEM_PROMPT,
+    ),
   );
   const streamAbortRef = useRef<(() => void) | null>(null);
 

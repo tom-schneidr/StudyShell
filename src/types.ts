@@ -16,7 +16,18 @@ export interface ChatMessage {
 }
 
 /// Supported file types for the editor
-export type FileType = "markdown" | "text" | "pdf" | "image" | "video" | "audio" | "notebook" | "code" | "svg" | "flashcard" | "unsupported";
+export type FileType =
+  | "markdown"
+  | "text"
+  | "pdf"
+  | "image"
+  | "video"
+  | "audio"
+  | "notebook"
+  | "code"
+  | "svg"
+  | "flashcard"
+  | "unsupported";
 
 /// Filesystem change event from the watcher
 export interface FsChangeEvent {
@@ -134,12 +145,67 @@ export function getFileType(extension: string | null, name?: string): FileType {
   const markdownExtensions = ["md", "markdown", "mdx"];
 
   const codeExtensions = [
-    "rs", "py", "js", "ts", "tsx", "jsx", "html", "css", "scss", "sass", "less", "java", "c", "cpp",
-    "h", "hpp", "cs", "go", "rb", "php", "swift", "kt", "kts", "scala", "r", "m", "sql", "sh", "bash",
-    "zsh", "ps1", "bat", "cmd", "xml", "lua", "vim", "diff", "patch", "svelte", "vue", "astro", "graphql", "gql", "prisma"
+    "rs",
+    "py",
+    "js",
+    "ts",
+    "tsx",
+    "jsx",
+    "html",
+    "css",
+    "scss",
+    "sass",
+    "less",
+    "java",
+    "c",
+    "cpp",
+    "h",
+    "hpp",
+    "cs",
+    "go",
+    "rb",
+    "php",
+    "swift",
+    "kt",
+    "kts",
+    "scala",
+    "r",
+    "m",
+    "sql",
+    "sh",
+    "bash",
+    "zsh",
+    "ps1",
+    "bat",
+    "cmd",
+    "xml",
+    "lua",
+    "vim",
+    "diff",
+    "patch",
+    "svelte",
+    "vue",
+    "astro",
+    "graphql",
+    "gql",
+    "prisma",
   ];
 
-  const textExtensions = ["txt", "text", "log", "csv", "json", "json5", "yaml", "yml", "toml", "lock", "ini", "cfg", "conf"];
+  const textExtensions = [
+    "txt",
+    "text",
+    "log",
+    "csv",
+    "json",
+    "json5",
+    "yaml",
+    "yml",
+    "toml",
+    "lock",
+    "ini",
+    "cfg",
+    "conf",
+  ];
 
   if (ext === "svg") return "svg";
   if (markdownExtensions.includes(ext)) return "markdown";
@@ -157,24 +223,44 @@ export function getFileType(extension: string | null, name?: string): FileType {
 export function getMimeType(extension: string | null): string {
   if (!extension) return "application/octet-stream";
   switch (extension.toLowerCase()) {
-    case "png": return "image/png";
-    case "jpg": case "jpeg": return "image/jpeg";
-    case "gif": return "image/gif";
-    case "webp": return "image/webp";
-    case "bmp": return "image/bmp";
-    case "ico": return "image/x-icon";
-    case "tiff": case "tif": return "image/tiff";
-    case "svg": return "image/svg+xml";
-    case "pdf": return "application/pdf";
-    case "mp4": return "video/mp4";
-    case "webm": return "video/webm";
-    case "mp3": return "audio/mpeg";
-    case "wav": return "audio/wav";
-    case "m4a": return "audio/mp4";
-    case "ogg": return "audio/ogg";
-    case "avi": return "video/x-msvideo";
-    case "mov": return "video/quicktime";
-    default: return "application/octet-stream";
+    case "png":
+      return "image/png";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "gif":
+      return "image/gif";
+    case "webp":
+      return "image/webp";
+    case "bmp":
+      return "image/bmp";
+    case "ico":
+      return "image/x-icon";
+    case "tiff":
+    case "tif":
+      return "image/tiff";
+    case "svg":
+      return "image/svg+xml";
+    case "pdf":
+      return "application/pdf";
+    case "mp4":
+      return "video/mp4";
+    case "webm":
+      return "video/webm";
+    case "mp3":
+      return "audio/mpeg";
+    case "wav":
+      return "audio/wav";
+    case "m4a":
+      return "audio/mp4";
+    case "ogg":
+      return "audio/ogg";
+    case "avi":
+      return "video/x-msvideo";
+    case "mov":
+      return "video/quicktime";
+    default:
+      return "application/octet-stream";
   }
 }
 

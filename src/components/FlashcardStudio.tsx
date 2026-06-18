@@ -1,15 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Play, 
-  Plus, 
-  Trash2, 
-  Sparkles, 
-  BookOpen, 
-  Check, 
-  Edit3,
-  Lightbulb
-} from "lucide-react";
+import { Play, Plus, Trash2, Sparkles, BookOpen, Check, Edit3, Lightbulb } from "lucide-react";
 import type { StudyAI } from "../hooks/useStudyAI";
 import type { FileNode } from "../types";
 import type { FlashcardCard } from "../utils/flashcards";
@@ -33,7 +24,7 @@ export default function FlashcardStudio({
   onSave,
   onFileSelect,
   fileTree,
-  ai
+  ai,
 }: FlashcardStudioProps) {
   const toast = useToast();
   const [cards, setCards] = useState<FlashcardCard[]>([]);
@@ -68,15 +59,18 @@ export default function FlashcardStudio({
   }, [content]);
 
   // Save utility
-  const saveCards = useCallback((newCards: FlashcardCard[]) => {
-    setCards(newCards);
-    onSave(JSON.stringify(newCards, null, 2));
-  }, [onSave]);
+  const saveCards = useCallback(
+    (newCards: FlashcardCard[]) => {
+      setCards(newCards);
+      onSave(JSON.stringify(newCards, null, 2));
+    },
+    [onSave],
+  );
 
   // Find corresponding source note
   const sourceNode = useMemo(() => {
     const baseName = fileName.replace(".flashcards.json", "");
-    
+
     // Find sibling files in fileTree
     const findSibling = (nodes: FileNode[]): FileNode | null => {
       for (const node of nodes) {
@@ -85,14 +79,17 @@ export default function FlashcardStudio({
           if (res) return res;
         } else if (!node.is_dir && node.path.startsWith(dirPath)) {
           const nodeBase = node.name.replace(/\.[^/.]+$/, "");
-          if (nodeBase.toLowerCase() === baseName.toLowerCase() && !node.name.endsWith(".flashcards.json")) {
+          if (
+            nodeBase.toLowerCase() === baseName.toLowerCase() &&
+            !node.name.endsWith(".flashcards.json")
+          ) {
             return node;
           }
         }
       }
       return null;
     };
-    
+
     return findSibling(fileTree);
   }, [fileName, dirPath, fileTree]);
 
@@ -136,7 +133,7 @@ export default function FlashcardStudio({
     }
     updated[editingIndex] = {
       ...updated[editingIndex],
-      [editingField]: editText.trim()
+      [editingField]: editText.trim(),
     };
     saveCards(updated);
     setEditingIndex(null);
@@ -152,7 +149,7 @@ export default function FlashcardStudio({
 
     setAiExpanding(true);
     try {
-      const existingCardsPrompt = cards.map(c => `Q: ${c.front}`).join("\n");
+      const existingCardsPrompt = cards.map((c) => `Q: ${c.front}`).join("\n");
       const prompt = `Based on the source file, generate 5 MORE high-quality flashcards. 
       Do NOT duplicate any of the following existing questions:
       ${existingCardsPrompt}
@@ -164,7 +161,7 @@ export default function FlashcardStudio({
 
       // Read source note's contents directly if we can
       const fileContentText = await invokeReadFile(sourceNode.path);
-      
+
       const response = await ai.sendMessage(prompt, fileContentText);
       if (!response) {
         toast.error("Failed to generate additional flashcards.");
@@ -273,7 +270,9 @@ export default function FlashcardStudio({
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-shell-text-secondary uppercase tracking-widest pl-1">Front (Question or Term)</label>
+                  <label className="text-[10px] font-bold text-shell-text-secondary uppercase tracking-widest pl-1">
+                    Front (Question or Term)
+                  </label>
                   <textarea
                     rows={2}
                     value={newFront}
@@ -283,7 +282,9 @@ export default function FlashcardStudio({
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-shell-text-secondary uppercase tracking-widest pl-1">Back (Answer or Definition)</label>
+                  <label className="text-[10px] font-bold text-shell-text-secondary uppercase tracking-widest pl-1">
+                    Back (Answer or Definition)
+                  </label>
                   <textarea
                     rows={2}
                     value={newBack}
@@ -350,13 +351,16 @@ export default function FlashcardStudio({
                         className="w-full text-xs text-shell-text bg-shell-bg/70 border border-shell-accent/40 rounded-xl px-3 py-2 outline-none resize-none font-medium leading-relaxed"
                       />
                     ) : (
-                      <p 
+                      <p
                         onClick={() => startEditing(i, "front", card.front)}
                         className="text-xs text-shell-text font-bold leading-relaxed cursor-edit flex items-start gap-1 group/text"
                         title="Click to edit Front"
                       >
                         <span className="flex-1 truncate-3-lines">{card.front}</span>
-                        <Edit3 size={11} className="text-shell-text-muted opacity-0 group-hover/text:opacity-100 transition-opacity ml-1.5 mt-0.5" />
+                        <Edit3
+                          size={11}
+                          className="text-shell-text-muted opacity-0 group-hover/text:opacity-100 transition-opacity ml-1.5 mt-0.5"
+                        />
                       </p>
                     )}
                   </div>
@@ -386,13 +390,16 @@ export default function FlashcardStudio({
                         className="w-full text-xs text-shell-text bg-shell-bg/70 border border-shell-accent/40 rounded-xl px-3 py-2 outline-none resize-none font-medium leading-relaxed"
                       />
                     ) : (
-                      <p 
+                      <p
                         onClick={() => startEditing(i, "back", card.back)}
                         className="text-xs text-shell-text-secondary leading-relaxed cursor-edit flex items-start gap-1 group/text"
                         title="Click to edit Back"
                       >
                         <span className="flex-1 truncate-3-lines">{card.back}</span>
-                        <Edit3 size={11} className="text-shell-text-muted opacity-0 group-hover/text:opacity-100 transition-opacity ml-1.5 mt-0.5" />
+                        <Edit3
+                          size={11}
+                          className="text-shell-text-muted opacity-0 group-hover/text:opacity-100 transition-opacity ml-1.5 mt-0.5"
+                        />
                       </p>
                     )}
                   </div>
@@ -416,11 +423,15 @@ export default function FlashcardStudio({
               transition={{ ease: "easeInOut", duration: 4, repeat: Infinity }}
               className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-amber-500/15 to-purple-500/15 border border-shell-border flex items-center justify-center shadow-inner"
             >
-              <Sparkles size={28} className="text-amber-400 fill-amber-400/5 animate-pulse-subtle" />
+              <Sparkles
+                size={28}
+                className="text-amber-400 fill-amber-400/5 animate-pulse-subtle"
+              />
             </motion.div>
             <h3 className="text-base font-bold text-shell-text mb-2">Deck is Currently Empty</h3>
             <p className="text-xs text-shell-text-secondary max-w-[280px] mx-auto leading-relaxed mb-8">
-              Write custom cards using the "Add Card" button, or expand this deck instantly using AI context.
+              Write custom cards using the "Add Card" button, or expand this deck instantly using AI
+              context.
             </p>
             {sourceNode && (
               <button

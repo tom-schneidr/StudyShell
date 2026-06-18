@@ -16,8 +16,8 @@ pub struct AiClientState {
 
 impl AiClientState {
     pub fn new() -> Self {
-        let base_url = std::env::var("FREEROUTER_BASE_URL")
-            .unwrap_or_else(|_| DEFAULT_BASE_URL.to_string());
+        let base_url =
+            std::env::var("FREEROUTER_BASE_URL").unwrap_or_else(|_| DEFAULT_BASE_URL.to_string());
         Self {
             base_url: Mutex::new(normalize_base_url(&base_url)),
             client: Client::new(),
@@ -283,7 +283,9 @@ pub async fn chat_with_ai(
 ) -> Result<String, String> {
     let mut user_text = String::new();
     if let Some(ctx) = context {
-        user_text.push_str(&format!("Context (Reference Material):\n---\n{ctx}\n---\n\n"));
+        user_text.push_str(&format!(
+            "Context (Reference Material):\n---\n{ctx}\n---\n\n"
+        ));
     }
     user_text.push_str(&message);
 
@@ -316,7 +318,9 @@ pub async fn stream_chat_with_ai(
 ) -> Result<(), String> {
     let mut user_text = String::new();
     if let Some(ctx) = context {
-        user_text.push_str(&format!("Context (Reference Material):\n---\n{ctx}\n---\n\n"));
+        user_text.push_str(&format!(
+            "Context (Reference Material):\n---\n{ctx}\n---\n\n"
+        ));
     }
     user_text.push_str(&message);
 
@@ -421,8 +425,10 @@ pub async fn generate_study_guide(
     model: String,
     use_search: bool,
 ) -> Result<String, String> {
-    let user_content =
-        build_file_user_content(&paths, "Create a detailed study guide from these materials.");
+    let user_content = build_file_user_content(
+        &paths,
+        "Create a detailed study guide from these materials.",
+    );
 
     call_chat_completion(
         &state,

@@ -1,6 +1,17 @@
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FilePlus2, FileText, BookOpen, FolderPlus, Trash2, Pencil, Copy, ArrowRight, Pin, PinOff } from "lucide-react";
+import {
+  FilePlus2,
+  FileText,
+  BookOpen,
+  FolderPlus,
+  Trash2,
+  Pencil,
+  Copy,
+  ArrowRight,
+  Pin,
+  PinOff,
+} from "lucide-react";
 import type { FileNode } from "../types";
 import { clampFloatingPosition } from "../utils/floatingPosition";
 
@@ -138,22 +149,30 @@ export default function ContextMenu({
         onClose();
       },
     },
-    ...(!node.is_dir && onOpenInSidePane && !isSplit ? [{
-      icon: <FilePlus2 size={14} />,
-      label: "Open in Side Pane",
-      onClick: () => {
-        onOpenInSidePane(node);
-        onClose();
-      },
-    }] : []),
-    ...(!node.is_dir && onTogglePin ? [{
-      icon: isPinned ? <PinOff size={14} /> : <Pin size={14} />,
-      label: isPinned ? "Unpin File" : "Pin File",
-      onClick: () => {
-        onTogglePin(node);
-        onClose();
-      },
-    }] : []),
+    ...(!node.is_dir && onOpenInSidePane && !isSplit
+      ? [
+          {
+            icon: <FilePlus2 size={14} />,
+            label: "Open in Side Pane",
+            onClick: () => {
+              onOpenInSidePane(node);
+              onClose();
+            },
+          },
+        ]
+      : []),
+    ...(!node.is_dir && onTogglePin
+      ? [
+          {
+            icon: isPinned ? <PinOff size={14} /> : <Pin size={14} />,
+            label: isPinned ? "Unpin File" : "Pin File",
+            onClick: () => {
+              onTogglePin(node);
+              onClose();
+            },
+          },
+        ]
+      : []),
   ];
 
   const dangerItems = [
@@ -180,9 +199,7 @@ export default function ContextMenu({
           transition={{ duration: 0.15, ease: "easeOut" }}
         >
           <div className="px-3 py-2 border-b border-shell-border">
-            <p className="text-[11px] text-shell-text-muted truncate font-medium">
-              {node.name}
-            </p>
+            <p className="text-[11px] text-shell-text-muted truncate font-medium">{node.name}</p>
           </div>
           <div className="py-1">
             {menuItems.map((item, i) => (

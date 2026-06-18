@@ -190,7 +190,9 @@ export default function Sidebar({
           </TabButton>
           <TabButton active={activeTab === "search"} onClick={() => setActiveTab("search")}>
             Search
-            {searchBadge ? <span className="text-[10px] text-shell-text-muted">{searchBadge}</span> : null}
+            {searchBadge ? (
+              <span className="text-[10px] text-shell-text-muted">{searchBadge}</span>
+            ) : null}
           </TabButton>
         </div>
       </div>
@@ -204,7 +206,10 @@ export default function Sidebar({
               </p>
             )}
             <div className="relative">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-shell-text-muted" />
+              <Search
+                size={13}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-shell-text-muted"
+              />
               <input
                 ref={filterInputRef}
                 value={searchQuery}

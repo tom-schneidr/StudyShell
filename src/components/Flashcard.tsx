@@ -9,7 +9,12 @@ interface FlashcardProps {
   onFlip?: () => void;
 }
 
-export default function Flashcard({ front, back, isFlipped: controlledFlipped, onFlip }: FlashcardProps) {
+export default function Flashcard({
+  front,
+  back,
+  isFlipped: controlledFlipped,
+  onFlip,
+}: FlashcardProps) {
   const [internalFlipped, setInternalFlipped] = useState(false);
   const isFlipped = controlledFlipped !== undefined ? controlledFlipped : internalFlipped;
 
@@ -22,7 +27,7 @@ export default function Flashcard({ front, back, isFlipped: controlledFlipped, o
   };
 
   return (
-    <div 
+    <div
       className="perspective-1000 w-full max-w-[500px] aspect-[1.6/1] cursor-pointer group"
       onClick={handleFlip}
     >
@@ -38,7 +43,7 @@ export default function Flashcard({ front, back, isFlipped: controlledFlipped, o
           </div>
           <div className="absolute inset-0 bg-gradient-to-br from-shell-accent/5 to-transparent pointer-events-none" />
           <h3 className="text-xl font-bold text-shell-text leading-tight group-hover:scale-[1.02] transition-transform">
-             {front}
+            {front}
           </h3>
           <p className="absolute bottom-6 text-[10px] text-shell-text-muted uppercase tracking-[0.2em] font-bold">
             Click to reveal answer
@@ -51,9 +56,7 @@ export default function Flashcard({ front, back, isFlipped: controlledFlipped, o
             <Info size={18} />
           </div>
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent pointer-events-none" />
-          <p className="text-lg text-shell-text-secondary leading-relaxed">
-             {back}
-          </p>
+          <p className="text-lg text-shell-text-secondary leading-relaxed">{back}</p>
           <p className="absolute bottom-6 text-[10px] text-emerald-400/60 uppercase tracking-[0.2em] font-bold">
             Correct!
           </p>

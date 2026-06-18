@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StudyShell Architecture</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <p class="eyebrow">Architecture</p>
+      <h1>React owns the experience. Rust owns privileged desktop work.</h1>
+
+      <section class="grid">
+        <article>
+          <h2>Frontend</h2>
+          <p>
+            The React app in <code>src/</code> handles layout, editor state, viewers, command
+            routing, AI interaction state, and persistence through focused hooks and utility
+            modules.
+          </p>
+        </article>
+        <article>
+          <h2>Tauri Backend</h2>
+          <p>
+            Rust commands in <code>src-tauri/src/</code> handle file I/O, directory watching, binary
+            reads, search, imports, and the HTTP bridge to FreeRouter.
+          </p>
+        </article>
+        <article>
+          <h2>AI Boundary</h2>
+          <p>
+            StudyShell sends OpenAI-compatible requests to a local FreeRouter gateway. Provider keys
+            stay outside the WebView and outside this repository.
+          </p>
+        </article>
+        <article>
+          <h2>Persistence</h2>
+          <p>
+            Lightweight app preferences live in localStorage behind named keys. Document-specific
+            PDF annotations are saved as sidecar JSON files next to the source PDF.
+          </p>
+        </article>
+      </section>
+
+      <section>
+        <h2>Development Rules</h2>
+        <ul>
+          <li>Mirror new Tauri commands with typed frontend wrapper methods.</li>
+          <li>Validate file operations before mutating disk state.</li>
+          <li>
+            Prefer pure utility functions for path, parsing, and state transforms so they remain
+            testable.
+          </li>
+          <li>
+            Use existing CSS variables and components before introducing new design primitives.
+          </li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>

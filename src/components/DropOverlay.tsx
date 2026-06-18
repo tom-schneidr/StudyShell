@@ -22,8 +22,12 @@ export default function DropOverlay({ isVisible }: DropOverlayProps) {
         <div className="w-20 h-20 rounded-full bg-shell-accent/10 flex items-center justify-center mb-6">
           <UploadCloud size={40} className="text-shell-accent animate-bounce" />
         </div>
-        <h2 className="text-2xl font-bold text-shell-text mb-2 tracking-tight">Import to StudyShell</h2>
-        <p className="text-shell-text-secondary text-[14px]">Release to copy files into your workspace</p>
+        <h2 className="text-2xl font-bold text-shell-text mb-2 tracking-tight">
+          Import to StudyShell
+        </h2>
+        <p className="text-shell-text-secondary text-[14px]">
+          Release to copy files into your workspace
+        </p>
       </motion.div>
     </motion.div>
   );

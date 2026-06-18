@@ -54,26 +54,28 @@ export default function QuizView({ questions, onClose, title = "Knowledge Quiz" 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-shell-bg/95 backdrop-blur-xl p-8 animate-fade-in">
       <div className="absolute top-0 left-0 w-full h-1 bg-shell-border">
-          <motion.div 
-            className="h-full bg-shell-accent"
-            animate={{ width: `${((currentIndex + (quizComplete ? 1 : 0)) / questions.length) * 100}%` }}
-          />
+        <motion.div
+          className="h-full bg-shell-accent"
+          animate={{
+            width: `${((currentIndex + (quizComplete ? 1 : 0)) / questions.length) * 100}%`,
+          }}
+        />
       </div>
 
       <div className="w-full max-w-2xl flex flex-col items-center relative z-10">
         <header className="w-full flex items-center justify-between mb-12">
-            <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-shell-accent/10 text-shell-accent">
-                    <GraduationCap size={20} />
-                </div>
-                <h2 className="text-xl font-bold text-shell-text">{title}</h2>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-shell-accent/10 text-shell-accent">
+              <GraduationCap size={20} />
             </div>
-            <button 
-              onClick={onClose}
-              className="p-2 rounded-lg text-shell-text-muted hover:text-shell-text hover:bg-shell-surface transition-all"
-            >
-                <X size={20} />
-            </button>
+            <h2 className="text-xl font-bold text-shell-text">{title}</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg text-shell-text-muted hover:text-shell-text hover:bg-shell-surface transition-all"
+          >
+            <X size={20} />
+          </button>
         </header>
 
         <AnimatePresence mode="wait">
@@ -93,11 +95,14 @@ export default function QuizView({ questions, onClose, title = "Knowledge Quiz" 
                 {currentQuestion.options.map((option, index) => {
                   const isCorrect = index === currentQuestion.correctIndex;
                   const isSelected = index === selectedOption;
-                  
-                  let stateClass = "border-shell-border hover:border-shell-accent/50 bg-shell-surface/30";
+
+                  let stateClass =
+                    "border-shell-border hover:border-shell-accent/50 bg-shell-surface/30";
                   if (showResult) {
-                    if (isCorrect) stateClass = "border-emerald-500 bg-emerald-500/10 text-emerald-400";
-                    else if (isSelected) stateClass = "border-shell-error bg-shell-error/10 text-shell-error";
+                    if (isCorrect)
+                      stateClass = "border-emerald-500 bg-emerald-500/10 text-emerald-400";
+                    else if (isSelected)
+                      stateClass = "border-shell-error bg-shell-error/10 text-shell-error";
                     else stateClass = "border-shell-border opacity-50";
                   } else if (isSelected) {
                     stateClass = "border-shell-accent bg-shell-accent/10";
@@ -125,7 +130,8 @@ export default function QuizView({ questions, onClose, title = "Knowledge Quiz" 
                   className="mt-8 p-6 rounded-2xl bg-shell-surface border border-shell-border"
                 >
                   <p className="text-[13px] leading-relaxed text-shell-text-secondary">
-                    <span className="font-bold text-shell-text">Explanation:</span> {currentQuestion.explanation}
+                    <span className="font-bold text-shell-text">Explanation:</span>{" "}
+                    {currentQuestion.explanation}
                   </p>
                   <button
                     onClick={handleNext}
@@ -145,20 +151,28 @@ export default function QuizView({ questions, onClose, title = "Knowledge Quiz" 
               className="text-center"
             >
               <div className="w-24 h-24 rounded-full border-4 border-shell-accent flex items-center justify-center mx-auto mb-8">
-                  <span className="text-3xl font-black text-shell-text">{Math.round((score / questions.length) * 100)}%</span>
+                <span className="text-3xl font-black text-shell-text">
+                  {Math.round((score / questions.length) * 100)}%
+                </span>
               </div>
               <h3 className="text-3xl font-bold text-shell-text mb-4">Quiz Completed!</h3>
               <p className="text-shell-text-secondary mb-12">
                 You got {score} out of {questions.length} questions correct.
               </p>
               <div className="flex gap-4">
-                  <button onClick={resetQuiz} className="flex-1 py-4 rounded-xl border border-shell-border hover:bg-shell-surface transition-all font-bold flex items-center justify-center gap-2">
-                    <RotateCcw size={18} />
-                    Try Again
-                  </button>
-                  <button onClick={onClose} className="flex-1 py-4 rounded-xl bg-shell-accent text-white font-bold hover:bg-shell-accent-hover transition-all shadow-lg shadow-shell-accent/20">
-                    Close Quiz
-                  </button>
+                <button
+                  onClick={resetQuiz}
+                  className="flex-1 py-4 rounded-xl border border-shell-border hover:bg-shell-surface transition-all font-bold flex items-center justify-center gap-2"
+                >
+                  <RotateCcw size={18} />
+                  Try Again
+                </button>
+                <button
+                  onClick={onClose}
+                  className="flex-1 py-4 rounded-xl bg-shell-accent text-white font-bold hover:bg-shell-accent-hover transition-all shadow-lg shadow-shell-accent/20"
+                >
+                  Close Quiz
+                </button>
               </div>
             </motion.div>
           )}

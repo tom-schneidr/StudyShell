@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Contributing to StudyShell</title>
+    <style>
+      body {
+        margin: 0;
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        line-height: 1.6;
+        color: #dbe5ff;
+        background: #0d111c;
+      }
+
+      main {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 56px 24px;
+      }
+
+      h1,
+      h2 {
+        color: #f8fbff;
+        line-height: 1.2;
+      }
+
+      a {
+        color: #8fb4ff;
+      }
+
+      code {
+        border: 1px solid #27334f;
+        border-radius: 6px;
+        padding: 0.1rem 0.35rem;
+        background: #141b2b;
+      }
+
+      pre {
+        overflow-x: auto;
+        border: 1px solid #27334f;
+        border-radius: 12px;
+        padding: 16px;
+        background: #101728;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Contributing to StudyShell</h1>
+      <p>
+        StudyShell is a local-first Tauri study workspace. Contributions should keep the app
+        dependable, desktop-native, and easy to understand.
+      </p>
+
+      <h2>Getting Started</h2>
+      <ol>
+        <li>Install Node.js 22 or newer.</li>
+        <li>Install the Rust stable toolchain and Tauri system dependencies.</li>
+        <li>Install frontend dependencies.</li>
+      </ol>
+      <pre><code>npm install
+npm run tauri:dev</code></pre>
+
+      <h2>Development Standards</h2>
+      <ul>
+        <li>
+          Keep changes focused and avoid broad refactors that are not required for the feature.
+        </li>
+        <li>
+          Use existing React hooks, components, CSS variables, and Tauri IPC patterns before adding
+          new abstractions.
+        </li>
+        <li>
+          Use custom React dialogs for confirmations. Do not use <code>window.alert</code>,
+          <code>window.confirm</code>, or <code>window.prompt</code>.
+        </li>
+        <li>Keep user-facing documents in HTML unless GitHub conventions require Markdown.</li>
+      </ul>
+
+      <h2>Verification</h2>
+      <p>Run the same checks CI runs before opening a pull request:</p>
+      <pre><code>npm run verify</code></pre>
+
+      <h2>License</h2>
+      <p>By contributing, you agree that your contributions are licensed under the MIT License.</p>
+    </main>
+  </body>
+</html>

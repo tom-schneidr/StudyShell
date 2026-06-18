@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StudyShell Roadmap</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <p class="eyebrow">Roadmap</p>
+      <h1>Current state and next build priorities.</h1>
+
+      <section class="grid">
+        <article>
+          <h2>Baseline Complete</h2>
+          <ul>
+            <li>Native workspace browsing, file operations, live watching, and search.</li>
+            <li>Markdown, text, code, notebook, PDF, image, audio, and video workflows.</li>
+            <li>FreeRouter-backed chat, summaries, flashcards, quizzes, and source context.</li>
+            <li>Recent files, pinned files, split view, settings, command palette, and timer.</li>
+          </ul>
+        </article>
+        <article>
+          <h2>Next Priorities</h2>
+          <ul>
+            <li>Deepen tests around filesystem edge cases and editor state transitions.</li>
+            <li>Improve keyboard navigation and accessibility coverage across the shell.</li>
+            <li>Package a demo-ready release with screenshots and a short walkthrough.</li>
+            <li>Consider richer tab state once save/dirty handling is fully covered by tests.</li>
+          </ul>
+        </article>
+      </section>
+
+      <section>
+        <h2>Implementation Guardrails</h2>
+        <ul>
+          <li>Keep the UI clean and desktop-native.</li>
+          <li>Do not use blocking browser dialogs.</li>
+          <li>Keep new behavior behind typed hooks and testable utilities.</li>
+          <li>Clean up related app state when files are moved, renamed, or deleted.</li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>

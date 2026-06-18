@@ -45,8 +45,7 @@ export function normalizeRenameName(
     return normalizeDirectoryName(rawName);
   }
 
-  const fallbackBaseName =
-    sanitizeEntryName(node.name.replace(/\.[^.]+$/, "")) || "untitled-file";
+  const fallbackBaseName = sanitizeEntryName(node.name.replace(/\.[^.]+$/, "")) || "untitled-file";
   const sanitized = sanitizeEntryName(rawName);
   const hasExplicitExtension = /\.[^.]+$/.test(sanitized);
   const normalizedBaseName = sanitized.length > 0 ? sanitized : fallbackBaseName;

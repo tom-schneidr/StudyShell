@@ -73,9 +73,7 @@ export function filterRecentFilesForWorkspace(
   return normalizeRecentFiles(
     files.filter(
       (file) =>
-        !file.is_dir &&
-        isSameOrDescendantPath(file.path, rootPath) &&
-        liveFilePaths.has(file.path),
+        !file.is_dir && isSameOrDescendantPath(file.path, rootPath) && liveFilePaths.has(file.path),
     ),
   );
 }

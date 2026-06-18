@@ -18,7 +18,7 @@ export type CreationMode = "file" | "folder" | "rename";
 
 export function useFileSystemActions(
   fs: ReturnType<typeof useFileSystem>,
-  onFileSelect: (node: FileNode) => void
+  onFileSelect: (node: FileNode) => void,
 ) {
   const toast = useToast();
   const [creationModal, setCreationModal] = useState<{
@@ -38,7 +38,7 @@ export function useFileSystemActions(
       const targetDirectory = resolveCreationDirectory(node);
       const existingNames = listChildNamesForDirectory(fs.fileTree, targetDirectory, fs.rootPath);
       const suggestedName = suggestUniqueMarkdownFileName(existingNames, "untitled-note");
-      
+
       setCreationModal({
         isOpen: true,
         mode: "file",
@@ -46,7 +46,7 @@ export function useFileSystemActions(
         suggestedName,
       });
     },
-    [fs.fileTree, fs.rootPath]
+    [fs.fileTree, fs.rootPath],
   );
 
   const handleCreateFolder = useCallback(
@@ -54,7 +54,7 @@ export function useFileSystemActions(
       const targetDirectory = resolveCreationDirectory(node);
       const existingNames = listChildNamesForDirectory(fs.fileTree, targetDirectory, fs.rootPath);
       const suggestedName = suggestUniqueDirectoryName(existingNames, "untitled-folder");
-      
+
       setCreationModal({
         isOpen: true,
         mode: "folder",
@@ -62,7 +62,7 @@ export function useFileSystemActions(
         suggestedName,
       });
     },
-    [fs.fileTree, fs.rootPath]
+    [fs.fileTree, fs.rootPath],
   );
 
   const handleRenameRequest = useCallback((node: FileNode) => {
@@ -104,34 +104,40 @@ export function useFileSystemActions(
         console.error(`Failed to create ${creationModal.mode}:`, error);
         toast.error(`Failed to create ${creationModal.mode}: ${error}`);
       } finally {
-        setCreationModal(prev => ({ ...prev, isOpen: false }));
+        setCreationModal((prev) => ({ ...prev, isOpen: false }));
       }
     },
-    [fs, creationModal, onFileSelect, toast]
+    [fs, creationModal, onFileSelect, toast],
   );
 
-  const handleConfirmRename = useCallback(async (newName: string, onRenameSuccess: (oldPath: string, newPath: string) => void | Promise<void>) => {
-    if (!creationModal.targetNode) return;
-    const node = creationModal.targetNode;
-    
-    try {
-      const normalizedName = normalizeRenameName(node, newName);
-      const newPath = joinPath(getParentPath(node.path), normalizedName);
+  const handleConfirmRename = useCallback(
+    async (
+      newName: string,
+      onRenameSuccess: (oldPath: string, newPath: string) => void | Promise<void>,
+    ) => {
+      if (!creationModal.targetNode) return;
+      const node = creationModal.targetNode;
 
-      if (newPath === node.path) {
-        toast.info("Name unchanged.");
-        return;
+      try {
+        const normalizedName = normalizeRenameName(node, newName);
+        const newPath = joinPath(getParentPath(node.path), normalizedName);
+
+        if (newPath === node.path) {
+          toast.info("Name unchanged.");
+          return;
+        }
+
+        await fs.renameEntry(node.path, newPath);
+        await onRenameSuccess(node.path, newPath);
+        toast.success("Renamed successfully.");
+      } catch (error) {
+        toast.error(`Rename failed: ${error}`);
+      } finally {
+        setCreationModal((prev) => ({ ...prev, isOpen: false }));
       }
-
-      await fs.renameEntry(node.path, newPath);
-      await onRenameSuccess(node.path, newPath);
-      toast.success("Renamed successfully.");
-    } catch (error) {
-       toast.error(`Rename failed: ${error}`);
-    } finally {
-      setCreationModal(prev => ({ ...prev, isOpen: false }));
-    }
-  }, [fs, creationModal.targetNode, toast]);
+    },
+    [fs, creationModal.targetNode, toast],
+  );
 
   return {
     creationModal,

@@ -77,31 +77,37 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               {/* Type-based border glow */}
               <div
                 className={`absolute left-0 top-0 bottom-0 w-1.5 ${
-                  toast.type === "success" ? "bg-shell-success" : 
-                  toast.type === "error" ? "bg-shell-error" : 
-                  "bg-shell-accent"
+                  toast.type === "success"
+                    ? "bg-shell-success"
+                    : toast.type === "error"
+                      ? "bg-shell-error"
+                      : "bg-shell-accent"
                 }`}
               />
-              
+
               {/* Type-based accent background glow */}
               <div
-                 className={`absolute inset-0 opacity-5 pointer-events-none ${
-                  toast.type === "success" ? "bg-shell-success" : 
-                  toast.type === "error" ? "bg-shell-error" : 
-                  "bg-shell-accent"
+                className={`absolute inset-0 opacity-5 pointer-events-none ${
+                  toast.type === "success"
+                    ? "bg-shell-success"
+                    : toast.type === "error"
+                      ? "bg-shell-error"
+                      : "bg-shell-accent"
                 }`}
               />
-              
+
               <div className="flex-shrink-0 mt-0.5">
-                {toast.type === "success" && <CheckCircle size={20} className="text-shell-success" />}
+                {toast.type === "success" && (
+                  <CheckCircle size={20} className="text-shell-success" />
+                )}
                 {toast.type === "error" && <AlertCircle size={20} className="text-shell-error" />}
                 {toast.type === "info" && <Info size={20} className="text-shell-accent" />}
               </div>
-              
+
               <div className="flex-1 text-[13.5px] text-shell-text font-semibold leading-relaxed">
                 {toast.message}
               </div>
-              
+
               <button
                 onClick={() => removeToast(toast.id)}
                 className="flex-shrink-0 p-1.5 -mr-2 -mt-1 text-shell-text-muted hover:text-shell-text hover:bg-shell-surface-hover rounded-lg transition-all cursor-pointer"
@@ -110,14 +116,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               </button>
 
               {/* Progress Bar */}
-              <motion.div 
+              <motion.div
                 initial={{ width: "100%" }}
                 animate={{ width: "0%" }}
                 transition={{ duration: 4, ease: "linear" }}
                 className={`absolute bottom-0 left-0 h-0.5 opacity-40 ${
-                  toast.type === "success" ? "bg-shell-success" : 
-                  toast.type === "error" ? "bg-shell-error" : 
-                  "bg-shell-accent"
+                  toast.type === "success"
+                    ? "bg-shell-success"
+                    : toast.type === "error"
+                      ? "bg-shell-error"
+                      : "bg-shell-accent"
                 }`}
               />
             </motion.div>

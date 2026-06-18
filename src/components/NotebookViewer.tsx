@@ -22,11 +22,7 @@ export default function NotebookViewer({ data }: NotebookViewerProps) {
   );
 }
 
-function NotebookCellView({
-  cell,
-}: {
-  cell: NotebookData["cells"][number];
-}) {
+function NotebookCellView({ cell }: { cell: NotebookData["cells"][number] }) {
   const source = cellSourceToString(cell.source);
 
   if (cell.cell_type === "markdown") {
@@ -50,7 +46,9 @@ function NotebookCellView({
         <FileText size={11} />
         Raw
       </div>
-      <pre className="text-[13px] text-shell-text-secondary font-mono whitespace-pre-wrap">{source}</pre>
+      <pre className="text-[13px] text-shell-text-secondary font-mono whitespace-pre-wrap">
+        {source}
+      </pre>
     </div>
   );
 }
@@ -60,10 +58,7 @@ function MarkdownCellView({ source }: { source: string }) {
 
   return (
     <div className="tiptap-editor">
-      <div
-        className="ProseMirror px-4 py-2"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      <div className="ProseMirror px-4 py-2" dangerouslySetInnerHTML={{ __html: html }} />
     </div>
   );
 }
@@ -81,8 +76,10 @@ function CodeCellView({
     <div className="rounded-lg border border-shell-border overflow-hidden">
       {/* Code input */}
       <div className="relative">
-        <div className="absolute left-0 top-0 bottom-0 w-10 flex items-start justify-center pt-3
-          bg-shell-bg border-r border-shell-border text-[10px] text-shell-text-muted select-none">
+        <div
+          className="absolute left-0 top-0 bottom-0 w-10 flex items-start justify-center pt-3
+          bg-shell-bg border-r border-shell-border text-[10px] text-shell-text-muted select-none"
+        >
           <div className="flex items-center gap-0.5">
             <Play size={8} />
             {executionCount != null ? executionCount : " "}
@@ -105,7 +102,11 @@ function CodeCellView({
   );
 }
 
-function OutputView({ output }: { output: NonNullable<NotebookData["cells"][number]["outputs"]>[number] }) {
+function OutputView({
+  output,
+}: {
+  output: NonNullable<NotebookData["cells"][number]["outputs"]>[number];
+}) {
   // Error output
   if (output.output_type === "error") {
     return (
@@ -124,7 +125,9 @@ function OutputView({ output }: { output: NonNullable<NotebookData["cells"][numb
     const text = Array.isArray(output.text) ? output.text.join("") : output.text || "";
     return (
       <div className="px-4 py-3 overflow-x-auto">
-        <pre className="text-[12.5px] font-mono text-shell-text-secondary whitespace-pre-wrap">{text}</pre>
+        <pre className="text-[12.5px] font-mono text-shell-text-secondary whitespace-pre-wrap">
+          {text}
+        </pre>
       </div>
     );
   }
@@ -135,39 +138,60 @@ function OutputView({ output }: { output: NonNullable<NotebookData["cells"][numb
 
     // HTML output
     if (data["text/html"]) {
-      const html = Array.isArray(data["text/html"]) ? data["text/html"].join("") : data["text/html"];
+      const html = Array.isArray(data["text/html"])
+        ? data["text/html"].join("")
+        : data["text/html"];
       return (
         <div className="px-4 py-3 overflow-x-auto notebook-html-output">
-          <div dangerouslySetInnerHTML={{ __html: html }} className="text-[12.5px] text-shell-text" />
+          <div
+            dangerouslySetInnerHTML={{ __html: html }}
+            className="text-[12.5px] text-shell-text"
+          />
         </div>
       );
     }
 
     // Image output (base64)
     if (data["image/png"]) {
-      const imgSrc = Array.isArray(data["image/png"]) ? data["image/png"].join("") : data["image/png"];
+      const imgSrc = Array.isArray(data["image/png"])
+        ? data["image/png"].join("")
+        : data["image/png"];
       return (
         <div className="px-4 py-3">
-          <img src={`data:image/png;base64,${imgSrc.trim()}`} alt="Output" className="max-w-full rounded" />
+          <img
+            src={`data:image/png;base64,${imgSrc.trim()}`}
+            alt="Output"
+            className="max-w-full rounded"
+          />
         </div>
       );
     }
 
     if (data["image/jpeg"]) {
-      const imgSrc = Array.isArray(data["image/jpeg"]) ? data["image/jpeg"].join("") : data["image/jpeg"];
+      const imgSrc = Array.isArray(data["image/jpeg"])
+        ? data["image/jpeg"].join("")
+        : data["image/jpeg"];
       return (
         <div className="px-4 py-3">
-          <img src={`data:image/jpeg;base64,${imgSrc.trim()}`} alt="Output" className="max-w-full rounded" />
+          <img
+            src={`data:image/jpeg;base64,${imgSrc.trim()}`}
+            alt="Output"
+            className="max-w-full rounded"
+          />
         </div>
       );
     }
 
     // Plain text fallback
     if (data["text/plain"]) {
-      const text = Array.isArray(data["text/plain"]) ? data["text/plain"].join("") : data["text/plain"];
+      const text = Array.isArray(data["text/plain"])
+        ? data["text/plain"].join("")
+        : data["text/plain"];
       return (
         <div className="px-4 py-3 overflow-x-auto">
-          <pre className="text-[12.5px] font-mono text-shell-text-secondary whitespace-pre-wrap">{text}</pre>
+          <pre className="text-[12.5px] font-mono text-shell-text-secondary whitespace-pre-wrap">
+            {text}
+          </pre>
         </div>
       );
     }

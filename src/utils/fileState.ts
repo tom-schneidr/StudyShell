@@ -31,7 +31,5 @@ export function filterRecordByPaths<T>(
   record: Record<string, T>,
   liveFilePaths: Set<string>,
 ): Record<string, T> {
-  return Object.fromEntries(
-    Object.entries(record).filter(([path]) => liveFilePaths.has(path)),
-  );
+  return Object.fromEntries(Object.entries(record).filter(([path]) => liveFilePaths.has(path)));
 }

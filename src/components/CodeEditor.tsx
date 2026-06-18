@@ -1,10 +1,21 @@
 import { useCallback, useEffect, useRef } from "react";
 import { EditorState } from "@codemirror/state";
-import { EditorView, keymap, highlightActiveLine, lineNumbers, drawSelection } from "@codemirror/view";
+import {
+  EditorView,
+  keymap,
+  highlightActiveLine,
+  lineNumbers,
+  drawSelection,
+} from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { indentOnInput, bracketMatching, foldGutter, foldKeymap } from "@codemirror/language";
 import { searchKeymap } from "@codemirror/search";
-import { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
+import {
+  autocompletion,
+  completionKeymap,
+  closeBrackets,
+  closeBracketsKeymap,
+} from "@codemirror/autocomplete";
 import { lintKeymap } from "@codemirror/lint";
 import { oneDark } from "@codemirror/theme-one-dark";
 
@@ -48,14 +59,17 @@ export default function CodeEditor({ content, onSave, filePath, language }: Code
     }
   };
 
-  const persistContent = useCallback((nextContent: string) => {
-    if (!shouldPersistCodeContent(nextContent, lastSavedRef.current)) {
-      return;
-    }
+  const persistContent = useCallback(
+    (nextContent: string) => {
+      if (!shouldPersistCodeContent(nextContent, lastSavedRef.current)) {
+        return;
+      }
 
-    lastSavedRef.current = nextContent;
-    onSave(nextContent);
-  }, [onSave]);
+      lastSavedRef.current = nextContent;
+      onSave(nextContent);
+    },
+    [onSave],
+  );
 
   const flushPendingSave = useCallback(() => {
     if (saveTimeoutRef.current) {
@@ -149,8 +163,11 @@ export default function CodeEditor({ content, onSave, filePath, language }: Code
 
   return (
     <div className="h-full flex flex-col bg-[#282c34]">
-       {/* CodeMirror renders its own internal overflow, so we wrap it simply */}
-       <div ref={containerRef} className="flex-1 overflow-hidden text-[14px] custom-scrollbar selection:bg-shell-accent/30" />
+      {/* CodeMirror renders its own internal overflow, so we wrap it simply */}
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-hidden text-[14px] custom-scrollbar selection:bg-shell-accent/30"
+      />
     </div>
   );
 }

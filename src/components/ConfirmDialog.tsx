@@ -68,9 +68,7 @@ export default function ConfirmDialog({
                   <div className="p-2 rounded-xl bg-shell-error/10 text-shell-error">
                     <AlertTriangle size={20} />
                   </div>
-                  <h2 className="text-lg font-bold text-shell-text tracking-tight">
-                    {title}
-                  </h2>
+                  <h2 className="text-lg font-bold text-shell-text tracking-tight">{title}</h2>
                 </div>
                 <button
                   onClick={onCancel}

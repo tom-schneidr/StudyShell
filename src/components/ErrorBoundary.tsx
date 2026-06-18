@@ -39,7 +39,8 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
             <h2 className="text-xl font-bold text-shell-text mb-2">Something went wrong</h2>
             <p className="text-sm text-shell-text-secondary leading-relaxed mb-8">
-              An unexpected error occurred. You can try refreshing the application to restore functionality.
+              An unexpected error occurred. You can try refreshing the application to restore
+              functionality.
             </p>
             <div className="bg-shell-bg/50 p-4 rounded-xl border border-shell-border mb-8 text-left">
               <p className="text-[11px] font-mono text-shell-error truncate">

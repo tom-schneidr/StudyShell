@@ -73,10 +73,10 @@ export default function Editor({
     content: string | null,
     binary: Uint8Array | null,
     notebook: NotebookData | null,
-    isSecondPane = false
+    isSecondPane = false,
   ) => {
     const type = getFileType(node.extension, node.name);
-    
+
     switch (type) {
       case "flashcard":
         return content !== null && ai ? (
@@ -91,9 +91,13 @@ export default function Editor({
             />
           </Suspense>
         ) : content !== null ? (
-          <div className="flex items-center justify-center h-full text-shell-text-muted">AI assistant unavailable for flashcards.</div>
+          <div className="flex items-center justify-center h-full text-shell-text-muted">
+            AI assistant unavailable for flashcards.
+          </div>
         ) : (
-          <div className="flex items-center justify-center h-full text-shell-text-muted">Loading Flashcard Studio...</div>
+          <div className="flex items-center justify-center h-full text-shell-text-muted">
+            Loading Flashcard Studio...
+          </div>
         );
 
       case "pdf":
@@ -103,11 +107,15 @@ export default function Editor({
               pdfData={binary}
               filePath={node.path}
               initialAnnotations={!isSecondPane ? pdfAnnotations : null}
-              onUpdateAnnotations={(anns) => !isSecondPane && onUpdatePdfAnnotations(node.path, anns)}
+              onUpdateAnnotations={(anns) =>
+                !isSecondPane && onUpdatePdfAnnotations(node.path, anns)
+              }
             />
           </Suspense>
         ) : (
-          <div className="flex items-center justify-center h-full text-shell-error text-sm">Failed to load PDF</div>
+          <div className="flex items-center justify-center h-full text-shell-error text-sm">
+            Failed to load PDF
+          </div>
         );
 
       case "image":
@@ -120,7 +128,9 @@ export default function Editor({
             />
           </Suspense>
         ) : (
-          <div className="flex items-center justify-center h-full text-shell-error text-sm">Failed to load image</div>
+          <div className="flex items-center justify-center h-full text-shell-error text-sm">
+            Failed to load image
+          </div>
         );
 
       case "video":
@@ -135,7 +145,9 @@ export default function Editor({
             />
           </Suspense>
         ) : (
-          <div className="flex items-center justify-center h-full text-shell-error text-sm">Failed to load media</div>
+          <div className="flex items-center justify-center h-full text-shell-error text-sm">
+            Failed to load media
+          </div>
         );
 
       case "notebook":
@@ -144,19 +156,20 @@ export default function Editor({
             <NotebookViewer data={notebook} />
           </Suspense>
         ) : (
-          <div className="flex items-center justify-center h-full text-shell-text-muted">Loading notebook...</div>
+          <div className="flex items-center justify-center h-full text-shell-text-muted">
+            Loading notebook...
+          </div>
         );
 
       case "svg":
         return content !== null ? (
           <div className="h-full flex items-center justify-center p-8 bg-white/5 overflow-auto">
-             <div 
-                className="max-w-full max-h-full"
-                dangerouslySetInnerHTML={{ __html: content }} 
-             />
+            <div className="max-w-full max-h-full" dangerouslySetInnerHTML={{ __html: content }} />
           </div>
         ) : (
-          <div className="flex items-center justify-center h-full text-shell-text-muted">Loading SVG...</div>
+          <div className="flex items-center justify-center h-full text-shell-text-muted">
+            Loading SVG...
+          </div>
         );
 
       case "code":
@@ -169,7 +182,9 @@ export default function Editor({
             />
           </Suspense>
         ) : (
-          <div className="flex items-center justify-center h-full text-shell-text-muted">Loading code...</div>
+          <div className="flex items-center justify-center h-full text-shell-text-muted">
+            Loading code...
+          </div>
         );
 
       case "markdown":
@@ -177,7 +192,13 @@ export default function Editor({
       default: {
         const isMarkdown = type === "markdown";
         return content !== null ? (
-          <Suspense fallback={<ContentLoading label={isMarkdown ? "Loading markdown editor..." : "Loading editor..."} />}>
+          <Suspense
+            fallback={
+              <ContentLoading
+                label={isMarkdown ? "Loading markdown editor..." : "Loading editor..."}
+              />
+            }
+          >
             <MarkdownEditor
               content={content}
               onSave={(val) => onSaveFile(node.path, val)}
@@ -206,39 +227,48 @@ export default function Editor({
     }
 
     if (isSplit && secondActiveFile) {
-        return (
-            <Splitpanes className="default-theme h-full">
-                <Pane minSize={20}>
-                    <div className="h-full relative overflow-hidden">
-                        {renderSingleContent(activeFile, fileContent, binaryData, notebookData)}
-                    </div>
-                </Pane>
-                <Pane minSize={20}>
-                    <div className="h-full relative overflow-hidden border-l border-shell-border bg-shell-surface/20">
-                        <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-3 py-1.5 bg-shell-surface border-b border-shell-border text-[12px] text-shell-text-secondary">
-                            <div className="flex items-center gap-2 truncate">
-                                <FileTypeIcon extension={secondActiveFile.extension} name={secondActiveFile.name} size={13} />
-                                <span className="truncate">{secondActiveFile.name}</span>
-                            </div>
-                            <button onClick={onCloseSecondPane} className="p-1 hover:bg-shell-surface-hover rounded transition-colors text-shell-text-muted hover:text-shell-text">
-                                <X size={12} />
-                            </button>
-                        </div>
-                        <div className="h-full pt-8">
-                            {secondBinaryLoading
-                              ? <ContentLoading label="Loading side pane..." />
-                              : renderSingleContent(
-                                  secondActiveFile,
-                                  secondFileContent || null,
-                                  secondBinaryData || null,
-                                  secondNotebookData || null,
-                                  true,
-                                )}
-                        </div>
-                    </div>
-                </Pane>
-            </Splitpanes>
-        );
+      return (
+        <Splitpanes className="default-theme h-full">
+          <Pane minSize={20}>
+            <div className="h-full relative overflow-hidden">
+              {renderSingleContent(activeFile, fileContent, binaryData, notebookData)}
+            </div>
+          </Pane>
+          <Pane minSize={20}>
+            <div className="h-full relative overflow-hidden border-l border-shell-border bg-shell-surface/20">
+              <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-3 py-1.5 bg-shell-surface border-b border-shell-border text-[12px] text-shell-text-secondary">
+                <div className="flex items-center gap-2 truncate">
+                  <FileTypeIcon
+                    extension={secondActiveFile.extension}
+                    name={secondActiveFile.name}
+                    size={13}
+                  />
+                  <span className="truncate">{secondActiveFile.name}</span>
+                </div>
+                <button
+                  onClick={onCloseSecondPane}
+                  className="p-1 hover:bg-shell-surface-hover rounded transition-colors text-shell-text-muted hover:text-shell-text"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+              <div className="h-full pt-8">
+                {secondBinaryLoading ? (
+                  <ContentLoading label="Loading side pane..." />
+                ) : (
+                  renderSingleContent(
+                    secondActiveFile,
+                    secondFileContent || null,
+                    secondBinaryData || null,
+                    secondNotebookData || null,
+                    true,
+                  )
+                )}
+              </div>
+            </div>
+          </Pane>
+        </Splitpanes>
+      );
     }
 
     return renderSingleContent(activeFile, fileContent, binaryData, notebookData);
@@ -302,9 +332,7 @@ export default function Editor({
         )}
       </div>
 
-      <div className="flex-1 overflow-hidden relative">
-        {renderContent()}
-      </div>
+      <div className="flex-1 overflow-hidden relative">{renderContent()}</div>
     </div>
   );
 }

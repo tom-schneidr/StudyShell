@@ -89,7 +89,10 @@ export function deserializeStudyTimerState(
   }
 }
 
-export function saveStudyTimerState(storage: Pick<Storage, "setItem">, state: StudyTimerState): void {
+export function saveStudyTimerState(
+  storage: Pick<Storage, "setItem">,
+  state: StudyTimerState,
+): void {
   storage.setItem(STORAGE_KEYS.studyTimer, serializeStudyTimerState(state));
 }
 
@@ -116,7 +119,9 @@ export function canShowDesktopNotification(): boolean {
   return typeof Notification !== "undefined";
 }
 
-export async function requestDesktopNotificationPermission(): Promise<NotificationPermission | "unsupported"> {
+export async function requestDesktopNotificationPermission(): Promise<
+  NotificationPermission | "unsupported"
+> {
   if (!canShowDesktopNotification()) {
     return "unsupported";
   }

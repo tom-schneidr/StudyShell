@@ -6,6 +6,14 @@ fn is_visible_search_entry(entry: &walkdir::DirEntry) -> bool {
     entry.depth() == 0 || !entry.file_name().to_string_lossy().starts_with('.')
 }
 
+fn require_non_empty_path(path: &str, label: &str) -> Result<(), String> {
+    if path.trim().is_empty() {
+        return Err(format!("{label} path cannot be empty"));
+    }
+
+    Ok(())
+}
+
 /// Represents a node in the file tree (file or directory with children)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileNode {
@@ -71,6 +79,7 @@ fn build_tree(root: &Path) -> Vec<FileNode> {
 /// List directory contents recursively, returning a tree structure
 #[tauri::command]
 pub fn list_directory(path: String) -> Result<Vec<FileNode>, String> {
+    require_non_empty_path(&path, "Directory")?;
     let root = Path::new(&path);
     if !root.exists() {
         return Err(format!("Path does not exist: {}", path));
@@ -84,18 +93,21 @@ pub fn list_directory(path: String) -> Result<Vec<FileNode>, String> {
 /// Read a file's content as a UTF-8 string
 #[tauri::command]
 pub fn read_file(path: String) -> Result<String, String> {
+    require_non_empty_path(&path, "File")?;
     std::fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))
 }
 
 /// Read a file as raw binary bytes (for PDFs, images, etc.)
 #[tauri::command]
 pub fn read_file_binary(path: String) -> Result<Vec<u8>, String> {
+    require_non_empty_path(&path, "File")?;
     std::fs::read(&path).map_err(|e| format!("Failed to read binary file: {}", e))
 }
 
 /// Write content to a file (creates or overwrites)
 #[tauri::command]
 pub fn write_file(path: String, content: String) -> Result<(), String> {
+    require_non_empty_path(&path, "File")?;
     // Ensure parent directory exists
     if let Some(parent) = Path::new(&path).parent() {
         std::fs::create_dir_all(parent)
@@ -117,6 +129,7 @@ pub fn create_file(path: String, content: String) -> Result<(), String> {
 /// Create a new directory
 #[tauri::command]
 pub fn create_directory(path: String) -> Result<(), String> {
+    require_non_empty_path(&path, "Directory")?;
     let directory_path = Path::new(&path);
     if directory_path.exists() {
         return Err(format!("Directory already exists: {}", path));
@@ -129,6 +142,7 @@ pub fn create_directory(path: String) -> Result<(), String> {
 /// Delete a file from disk
 #[tauri::command]
 pub fn delete_file(path: String) -> Result<(), String> {
+    require_non_empty_path(&path, "File")?;
     let file_path = Path::new(&path);
     if !file_path.exists() {
         return Err(format!("File does not exist: {}", path));
@@ -142,6 +156,7 @@ pub fn delete_file(path: String) -> Result<(), String> {
 /// Delete a directory and all its contents from disk
 #[tauri::command]
 pub fn delete_directory(path: String) -> Result<(), String> {
+    require_non_empty_path(&path, "Directory")?;
     let dir_path = Path::new(&path);
     if !dir_path.exists() {
         return Err(format!("Directory does not exist: {}", path));
@@ -155,6 +170,8 @@ pub fn delete_directory(path: String) -> Result<(), String> {
 /// Rename (or move) a file or directory
 #[tauri::command]
 pub fn rename_entry(old_path: String, new_path: String) -> Result<(), String> {
+    require_non_empty_path(&old_path, "Source")?;
+    require_non_empty_path(&new_path, "Target")?;
     let source = Path::new(&old_path);
     let target = Path::new(&new_path);
 
@@ -177,6 +194,7 @@ pub fn rename_entry(old_path: String, new_path: String) -> Result<(), String> {
 /// Copy external files/folders into a target workspace directory
 #[tauri::command]
 pub fn import_files(paths: Vec<String>, target_dir: String) -> Result<(), String> {
+    require_non_empty_path(&target_dir, "Target directory")?;
     let target_dir_path = Path::new(&target_dir);
     if !target_dir_path.exists() || !target_dir_path.is_dir() {
         return Err(format!(
@@ -186,6 +204,10 @@ pub fn import_files(paths: Vec<String>, target_dir: String) -> Result<(), String
     }
 
     for path_str in paths {
+        if path_str.trim().is_empty() {
+            continue;
+        }
+
         let source_path = Path::new(&path_str);
         if !source_path.exists() {
             continue;
@@ -254,6 +276,9 @@ fn copy_dir_recursive(source: &Path, dest: &Path) -> Result<(), String> {
     for entry in std::fs::read_dir(source).map_err(|e| e.to_string())? {
         let entry = entry.map_err(|e| e.to_string())?;
         let file_type = entry.file_type().map_err(|e| e.to_string())?;
+        if file_type.is_symlink() {
+            continue;
+        }
         if file_type.is_dir() {
             copy_dir_recursive(&entry.path(), &dest.join(entry.file_name()))?;
         } else {
@@ -267,6 +292,7 @@ fn copy_dir_recursive(source: &Path, dest: &Path) -> Result<(), String> {
 /// Get info about directory (file count, total size)
 #[tauri::command]
 pub fn get_directory_stats(path: String) -> Result<serde_json::Value, String> {
+    require_non_empty_path(&path, "Directory")?;
     let root = Path::new(&path);
     if !root.is_dir() {
         return Err("Not a directory".to_string());
@@ -304,6 +330,7 @@ pub struct SearchResult {
 /// Recursively search for a query string in text files within a directory
 #[tauri::command]
 pub fn search_files(path: String, query: String) -> Result<Vec<SearchResult>, String> {
+    require_non_empty_path(&path, "Search root")?;
     let root = Path::new(&path);
     if !root.exists() || !root.is_dir() {
         return Err(format!("Invalid search root: {}", path));
@@ -340,7 +367,10 @@ pub fn search_files(path: String, query: String) -> Result<Vec<SearchResult>, St
         }
 
         // Limit search to files < 1MB to preserve performance
-        let metadata = path.metadata().map_err(|e| e.to_string())?;
+        let metadata = match path.metadata() {
+            Ok(metadata) => metadata,
+            Err(_) => continue,
+        };
         if metadata.len() > 1_000_000 {
             continue;
         }
@@ -357,7 +387,7 @@ pub fn search_files(path: String, query: String) -> Result<Vec<SearchResult>, St
                 }
 
                 // Cap results per search session to prevent UI from locking up
-                if results.len() > 200 {
+                if results.len() >= 200 {
                     return Ok(results);
                 }
             }
@@ -370,6 +400,7 @@ pub fn search_files(path: String, query: String) -> Result<Vec<SearchResult>, St
 #[tauri::command]
 pub fn write_file_binary(path: String, content: Vec<u8>) -> Result<(), String> {
     use std::fs;
+    require_non_empty_path(&path, "File")?;
     if let Some(parent) = Path::new(&path).parent() {
         fs::create_dir_all(parent).map_err(|e| format!("Failed to create directories: {}", e))?;
     }
@@ -384,6 +415,11 @@ pub fn save_base64_asset(
 ) -> Result<String, String> {
     use base64::{engine::general_purpose, Engine as _};
     use std::fs;
+
+    require_non_empty_path(&document_path, "Document")?;
+    if filename.trim().is_empty() {
+        return Err("Asset filename cannot be empty".to_string());
+    }
 
     let document = Path::new(&document_path);
     let document_dir = document
@@ -526,6 +562,25 @@ mod tests {
 
         let error = create_directory(nested_dir.to_string_lossy().to_string()).unwrap_err();
         assert!(error.contains("already exists"));
+    }
+
+    #[test]
+    fn filesystem_commands_reject_blank_paths() {
+        assert!(list_directory("   ".to_string())
+            .unwrap_err()
+            .contains("cannot be empty"));
+        assert!(read_file("   ".to_string())
+            .unwrap_err()
+            .contains("cannot be empty"));
+        assert!(write_file("   ".to_string(), "content".to_string())
+            .unwrap_err()
+            .contains("cannot be empty"));
+        assert!(rename_entry("   ".to_string(), "target".to_string())
+            .unwrap_err()
+            .contains("cannot be empty"));
+        assert!(import_files(Vec::new(), "   ".to_string())
+            .unwrap_err()
+            .contains("cannot be empty"));
     }
 
     #[test]
@@ -703,15 +758,30 @@ mod tests {
         fs::create_dir_all(&root).unwrap();
         fs::write(root.join("notes.md"), "Alpha beta\nGamma delta").unwrap();
 
-        let results = search_files(
-            root.to_string_lossy().to_string(),
-            "  beta  ".to_string(),
-        )
-        .unwrap();
+        let results =
+            search_files(root.to_string_lossy().to_string(), "  beta  ".to_string()).unwrap();
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].line_number, 1);
         assert_eq!(results[0].content, "Alpha beta");
+    }
+
+    #[test]
+    fn search_files_skips_large_files_and_caps_results() {
+        let temp = TestDir::new("search-large");
+        let root = temp.child("course");
+
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("large.txt"), "x".repeat(1_000_001)).unwrap();
+        fs::write(root.join("many.txt"), "needle\n".repeat(250)).unwrap();
+
+        let results =
+            search_files(root.to_string_lossy().to_string(), "needle".to_string()).unwrap();
+
+        assert_eq!(results.len(), 200);
+        assert!(results
+            .iter()
+            .all(|result| result.path.ends_with("many.txt")));
     }
 
     #[test]
@@ -724,13 +794,13 @@ mod tests {
         fs::write(root.join(".private/notes.md"), "visible keyword").unwrap();
         fs::write(root.join("visible/notes.md"), "visible keyword").unwrap();
 
-        let results = search_files(
-            root.to_string_lossy().to_string(),
-            "keyword".to_string(),
-        )
-        .unwrap();
+        let results =
+            search_files(root.to_string_lossy().to_string(), "keyword".to_string()).unwrap();
 
         assert_eq!(results.len(), 1);
-        assert!(results[0].path.ends_with("visible/notes.md") || results[0].path.ends_with("visible\\notes.md"));
+        assert!(
+            results[0].path.ends_with("visible/notes.md")
+                || results[0].path.ends_with("visible\\notes.md")
+        );
     }
 }

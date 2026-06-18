@@ -53,11 +53,7 @@ export function isSameOrDescendantPath(path: string, ancestorPath: string): bool
   return boundary === "/" || boundary === "\\";
 }
 
-export function remapPathPrefix(
-  path: string,
-  oldPrefix: string,
-  newPrefix: string,
-): string | null {
+export function remapPathPrefix(path: string, oldPrefix: string, newPrefix: string): string | null {
   if (!isSameOrDescendantPath(path, oldPrefix)) {
     return null;
   }

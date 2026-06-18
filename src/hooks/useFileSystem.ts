@@ -48,32 +48,35 @@ export function useFileSystem() {
   }, [rootPath]);
 
   // Refresh the file tree from a given root
-  const refreshTree = useCallback(async (path?: string) => {
-    const targetPath = path || rootPath;
-    if (!targetPath) return;
+  const refreshTree = useCallback(
+    async (path?: string) => {
+      const targetPath = path || rootPath;
+      if (!targetPath) return;
 
-    setLoading(true);
-    setStatsLoading(true);
-    setError(null);
-    try {
-      const [tree, stats] = await Promise.all([
-        invoke<FileNode[]>("list_directory", {
-          path: targetPath,
-        }),
-        invoke<DirectoryStats>("get_directory_stats", {
-          path: targetPath,
-        }),
-      ]);
-      setFileTree(tree);
-      setDirectoryStats(stats);
-    } catch (e) {
-      setError(`Failed to load directory: ${e}`);
-      setDirectoryStats(null);
-    } finally {
-      setLoading(false);
-      setStatsLoading(false);
-    }
-  }, [rootPath]);
+      setLoading(true);
+      setStatsLoading(true);
+      setError(null);
+      try {
+        const [tree, stats] = await Promise.all([
+          invoke<FileNode[]>("list_directory", {
+            path: targetPath,
+          }),
+          invoke<DirectoryStats>("get_directory_stats", {
+            path: targetPath,
+          }),
+        ]);
+        setFileTree(tree);
+        setDirectoryStats(stats);
+      } catch (e) {
+        setError(`Failed to load directory: ${e}`);
+        setDirectoryStats(null);
+      } finally {
+        setLoading(false);
+        setStatsLoading(false);
+      }
+    },
+    [rootPath],
+  );
 
   // Read a file's content
   const readFile = useCallback(async (path: string): Promise<string> => {
@@ -87,74 +90,53 @@ export function useFileSystem() {
   }, []);
 
   // Write content to a file
-  const writeFile = useCallback(
-    async (path: string, content: string): Promise<void> => {
-      return invoke("write_file", { path, content });
-    },
-    []
-  );
+  const writeFile = useCallback(async (path: string, content: string): Promise<void> => {
+    return invoke("write_file", { path, content });
+  }, []);
 
   // Write binary data to a file
-  const writeFileBinary = useCallback(
-    async (path: string, content: Uint8Array): Promise<void> => {
-      // Convert Uint8Array to number array for Tauri bridge
-      return invoke("write_file_binary", { path, content: Array.from(content) });
-    },
-    []
-  );
+  const writeFileBinary = useCallback(async (path: string, content: Uint8Array): Promise<void> => {
+    // Convert Uint8Array to number array for Tauri bridge
+    return invoke("write_file_binary", { path, content: Array.from(content) });
+  }, []);
 
   // Create a new file
-  const createFile = useCallback(
-    async (path: string, content: string): Promise<void> => {
-      return invoke("create_file", { path, content });
-    },
-    []
-  );
+  const createFile = useCallback(async (path: string, content: string): Promise<void> => {
+    return invoke("create_file", { path, content });
+  }, []);
 
-  const createDirectory = useCallback(
-    async (path: string): Promise<void> => {
-      return invoke("create_directory", { path });
-    },
-    []
-  );
+  const createDirectory = useCallback(async (path: string): Promise<void> => {
+    return invoke("create_directory", { path });
+  }, []);
 
   // Delete a file or directory
-  const deleteEntry = useCallback(
-    async (path: string, isDir: boolean): Promise<void> => {
-      const command = isDir ? "delete_directory" : "delete_file";
-      return invoke(command, { path });
-    },
-    []
-  );
+  const deleteEntry = useCallback(async (path: string, isDir: boolean): Promise<void> => {
+    const command = isDir ? "delete_directory" : "delete_file";
+    return invoke(command, { path });
+  }, []);
 
   // Rename a file or directory
-  const renameEntry = useCallback(
-    async (oldPath: string, newPath: string): Promise<void> => {
-      return invoke("rename_entry", { oldPath, newPath });
-    },
-    []
-  );
+  const renameEntry = useCallback(async (oldPath: string, newPath: string): Promise<void> => {
+    return invoke("rename_entry", { oldPath, newPath });
+  }, []);
 
-  const importFiles = useCallback(
-    async (paths: string[], targetDir: string): Promise<void> => {
-      return invoke("import_files", { paths, targetDir });
-    },
-    []
-  );
+  const importFiles = useCallback(async (paths: string[], targetDir: string): Promise<void> => {
+    return invoke("import_files", { paths, targetDir });
+  }, []);
 
   const searchFiles = useCallback(
     async (query: string): Promise<SearchResult[]> => {
       if (!rootPath) return [];
       return invoke<SearchResult[]>("search_files", { path: rootPath, query });
     },
-    [rootPath]
+    [rootPath],
   );
 
   const saveImageAsset = useCallback(
     async (documentPath: string, filename: string, base64Data: string): Promise<string> => {
       return invoke<string>("save_base64_asset", { documentPath, filename, base64Data });
     },
-    []
+    [],
   );
 
   // Listen for filesystem changes

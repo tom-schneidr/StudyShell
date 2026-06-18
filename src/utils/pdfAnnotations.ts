@@ -1,10 +1,4 @@
-import type {
-  HighlightRect,
-  InkPath,
-  PdfAnnotationData,
-  StickyNote,
-  Textbox,
-} from "../types";
+import type { HighlightRect, InkPath, PdfAnnotationData, StickyNote, Textbox } from "../types";
 
 export function buildPdfAnnotationSidecarPath(pdfPath: string): string {
   return `${pdfPath}.annotations.json`;

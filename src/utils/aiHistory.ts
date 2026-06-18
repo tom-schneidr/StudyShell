@@ -9,7 +9,10 @@ interface StoredChatMessage {
   timestamp: string;
 }
 
-export function limitChatHistory(messages: ChatMessage[], limit = CHAT_HISTORY_LIMIT): ChatMessage[] {
+export function limitChatHistory(
+  messages: ChatMessage[],
+  limit = CHAT_HISTORY_LIMIT,
+): ChatMessage[] {
   return messages.slice(-limit);
 }
 

@@ -31,13 +31,18 @@ export default function PdfInkCanvas({
   const [currentPath, setCurrentPath] = useState<InkPath | null>(null);
 
   // Editing state
-  const [editingTb, setEditingTb] = useState<{ id?: string; x: number; y: number; content: string } | null>(null);
+  const [editingTb, setEditingTb] = useState<{
+    id?: string;
+    x: number;
+    y: number;
+    content: string;
+  } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Interaction state (Using refs for real-time smooth tracking to avoid React render lag)
   const [activeResizingId, setActiveResizingId] = useState<string | null>(null);
   const [activeDraggingId, setActiveDraggingId] = useState<string | null>(null);
-  
+
   // Pivot points to prevent jittering
   const dragOffset = useRef({ x: 0, y: 0 });
   const resizeInitial = useRef({ width: 0, height: 0, x: 0, y: 0 });
@@ -100,21 +105,25 @@ export default function PdfInkCanvas({
       const mouseY = (e.clientY - rect.top) / scale;
 
       if (activeResizingId) {
-        const next = (annotations.textboxes || []).map(t => {
+        const next = (annotations.textboxes || []).map((t) => {
           if (t.id === activeResizingId) {
-             // Precise Resizing: Initial Width + (Current Mouse - Initial Mouse)
-             const newWidth = resizeInitial.current.width + (mouseX - resizeInitial.current.x);
-             const newHeight = resizeInitial.current.height + (mouseY - resizeInitial.current.y);
-             return { ...t, width: Math.max(30/scale, newWidth), height: Math.max(20/scale, newHeight) };
+            // Precise Resizing: Initial Width + (Current Mouse - Initial Mouse)
+            const newWidth = resizeInitial.current.width + (mouseX - resizeInitial.current.x);
+            const newHeight = resizeInitial.current.height + (mouseY - resizeInitial.current.y);
+            return {
+              ...t,
+              width: Math.max(30 / scale, newWidth),
+              height: Math.max(20 / scale, newHeight),
+            };
           }
           return t;
         });
         onUpdateAnnotations(pageNumber, { ...annotations, textboxes: next });
       } else if (activeDraggingId) {
-        const next = (annotations.textboxes || []).map(t => {
+        const next = (annotations.textboxes || []).map((t) => {
           if (t.id === activeDraggingId) {
-             // Absolute Dragging: Mouse Position - Click Offset (literally pinned to mouse)
-             return { ...t, x: mouseX - dragOffset.current.x, y: mouseY - dragOffset.current.y };
+            // Absolute Dragging: Mouse Position - Click Offset (literally pinned to mouse)
+            return { ...t, x: mouseX - dragOffset.current.x, y: mouseY - dragOffset.current.y };
           }
           return t;
         });
@@ -139,18 +148,20 @@ export default function PdfInkCanvas({
     if (!editingTb) return;
     let newTextboxes = [...(annotations.textboxes || [])];
     if (editingTb.id) {
-        newTextboxes = newTextboxes.map(t => t.id === editingTb.id ? { ...t, content: editingTb.content } : t);
+      newTextboxes = newTextboxes.map((t) =>
+        t.id === editingTb.id ? { ...t, content: editingTb.content } : t,
+      );
     } else if (editingTb.content.trim()) {
-        newTextboxes.push({
-            id: generateId(),
-            x: editingTb.x,
-            y: editingTb.y,
-            width: 200 / scale,
-            height: 50 / scale,
-            content: editingTb.content,
-            color,
-            fontSize: 22 / scale
-        });
+      newTextboxes.push({
+        id: generateId(),
+        x: editingTb.x,
+        y: editingTb.y,
+        width: 200 / scale,
+        height: 50 / scale,
+        content: editingTb.content,
+        color,
+        fontSize: 22 / scale,
+      });
     }
     onUpdateAnnotations(pageNumber, { ...annotations, textboxes: newTextboxes });
     setEditingTb(null);
@@ -172,26 +183,30 @@ export default function PdfInkCanvas({
     }
 
     if (tool === "eraser") {
-      const remainingInk = (annotations.ink || []).filter(path => 
-        !path.points.some(p => Math.sqrt((p.x-x)**2 + (p.y-y)**2) < 20 / scale)
+      const remainingInk = (annotations.ink || []).filter(
+        (path) => !path.points.some((p) => Math.sqrt((p.x - x) ** 2 + (p.y - y) ** 2) < 20 / scale),
       );
-      const remainingTb = (annotations.textboxes || []).filter(t => 
-        x < t.x || x > t.x + t.width || y < t.y || y > t.y + t.height
+      const remainingTb = (annotations.textboxes || []).filter(
+        (t) => x < t.x || x > t.x + t.width || y < t.y || y > t.y + t.height,
       );
-      onUpdateAnnotations(pageNumber, { ...annotations, ink: remainingInk, textboxes: remainingTb });
+      onUpdateAnnotations(pageNumber, {
+        ...annotations,
+        ink: remainingInk,
+        textboxes: remainingTb,
+      });
       return;
     }
 
     if (tool === "select") {
-        for (const t of (annotations.textboxes || [])) {
-            if (x >= t.x && x <= t.x + t.width && y >= t.y && y <= t.y + t.height) {
-                // Initialize "Pinned" Dragging
-                dragOffset.current = { x: x - t.x, y: y - t.y };
-                setActiveDraggingId(t.id);
-                return;
-            }
+      for (const t of annotations.textboxes || []) {
+        if (x >= t.x && x <= t.x + t.width && y >= t.y && y <= t.y + t.height) {
+          // Initialize "Pinned" Dragging
+          dragOffset.current = { x: x - t.x, y: y - t.y };
+          setActiveDraggingId(t.id);
+          return;
         }
-        return;
+      }
+      return;
     }
 
     setIsDrawing(true);
@@ -208,12 +223,15 @@ export default function PdfInkCanvas({
     const rect = canvasRef.current!.getBoundingClientRect();
     const x = (e.clientX - rect.left) / scale;
     const y = (e.clientY - rect.top) / scale;
-    setCurrentPath(p => p ? { ...p, points: [...p.points, { x, y }] } : null);
+    setCurrentPath((p) => (p ? { ...p, points: [...p.points, { x, y }] } : null));
   };
 
   const handleMouseUp = () => {
     if (isDrawing && currentPath) {
-      onUpdateAnnotations(pageNumber, { ...annotations, ink: [...(annotations.ink || []), currentPath] });
+      onUpdateAnnotations(pageNumber, {
+        ...annotations,
+        ink: [...(annotations.ink || []), currentPath],
+      });
     }
     setIsDrawing(false);
     setCurrentPath(null);
@@ -221,13 +239,13 @@ export default function PdfInkCanvas({
 
   const handleTbDoubleClick = (t: Textbox) => {
     if (tool === "select") {
-        setEditingTb({ id: t.id, x: t.x, y: t.y, content: t.content });
+      setEditingTb({ id: t.id, x: t.x, y: t.y, content: t.content });
     }
   };
 
   const deleteTb = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    const next = (annotations.textboxes || []).filter(t => t.id !== id);
+    const next = (annotations.textboxes || []).filter((t) => t.id !== id);
     onUpdateAnnotations(pageNumber, { ...annotations, textboxes: next });
   };
 
@@ -249,19 +267,19 @@ export default function PdfInkCanvas({
         <div
           key={t.id}
           onDoubleClick={(e) => {
-              e.stopPropagation();
-              handleTbDoubleClick(t);
+            e.stopPropagation();
+            handleTbDoubleClick(t);
           }}
           onMouseDown={(e) => {
-              if (tool === "select") {
-                  e.stopPropagation();
-                  const rect = canvasRef.current!.getBoundingClientRect();
-                  const mouseX = (e.clientX - rect.left) / scale;
-                  const mouseY = (e.clientY - rect.top) / scale;
-                  // Pin the mouse offset to the box location for jitter-free dragging
-                  dragOffset.current = { x: mouseX - t.x, y: mouseY - t.y };
-                  setActiveDraggingId(t.id);
-              }
+            if (tool === "select") {
+              e.stopPropagation();
+              const rect = canvasRef.current!.getBoundingClientRect();
+              const mouseX = (e.clientX - rect.left) / scale;
+              const mouseY = (e.clientY - rect.top) / scale;
+              // Pin the mouse offset to the box location for jitter-free dragging
+              dragOffset.current = { x: mouseX - t.x, y: mouseY - t.y };
+              setActiveDraggingId(t.id);
+            }
           }}
           style={{
             position: "absolute",
@@ -280,17 +298,17 @@ export default function PdfInkCanvas({
             border: tool === "select" ? "2px dashed #6c8aff44" : "none",
             borderRadius: "4px",
             zIndex: activeDraggingId === t.id || activeResizingId === t.id ? 100 : 20,
-            cursor: tool === "select" ? "move" : "inherit"
+            cursor: tool === "select" ? "move" : "inherit",
           }}
           className="flex items-center p-2 group"
         >
           {t.content}
-          
+
           {/* Action Buttons in Select Mode */}
           {tool === "select" && (
             <>
               {/* Trash Button - Small and premium */}
-              <button 
+              <button
                 onMouseDown={(e) => deleteTb(e, t.id)}
                 className="absolute -top-3 -right-3 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center 
                 shadow-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-red-600 scale-75 group-hover:scale-100 cursor-pointer"
@@ -299,15 +317,20 @@ export default function PdfInkCanvas({
               </button>
 
               {/* Resize Handle */}
-              <div 
+              <div
                 onMouseDown={(e) => {
-                    e.stopPropagation();
-                    const rect = canvasRef.current!.getBoundingClientRect();
-                    const mouseX = (e.clientX - rect.left) / scale;
-                    const mouseY = (e.clientY - rect.top) / scale;
-                    // Store initial dimensions for precise math-based resizing
-                    resizeInitial.current = { width: t.width, height: t.height, x: mouseX, y: mouseY };
-                    setActiveResizingId(t.id);
+                  e.stopPropagation();
+                  const rect = canvasRef.current!.getBoundingClientRect();
+                  const mouseX = (e.clientX - rect.left) / scale;
+                  const mouseY = (e.clientY - rect.top) / scale;
+                  // Store initial dimensions for precise math-based resizing
+                  resizeInitial.current = {
+                    width: t.width,
+                    height: t.height,
+                    x: mouseX,
+                    y: mouseY,
+                  };
+                  setActiveResizingId(t.id);
                 }}
                 className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-shell-accent rounded-sm cursor-nwse-resize shadow-md flex items-center justify-center hover:scale-125 transition-transform z-50"
               >
@@ -325,7 +348,7 @@ export default function PdfInkCanvas({
             position: "absolute",
             left: `${editingTb.x * scale}px`,
             top: `${editingTb.y * scale}px`,
-            zIndex: 1000
+            zIndex: 1000,
           }}
         >
           <input
@@ -340,17 +363,17 @@ export default function PdfInkCanvas({
             onBlur={commitTb}
             className="modern-text-input"
             style={{
-                color: color,
-                fontSize: `${22}px`,
-                fontFamily: "Inter, sans-serif",
-                fontWeight: 600,
-                background: "rgba(255, 255, 255, 1)",
-                border: "2px solid #6c8aff",
-                outline: "none",
-                borderRadius: "8px",
-                padding: "8px 16px",
-                boxShadow: "0 10px 40px -10px rgba(0, 0, 0, 0.6)",
-                minWidth: "200px"
+              color: color,
+              fontSize: `${22}px`,
+              fontFamily: "Inter, sans-serif",
+              fontWeight: 600,
+              background: "rgba(255, 255, 255, 1)",
+              border: "2px solid #6c8aff",
+              outline: "none",
+              borderRadius: "8px",
+              padding: "8px 16px",
+              boxShadow: "0 10px 40px -10px rgba(0, 0, 0, 0.6)",
+              minWidth: "200px",
             }}
           />
         </div>

@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import prettier from "prettier";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
@@ -13,7 +14,10 @@ if (!version) {
 const tauriConfPath = join(root, "src-tauri", "tauri.conf.json");
 const tauriConf = JSON.parse(readFileSync(tauriConfPath, "utf8"));
 tauriConf.version = version;
-writeFileSync(tauriConfPath, `${JSON.stringify(tauriConf, null, 2)}\n`);
+const formattedTauriConf = await prettier.format(JSON.stringify(tauriConf, null, 2), {
+  parser: "json",
+});
+writeFileSync(tauriConfPath, formattedTauriConf);
 
 const appPreferencesPath = join(root, "src", "utils", "appPreferences.ts");
 const appPreferences = readFileSync(appPreferencesPath, "utf8");

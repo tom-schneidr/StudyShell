@@ -36,39 +36,42 @@ export default function SearchPanel({
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsListRef = useRef<HTMLDivElement>(null);
 
-  const performSearch = useCallback(async (q: string) => {
-    const normalizedQuery = normalizeSearchQuery(q);
-    if (!shouldExecuteSearch(normalizedQuery, rootPath)) {
-      latestSearchRequestRef.current += 1;
-      setResults([]);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
-    const requestId = latestSearchRequestRef.current + 1;
-    latestSearchRequestRef.current = requestId;
-    setLoading(true);
-    setError(null);
-
-    try {
-      const nextResults = await onSearch(normalizedQuery);
-      if (latestSearchRequestRef.current !== requestId) {
-        return;
-      }
-      setResults(nextResults);
-    } catch (nextError) {
-      if (latestSearchRequestRef.current !== requestId) {
-        return;
-      }
-      setResults([]);
-      setError(formatSearchError(nextError));
-    } finally {
-      if (latestSearchRequestRef.current === requestId) {
+  const performSearch = useCallback(
+    async (q: string) => {
+      const normalizedQuery = normalizeSearchQuery(q);
+      if (!shouldExecuteSearch(normalizedQuery, rootPath)) {
+        latestSearchRequestRef.current += 1;
+        setResults([]);
         setLoading(false);
+        setError(null);
+        return;
       }
-    }
-  }, [onSearch, rootPath]);
+
+      const requestId = latestSearchRequestRef.current + 1;
+      latestSearchRequestRef.current = requestId;
+      setLoading(true);
+      setError(null);
+
+      try {
+        const nextResults = await onSearch(normalizedQuery);
+        if (latestSearchRequestRef.current !== requestId) {
+          return;
+        }
+        setResults(nextResults);
+      } catch (nextError) {
+        if (latestSearchRequestRef.current !== requestId) {
+          return;
+        }
+        setResults([]);
+        setError(formatSearchError(nextError));
+      } finally {
+        if (latestSearchRequestRef.current === requestId) {
+          setLoading(false);
+        }
+      }
+    },
+    [onSearch, rootPath],
+  );
 
   useEffect(() => {
     if (!shouldExecuteSearch(query, rootPath)) {
@@ -87,16 +90,19 @@ export default function SearchPanel({
     return () => clearTimeout(timer);
   }, [query, performSearch]);
 
-  const handleResultClick = useCallback((result: SearchResult) => {
-    const fileName = getPathBaseName(result.path);
-    onFileSelect({
-      name: fileName,
-      path: result.path,
-      is_dir: false,
-      extension: getPathExtension(result.path),
-      children: null,
-    });
-  }, [onFileSelect]);
+  const handleResultClick = useCallback(
+    (result: SearchResult) => {
+      const fileName = getPathBaseName(result.path);
+      onFileSelect({
+        name: fileName,
+        path: result.path,
+        is_dir: false,
+        extension: getPathExtension(result.path),
+        children: null,
+      });
+    },
+    [onFileSelect],
+  );
 
   const groupedResults = useMemo(() => groupSearchResultsByFile(results), [results]);
   const flattenedResults = useMemo(
@@ -136,7 +142,10 @@ export default function SearchPanel({
     <div className="flex flex-col h-full bg-shell-bg/50">
       <div className="p-4 border-b border-shell-border">
         <div className="relative group">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-shell-text-muted group-focus-within:text-shell-accent transition-colors" />
+          <Search
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-shell-text-muted group-focus-within:text-shell-accent transition-colors"
+          />
           <input
             ref={inputRef}
             type="text"
@@ -154,7 +163,9 @@ export default function SearchPanel({
                   return;
                 }
                 e.preventDefault();
-                setSelectedResultIndex((prev) => getNextSearchResultIndex(flattenedResults.length, prev, 1));
+                setSelectedResultIndex((prev) =>
+                  getNextSearchResultIndex(flattenedResults.length, prev, 1),
+                );
                 return;
               }
 
@@ -163,11 +174,17 @@ export default function SearchPanel({
                   return;
                 }
                 e.preventDefault();
-                setSelectedResultIndex((prev) => getNextSearchResultIndex(flattenedResults.length, prev, -1));
+                setSelectedResultIndex((prev) =>
+                  getNextSearchResultIndex(flattenedResults.length, prev, -1),
+                );
                 return;
               }
 
-              if (e.key === "Enter" && selectedResultIndex >= 0 && flattenedResults[selectedResultIndex]) {
+              if (
+                e.key === "Enter" &&
+                selectedResultIndex >= 0 &&
+                flattenedResults[selectedResultIndex]
+              ) {
                 e.preventDefault();
                 handleResultClick(flattenedResults[selectedResultIndex]);
               }
@@ -218,8 +235,12 @@ export default function SearchPanel({
                     <div className="px-4 py-2 flex items-center gap-2 text-shell-text-secondary">
                       <FileText size={14} className="text-shell-accent/70" />
                       <div className="min-w-0">
-                        <div className="text-[13px] font-semibold truncate leading-none mb-1">{fileName}</div>
-                        <div className="text-[10px] text-shell-text-muted truncate opacity-60 font-medium uppercase tracking-tight">{relativePath}</div>
+                        <div className="text-[13px] font-semibold truncate leading-none mb-1">
+                          {fileName}
+                        </div>
+                        <div className="text-[10px] text-shell-text-muted truncate opacity-60 font-medium uppercase tracking-tight">
+                          {relativePath}
+                        </div>
                       </div>
                     </div>
                     <div className="space-y-0.5">
@@ -240,17 +261,21 @@ export default function SearchPanel({
                                 : "border-transparent hover:bg-shell-accent/5 hover:border-shell-accent/30"
                             }`}
                           >
-                            <div className={`flex items-center gap-1 text-[10px] font-mono px-1 rounded border mt-0.5 transition-colors ${
-                              isSelected
-                                ? "text-shell-accent bg-shell-accent/10 border-shell-accent/20"
-                                : "text-shell-text-muted bg-shell-surface border-shell-border group-hover:bg-shell-accent/10 group-hover:text-shell-accent"
-                            }`}>
+                            <div
+                              className={`flex items-center gap-1 text-[10px] font-mono px-1 rounded border mt-0.5 transition-colors ${
+                                isSelected
+                                  ? "text-shell-accent bg-shell-accent/10 border-shell-accent/20"
+                                  : "text-shell-text-muted bg-shell-surface border-shell-border group-hover:bg-shell-accent/10 group-hover:text-shell-accent"
+                              }`}
+                            >
                               <Hash size={10} />
                               <span>{result.line_number}</span>
                             </div>
-                            <p className={`text-[12px] line-clamp-2 leading-relaxed break-all ${
-                              isSelected ? "text-shell-text" : "text-shell-text-secondary"
-                            }`}>
+                            <p
+                              className={`text-[12px] line-clamp-2 leading-relaxed break-all ${
+                                isSelected ? "text-shell-text" : "text-shell-text-secondary"
+                              }`}
+                            >
                               {result.content}
                             </p>
                           </button>
@@ -267,13 +292,19 @@ export default function SearchPanel({
             <div className="w-12 h-12 rounded-full bg-shell-surface flex items-center justify-center mb-4 text-shell-text-muted opacity-30">
               <Search size={24} />
             </div>
-            <p className="text-sm text-shell-text-muted">No results found for "{normalizedQuery}"</p>
+            <p className="text-sm text-shell-text-muted">
+              No results found for "{normalizedQuery}"
+            </p>
           </div>
-        ) : !loading && (
-          <div className="flex flex-col items-center justify-center py-20 px-8 text-center opacity-40">
-            <Search size={32} className="text-shell-text-muted mb-4 stroke-[1.5]" />
-            <p className="text-xs text-shell-text-muted font-medium uppercase tracking-[0.2em]">Enter a search term</p>
-          </div>
+        ) : (
+          !loading && (
+            <div className="flex flex-col items-center justify-center py-20 px-8 text-center opacity-40">
+              <Search size={32} className="text-shell-text-muted mb-4 stroke-[1.5]" />
+              <p className="text-xs text-shell-text-muted font-medium uppercase tracking-[0.2em]">
+                Enter a search term
+              </p>
+            </div>
+          )
         )}
       </div>
     </div>

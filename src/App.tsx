@@ -10,28 +10,43 @@ import type { CommandItem } from "./components/CommandPalette";
 import DropOverlay from "./components/DropOverlay";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import { 
-  MessageSquareText, 
-  Files, 
-  FilePlus2, 
-  FolderPlus, 
-  Trash2, 
-  Sidebar as SidebarIcon, 
+import {
+  MessageSquareText,
+  Files,
+  FilePlus2,
+  FolderPlus,
+  Trash2,
+  Sidebar as SidebarIcon,
   MessageSquare,
   FolderSearch,
   RefreshCw,
   Sparkles,
   Sun,
-  Moon
+  Moon,
 } from "lucide-react";
 import { useFileSystem } from "./hooks/useFileSystem";
 import { useFileSystemActions } from "./hooks/useFileSystemActions";
+import { usePersistentFileLists } from "./hooks/usePersistentFileLists";
+import { useShellLayoutState } from "./hooks/useShellLayoutState";
+import { useSplitViewState } from "./hooks/useSplitViewState";
 import { useStudyAI } from "./hooks/useStudyAI";
+import { useThemePreference } from "./hooks/useThemePreference";
 import { useToast } from "./components/ToastProvider";
-import type { FileNode, NotebookData, PdfAnnotationData, StudyShellExplainEventDetail, TauriDragDropPayload } from "./types";
+import type {
+  FileNode,
+  NotebookData,
+  PdfAnnotationData,
+  StudyShellExplainEventDetail,
+  TauriDragDropPayload,
+} from "./types";
 import { getFileType } from "./types";
 import { buildChatContext, canUseFileAsChatContext } from "./utils/chatContext";
-import { parseFlashcardsResponse, parseQuizResponse, type FlashcardCard, type QuizQuestion } from "./utils/flashcards";
+import {
+  parseFlashcardsResponse,
+  parseQuizResponse,
+  type FlashcardCard,
+  type QuizQuestion,
+} from "./utils/flashcards";
 import {
   normalizeDirectoryName,
   normalizeMarkdownFileName,
@@ -50,26 +65,17 @@ import {
   removeFileNodesWithinPath,
 } from "./utils/fileState";
 import { buildWorkspaceCommandTarget } from "./utils/commandPalette";
-import {
-  deserializeRecentFiles,
-  filterRecentFilesForWorkspace,
-  normalizeRecentFiles,
-  serializeRecentFiles,
-} from "./utils/recentFiles";
+import { filterRecentFilesForWorkspace, normalizeRecentFiles } from "./utils/recentFiles";
 import { normalizeSelectedSources } from "./utils/sourceSelection";
 import {
   buildPdfAnnotationSidecarPath,
   parsePdfAnnotationData,
   serializePdfAnnotationData,
 } from "./utils/pdfAnnotations";
-import { STORAGE_KEYS, parseStoredBoolean, parseStoredRootPath } from "./utils/appPreferences";
 import {
   clampChatWidth,
   clampSidebarWidth,
   DEFAULT_SIDEBAR_WIDTH,
-  readStoredChatPanelVisible,
-  readStoredChatWidth,
-  readStoredSidebarWidth,
 } from "./utils/layoutPreferences";
 
 const CommandPalette = lazy(() => import("./components/CommandPalette"));
@@ -95,7 +101,12 @@ function findFileNodeByPath(nodes: FileNode[], targetPath: string): FileNode | n
   return null;
 }
 
-function remapFileNodePath(node: FileNode, oldPath: string, newPath: string, exactName: string): FileNode {
+function remapFileNodePath(
+  node: FileNode,
+  oldPath: string,
+  newPath: string,
+  exactName: string,
+): FileNode {
   const remappedPath = remapPathPrefix(node.path, oldPath, newPath);
   if (!remappedPath) {
     return node;
@@ -108,19 +119,31 @@ function remapFileNodePath(node: FileNode, oldPath: string, newPath: string, exa
   };
 }
 
-function remapFileNodeList(nodes: FileNode[], oldPath: string, newPath: string, exactName: string): FileNode[] {
+function remapFileNodeList(
+  nodes: FileNode[],
+  oldPath: string,
+  newPath: string,
+  exactName: string,
+): FileNode[] {
   return nodes.map((node) => remapFileNodePath(node, oldPath, newPath, exactName));
 }
 
-function remapRecordKeys<T>(record: Record<string, T>, oldPath: string, newPath: string): Record<string, T> {
+function remapRecordKeys<T>(
+  record: Record<string, T>,
+  oldPath: string,
+  newPath: string,
+): Record<string, T> {
   return Object.fromEntries(
-    Object.entries(record).map(([path, value]) => [remapPathPrefix(path, oldPath, newPath) ?? path, value]),
+    Object.entries(record).map(([path, value]) => [
+      remapPathPrefix(path, oldPath, newPath) ?? path,
+      value,
+    ]),
   );
 }
 
 export default function App() {
   const toast = useToast();
-  
+
   const [activeFile, setActiveFile] = useState<FileNode | null>(null);
 
   const fs = useFileSystem();
@@ -129,37 +152,41 @@ export default function App() {
   const [binaryData, setBinaryData] = useState<Uint8Array | null>(null);
   const [binaryLoading, setBinaryLoading] = useState(false);
   const [notebookData, setNotebookData] = useState<NotebookData | null>(null);
-  const [recentFiles, setRecentFiles] = useState<FileNode[]>(() => {
-    try {
-      const stored = localStorage.getItem("recentFiles");
-      if (stored) return deserializeRecentFiles(stored);
-    } catch {}
-    return [];
-  });
+  const {
+    recentFiles,
+    setRecentFiles,
+    pinnedFiles,
+    setPinnedFiles,
+    openTabs,
+    setOpenTabs,
+    persistRecentFiles,
+    persistPinnedFiles,
+    persistOpenTabs,
+    persistLastActiveFilePath,
+    readLastActiveFilePath,
+  } = usePersistentFileLists();
 
-  const [pinnedFiles, setPinnedFiles] = useState<FileNode[]>(() => {
-    try {
-      const stored = localStorage.getItem("pinnedFiles");
-      return stored ? JSON.parse(stored) : [];
-    } catch {}
-    return [];
-  });
+  const handleTogglePinFile = useCallback(
+    (node: FileNode) => {
+      setPinnedFiles((prev) => {
+        const isAlreadyPinned = prev.some((f) => f.path === node.path);
+        const next = isAlreadyPinned ? prev.filter((f) => f.path !== node.path) : [...prev, node];
+        persistPinnedFiles(next);
+        return next;
+      });
+    },
+    [persistPinnedFiles, setPinnedFiles],
+  );
 
-  const handleTogglePinFile = useCallback((node: FileNode) => {
-    setPinnedFiles((prev) => {
-      const isAlreadyPinned = prev.some((f) => f.path === node.path);
-      const next = isAlreadyPinned
-        ? prev.filter((f) => f.path !== node.path)
-        : [...prev, node];
-      localStorage.setItem("pinnedFiles", JSON.stringify(next));
-      return next;
-    });
-  }, []);
-
-  const [showChatPanel, setShowChatPanel] = useState(() => readStoredChatPanelVisible(window.localStorage));
+  const {
+    showChatPanel,
+    setShowChatPanel,
+    sidebarWidth,
+    setSidebarWidth,
+    chatWidth,
+    setChatWidth,
+  } = useShellLayoutState();
   const [selectedSources, setSelectedSources] = useState<FileNode[]>([]);
-  const [sidebarWidth, setSidebarWidth] = useState(() => readStoredSidebarWidth(window.localStorage));
-  const [chatWidth, setChatWidth] = useState(() => readStoredChatWidth(window.localStorage));
 
   const [flashcardSession, setFlashcardSession] = useState<{
     isOpen: boolean;
@@ -168,7 +195,7 @@ export default function App() {
     isOpen: false,
     cards: [],
   });
-  
+
   const [quizSession, setQuizSession] = useState<{
     isOpen: boolean;
     questions: QuizQuestion[];
@@ -188,69 +215,35 @@ export default function App() {
   }>({ x: 0, y: 0, node: null, visible: false });
 
   const [deleteTarget, setDeleteTarget] = useState<FileNode | null>(null);
-  const [openTabs, setOpenTabs] = useState<FileNode[]>(() => {
-    try {
-        const stored = localStorage.getItem("openTabs");
-        return stored ? JSON.parse(stored) : [];
-    } catch { return []; }
-  });
 
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isSplit, setIsSplit] = useState(() =>
-    parseStoredBoolean(window.localStorage.getItem(STORAGE_KEYS.splitViewEnabled), false),
-  );
-  const [restoredSecondPanePath, setRestoredSecondPanePath] = useState<string | null>(() =>
-    parseStoredRootPath(window.localStorage.getItem(STORAGE_KEYS.splitViewPath)),
-  );
+  const {
+    isSplit,
+    setIsSplit,
+    restoredSecondPanePath,
+    setRestoredSecondPanePath,
+    persistSecondPanePath,
+  } = useSplitViewState();
   const [secondActiveFile, setSecondActiveFile] = useState<FileNode | null>(null);
   const [secondFileContent, setSecondFileContent] = useState<string | null>(null);
   const [secondBinaryData, setSecondBinaryData] = useState<Uint8Array | null>(null);
   const [secondBinaryLoading, setSecondBinaryLoading] = useState(false);
   const [secondNotebookData, setSecondNotebookData] = useState<NotebookData | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [theme, setTheme] = useState<"dark" | "light">(() => {
-    const storedTheme = localStorage.getItem(STORAGE_KEYS.theme) ?? localStorage.getItem("theme");
-    return storedTheme === "light" ? "light" : "dark";
-  });
-
-  useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "light") {
-      root.classList.add("theme-light");
-    } else {
-      root.classList.remove("theme-light");
-    }
-    localStorage.setItem(STORAGE_KEYS.theme, theme);
-  }, [theme]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.sidebarWidth, String(clampSidebarWidth(sidebarWidth)));
-  }, [sidebarWidth]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.chatWidth, String(clampChatWidth(chatWidth)));
-  }, [chatWidth]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.chatPanelVisible, String(showChatPanel));
-  }, [showChatPanel]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.splitViewEnabled, String(isSplit));
-  }, [isSplit]);
+  const { theme, setTheme } = useThemePreference();
 
   useEffect(() => {
     if (secondActiveFile) {
-      localStorage.setItem(STORAGE_KEYS.splitViewPath, secondActiveFile.path);
+      persistSecondPanePath(secondActiveFile.path);
       return;
     }
 
     if (!restoredSecondPanePath) {
-      localStorage.removeItem(STORAGE_KEYS.splitViewPath);
+      persistSecondPanePath(null);
     }
-  }, [restoredSecondPanePath, secondActiveFile]);
+  }, [persistSecondPanePath, restoredSecondPanePath, secondActiveFile]);
 
   const resetFileState = useCallback(() => {
     setFileContent(null);
@@ -274,21 +267,21 @@ export default function App() {
     async (node: FileNode) => {
       if (node.is_dir) return;
 
-      setOpenTabs(prev => {
-        if (!prev.find(t => t.path === node.path)) {
+      setOpenTabs((prev) => {
+        if (!prev.find((t) => t.path === node.path)) {
           return [...prev, node];
         }
         return prev;
       });
 
-      setRecentFiles(prev => {
-        const filtered = prev.filter(t => t.path !== node.path);
+      setRecentFiles((prev) => {
+        const filtered = prev.filter((t) => t.path !== node.path);
         const next = filterRecentFilesForWorkspace(
           normalizeRecentFiles([node, ...filtered]),
           fs.rootPath,
           new Set([...liveFilePaths, node.path]),
         );
-        localStorage.setItem("recentFiles", serializeRecentFiles(next));
+        persistRecentFiles(next);
         return next;
       });
 
@@ -313,7 +306,9 @@ export default function App() {
             setBinaryData(data);
 
             if (fileType === "pdf") {
-              const parsedAnnotations = annotationData ? parsePdfAnnotationData(annotationData) : null;
+              const parsedAnnotations = annotationData
+                ? parsePdfAnnotationData(annotationData)
+                : null;
 
               setPdfAnnotations((prev) => {
                 const next = { ...prev };
@@ -361,39 +356,46 @@ export default function App() {
         }
       }
     },
-    [fs, liveFilePaths, resetFileState]
+    [fs, liveFilePaths, resetFileState],
   );
 
   const fsa = useFileSystemActions(fs, (node) => handleFileSelect(node));
 
-  const remapWorkspaceState = useCallback((oldPath: string, newPath: string, exactName = getPathBaseName(newPath)) => {
-    if (activeFile && isSameOrDescendantPath(activeFile.path, oldPath)) {
-      setActiveFile((prev) => (prev ? remapFileNodePath(prev, oldPath, newPath, exactName) : null));
-    }
+  const remapWorkspaceState = useCallback(
+    (oldPath: string, newPath: string, exactName = getPathBaseName(newPath)) => {
+      if (activeFile && isSameOrDescendantPath(activeFile.path, oldPath)) {
+        setActiveFile((prev) =>
+          prev ? remapFileNodePath(prev, oldPath, newPath, exactName) : null,
+        );
+      }
 
-    if (secondActiveFile && isSameOrDescendantPath(secondActiveFile.path, oldPath)) {
-      setSecondActiveFile((prev) => (prev ? remapFileNodePath(prev, oldPath, newPath, exactName) : null));
-    }
+      if (secondActiveFile && isSameOrDescendantPath(secondActiveFile.path, oldPath)) {
+        setSecondActiveFile((prev) =>
+          prev ? remapFileNodePath(prev, oldPath, newPath, exactName) : null,
+        );
+      }
 
-    setOpenTabs((prev) => remapFileNodeList(prev, oldPath, newPath, exactName));
-    setSelectedSources((prev) => remapFileNodeList(prev, oldPath, newPath, exactName));
-    setRecentFiles((prev) => {
-      const next = normalizeRecentFiles(remapFileNodeList(prev, oldPath, newPath, exactName));
-      localStorage.setItem("recentFiles", serializeRecentFiles(next));
-      return next;
-    });
-    setPinnedFiles((prev) => {
-      const next = remapFileNodeList(prev, oldPath, newPath, exactName);
-      localStorage.setItem("pinnedFiles", JSON.stringify(next));
-      return next;
-    });
-    setPdfAnnotations((prev) => remapRecordKeys(prev, oldPath, newPath));
-    lastPersistedPdfAnnotationsRef.current = remapRecordKeys(
-      lastPersistedPdfAnnotationsRef.current,
-      oldPath,
-      newPath,
-    );
-  }, [activeFile, secondActiveFile]);
+      setOpenTabs((prev) => remapFileNodeList(prev, oldPath, newPath, exactName));
+      setSelectedSources((prev) => remapFileNodeList(prev, oldPath, newPath, exactName));
+      setRecentFiles((prev) => {
+        const next = normalizeRecentFiles(remapFileNodeList(prev, oldPath, newPath, exactName));
+        persistRecentFiles(next);
+        return next;
+      });
+      setPinnedFiles((prev) => {
+        const next = remapFileNodeList(prev, oldPath, newPath, exactName);
+        persistPinnedFiles(next);
+        return next;
+      });
+      setPdfAnnotations((prev) => remapRecordKeys(prev, oldPath, newPath));
+      lastPersistedPdfAnnotationsRef.current = remapRecordKeys(
+        lastPersistedPdfAnnotationsRef.current,
+        oldPath,
+        newPath,
+      );
+    },
+    [activeFile, secondActiveFile],
+  );
 
   const handleToggleSplit = useCallback(() => {
     if (isSplit) {
@@ -426,40 +428,48 @@ export default function App() {
     secondActiveFile,
   ]);
 
-  const handleSelectSecondFile = useCallback(async (node: FileNode) => {
-    if (node.is_dir) return;
+  const handleSelectSecondFile = useCallback(
+    async (node: FileNode) => {
+      if (node.is_dir) return;
 
-    setIsSplit(true);
-    setSecondActiveFile(node);
-    setSecondFileContent(null);
-    setSecondBinaryData(null);
-    setSecondBinaryLoading(false);
-    setSecondNotebookData(null);
-    setRestoredSecondPanePath(null);
+      setIsSplit(true);
+      setSecondActiveFile(node);
+      setSecondFileContent(null);
+      setSecondBinaryData(null);
+      setSecondBinaryLoading(false);
+      setSecondNotebookData(null);
+      setRestoredSecondPanePath(null);
 
-    const fileType = getFileType(node.extension, node.name);
-    try {
-        if (fileType === "pdf" || fileType === "image" || fileType === "video" || fileType === "audio") {
-            setSecondBinaryLoading(true);
-            const data = await fs.readFileBinary(node.path);
-            setSecondBinaryData(data);
+      const fileType = getFileType(node.extension, node.name);
+      try {
+        if (
+          fileType === "pdf" ||
+          fileType === "image" ||
+          fileType === "video" ||
+          fileType === "audio"
+        ) {
+          setSecondBinaryLoading(true);
+          const data = await fs.readFileBinary(node.path);
+          setSecondBinaryData(data);
         } else if (fileType === "notebook") {
-            const content = await fs.readFile(node.path);
-            const parsed = JSON.parse(content) as NotebookData;
-            setSecondNotebookData(parsed);
-            setSecondFileContent(content);
+          const content = await fs.readFile(node.path);
+          const parsed = JSON.parse(content) as NotebookData;
+          setSecondNotebookData(parsed);
+          setSecondFileContent(content);
         } else {
-            const content = await fs.readFile(node.path);
-            setSecondFileContent(content);
+          const content = await fs.readFile(node.path);
+          setSecondFileContent(content);
         }
-    } catch (e) {
+      } catch (e) {
         console.error("Failed to load second file for split view:", e);
         resetSecondPaneState();
         setIsSplit(false);
-    } finally {
+      } finally {
         setSecondBinaryLoading(false);
-    }
-  }, [fs, resetSecondPaneState]);
+      }
+    },
+    [fs, resetSecondPaneState],
+  );
 
   const handleSaveFile = useCallback(
     async (path: string, content: string) => {
@@ -470,66 +480,69 @@ export default function App() {
         toast.error(`Failed to save file: ${e}`);
       }
     },
-    [fs, toast]
+    [fs, toast],
   );
 
   const handleToggleSource = useCallback((node: FileNode) => {
-    setSelectedSources(prev => {
-        if (prev.find(s => s.path === node.path)) {
-            return prev.filter(s => s.path !== node.path);
-        }
-        return normalizeSelectedSources([...prev, node]);
+    setSelectedSources((prev) => {
+      if (prev.find((s) => s.path === node.path)) {
+        return prev.filter((s) => s.path !== node.path);
+      }
+      return normalizeSelectedSources([...prev, node]);
     });
   }, []);
 
-  const handleCloseTab = useCallback((path: string, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setOpenTabs(prev => {
-      const filtered = prev.filter(t => t.path !== path);
-      if (activeFile?.path === path) {
-        if (filtered.length > 0) {
-          const oldIndex = prev.findIndex(t => t.path === path);
-          const nextTab = filtered[Math.min(oldIndex, filtered.length - 1)];
-          setTimeout(() => handleFileSelect(nextTab), 0);
-        } else {
-          setActiveFile(null);
-          resetFileState();
+  const handleCloseTab = useCallback(
+    (path: string, e?: React.MouseEvent) => {
+      e?.stopPropagation();
+      setOpenTabs((prev) => {
+        const filtered = prev.filter((t) => t.path !== path);
+        if (activeFile?.path === path) {
+          if (filtered.length > 0) {
+            const oldIndex = prev.findIndex((t) => t.path === path);
+            const nextTab = filtered[Math.min(oldIndex, filtered.length - 1)];
+            setTimeout(() => handleFileSelect(nextTab), 0);
+          } else {
+            setActiveFile(null);
+            resetFileState();
+          }
         }
-      }
-      return filtered;
-    });
-  }, [activeFile, handleFileSelect, resetFileState]);
+        return filtered;
+      });
+    },
+    [activeFile, handleFileSelect, resetFileState],
+  );
 
   const handleClearRecentFiles = useCallback(() => {
     setRecentFiles([]);
-    localStorage.setItem("recentFiles", serializeRecentFiles([]));
-  }, []);
+    persistRecentFiles([]);
+  }, [persistRecentFiles]);
 
   const handleGenerateFlashcards = useCallback(async () => {
     if (!activeFile || !fileContent) return;
     try {
-        const response = await ai.sendMessage(
-            "Generate 5 high-quality flashcards from this content. Return ONLY a JSON array with no extra explanation: [{\"front\": \"<term or question>\", \"back\": \"<definition or answer>\"}]",
-            fileContent
-        );
-        if (response) {
-            const cards = parseFlashcardsResponse(response);
-            const targetPath = activeFile.path.replace(/\.[^/.]+$/, "") + ".flashcards.json";
-            await fs.writeFile(targetPath, JSON.stringify(cards, null, 2));
-            await fs.refreshTree();
-            toast.success("Flashcards generated and saved locally.");
-            
-            const newNode: FileNode = {
-              name: getPathBaseName(targetPath),
-              path: targetPath,
-              is_dir: false,
-              extension: "json",
-              children: null
-            };
-            setTimeout(() => handleFileSelect(newNode), 100);
-        }
+      const response = await ai.sendMessage(
+        'Generate 5 high-quality flashcards from this content. Return ONLY a JSON array with no extra explanation: [{"front": "<term or question>", "back": "<definition or answer>"}]',
+        fileContent,
+      );
+      if (response) {
+        const cards = parseFlashcardsResponse(response);
+        const targetPath = activeFile.path.replace(/\.[^/.]+$/, "") + ".flashcards.json";
+        await fs.writeFile(targetPath, JSON.stringify(cards, null, 2));
+        await fs.refreshTree();
+        toast.success("Flashcards generated and saved locally.");
+
+        const newNode: FileNode = {
+          name: getPathBaseName(targetPath),
+          path: targetPath,
+          is_dir: false,
+          extension: "json",
+          children: null,
+        };
+        setTimeout(() => handleFileSelect(newNode), 100);
+      }
     } catch (e) {
-        toast.error("Failed to generate flashcards.");
+      toast.error("Failed to generate flashcards.");
     }
   }, [activeFile, fileContent, ai, toast, fs, handleFileSelect]);
 
@@ -541,22 +554,22 @@ export default function App() {
       }
       if ((e.ctrlKey || e.metaKey) && e.key === "b") {
         e.preventDefault();
-        setSidebarWidth(prev => (prev === 0 ? DEFAULT_SIDEBAR_WIDTH : 0));
+        setSidebarWidth((prev) => (prev === 0 ? DEFAULT_SIDEBAR_WIDTH : 0));
       }
       if ((e.ctrlKey || e.metaKey) && e.key === "j") {
         e.preventDefault();
-        setShowChatPanel(prev => !prev);
+        setShowChatPanel((prev) => !prev);
       }
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "f") {
         e.preventDefault();
         const hiding = sidebarWidth > 0 || showChatPanel;
         if (hiding) {
-            setSidebarWidth(0);
-            setShowChatPanel(false);
-            toast.info("Focus Mode active.");
+          setSidebarWidth(0);
+          setShowChatPanel(false);
+          toast.info("Focus Mode active.");
         } else {
-            setSidebarWidth(DEFAULT_SIDEBAR_WIDTH);
-            setShowChatPanel(true);
+          setSidebarWidth(DEFAULT_SIDEBAR_WIDTH);
+          setShowChatPanel(true);
         }
       }
       if ((e.ctrlKey || e.metaKey) && e.key === ",") {
@@ -578,41 +591,47 @@ export default function App() {
     window.addEventListener("keydown", handleKeyDown);
 
     const unlistenFuncs: Array<() => void> = [];
-    
+
     const setupDnd = async () => {
       unlistenFuncs.push(await listen("tauri://drag-enter", () => setIsDragging(true)));
       unlistenFuncs.push(await listen("tauri://drag-leave", () => setIsDragging(false)));
-      unlistenFuncs.push(await listen<TauriDragDropPayload>("tauri://drag-drop", async (event) => {
-        setIsDragging(false);
-        const paths = event.payload.paths;
-        if (paths.length > 0 && fs.rootPath) {
-          try {
-            const targetDir = activeFile?.is_dir ? activeFile.path : (activeFile ? resolveCreationDirectory(activeFile) : fs.rootPath);
-            await fs.importFiles(paths, targetDir);
-            toast.success(`Imported ${paths.length} items.`);
-            fs.refreshTree();
-          } catch (err) {
-            toast.error(`Import failed: ${err}`);
+      unlistenFuncs.push(
+        await listen<TauriDragDropPayload>("tauri://drag-drop", async (event) => {
+          setIsDragging(false);
+          const paths = event.payload.paths;
+          if (paths.length > 0 && fs.rootPath) {
+            try {
+              const targetDir = activeFile?.is_dir
+                ? activeFile.path
+                : activeFile
+                  ? resolveCreationDirectory(activeFile)
+                  : fs.rootPath;
+              await fs.importFiles(paths, targetDir);
+              toast.success(`Imported ${paths.length} items.`);
+              fs.refreshTree();
+            } catch (err) {
+              toast.error(`Import failed: ${err}`);
+            }
           }
-        }
-      }));
+        }),
+      );
     };
 
     setupDnd();
 
     const handleExplain = (e: Event) => {
-        const text = (e as CustomEvent<StudyShellExplainEventDetail>).detail?.text;
-        if (text) {
-            setShowChatPanel(true);
-            void handleSendChatMessage(`Explain this content in detail:\n\n> ${text}`);
-        }
+      const text = (e as CustomEvent<StudyShellExplainEventDetail>).detail?.text;
+      if (text) {
+        setShowChatPanel(true);
+        void handleSendChatMessage(`Explain this content in detail:\n\n> ${text}`);
+      }
     };
     window.addEventListener("studyshell:explain", handleExplain);
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("studyshell:explain", handleExplain);
-      unlistenFuncs.forEach(fn => fn());
+      unlistenFuncs.forEach((fn) => fn());
     };
   }, [activeFile, handleCloseTab, fs, toast, showChatPanel, sidebarWidth]);
 
@@ -631,23 +650,36 @@ export default function App() {
     setSelectedSources((prev) => filterFileNodesByPaths(prev, liveFilePaths));
     setPdfAnnotations((prev) => filterRecordByPaths(prev, liveFilePaths));
 
-    const filteredPersisted = filterRecordByPaths(lastPersistedPdfAnnotationsRef.current, liveFilePaths);
-    if (Object.keys(filteredPersisted).length !== Object.keys(lastPersistedPdfAnnotationsRef.current).length) {
+    const filteredPersisted = filterRecordByPaths(
+      lastPersistedPdfAnnotationsRef.current,
+      liveFilePaths,
+    );
+    if (
+      Object.keys(filteredPersisted).length !==
+      Object.keys(lastPersistedPdfAnnotationsRef.current).length
+    ) {
       lastPersistedPdfAnnotationsRef.current = filteredPersisted;
     }
 
     setRecentFiles((prev) => {
       const next = filterRecentFilesForWorkspace(prev, fs.rootPath, liveFilePaths);
-      localStorage.setItem("recentFiles", serializeRecentFiles(next));
+      persistRecentFiles(next);
       return next;
     });
 
     setPinnedFiles((prev) => {
       const next = filterFileNodesByPaths(prev, liveFilePaths);
-      localStorage.setItem("pinnedFiles", JSON.stringify(next));
+      persistPinnedFiles(next);
       return next;
     });
-  }, [activeFile, fs.rootPath, liveFilePaths, resetFileState, resetSecondPaneState, secondActiveFile]);
+  }, [
+    activeFile,
+    fs.rootPath,
+    liveFilePaths,
+    resetFileState,
+    resetSecondPaneState,
+    secondActiveFile,
+  ]);
 
   useEffect(() => {
     if (!fs.rootPath || !isSplit || secondActiveFile || !restoredSecondPanePath) {
@@ -677,28 +709,28 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    localStorage.setItem("openTabs", JSON.stringify(openTabs));
-  }, [openTabs]);
+    persistOpenTabs(openTabs);
+  }, [openTabs, persistOpenTabs]);
 
   useEffect(() => {
     if (activeFile) {
-        localStorage.setItem("lastActiveFilePath", activeFile.path);
+      persistLastActiveFilePath(activeFile.path);
     }
-  }, [activeFile]);
+  }, [activeFile, persistLastActiveFilePath]);
 
   const firstBootRef = useRef(true);
   useEffect(() => {
     if (firstBootRef.current && fs.rootPath && openTabs.length > 0) {
-        firstBootRef.current = false;
-        const lastPath = localStorage.getItem("lastActiveFilePath");
-        if (lastPath) {
-            const found = openTabs.find(t => t.path === lastPath);
-            if (found) {
-                handleFileSelect(found);
-            }
+      firstBootRef.current = false;
+      const lastPath = readLastActiveFilePath();
+      if (lastPath) {
+        const found = openTabs.find((t) => t.path === lastPath);
+        if (found) {
+          handleFileSelect(found);
         }
+      }
     }
-  }, [fs.rootPath, openTabs, handleFileSelect]);
+  }, [fs.rootPath, openTabs, handleFileSelect, readLastActiveFilePath]);
 
   const workspaceCommandTarget = buildWorkspaceCommandTarget(activeFile, fs.rootPath, fs.fileTree);
   const canCreateInWorkspace = workspaceCommandTarget !== null;
@@ -726,7 +758,7 @@ export default function App() {
           } catch (error) {
             console.error(`Failed to persist PDF annotations for ${path}:`, error);
           }
-        })
+        }),
       );
     }, 500);
 
@@ -734,18 +766,15 @@ export default function App() {
   }, [pdfAnnotations, fs.writeFile]);
 
   const handleUpdatePdfAnnotations = useCallback((path: string, annotations: PdfAnnotationData) => {
-    setPdfAnnotations(prev => ({
-        ...prev,
-        [path]: annotations
+    setPdfAnnotations((prev) => ({
+      ...prev,
+      [path]: annotations,
     }));
   }, []);
 
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent, node: FileNode) => {
-      setContextMenu({ x: e.clientX, y: e.clientY, node, visible: true });
-    },
-    []
-  );
+  const handleContextMenu = useCallback((e: React.MouseEvent, node: FileNode) => {
+    setContextMenu({ x: e.clientX, y: e.clientY, node, visible: true });
+  }, []);
 
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu((prev) => ({ ...prev, visible: false }));
@@ -778,17 +807,17 @@ export default function App() {
           fs.rootPath,
           liveFilePaths,
         );
-        localStorage.setItem("recentFiles", serializeRecentFiles(next));
+        persistRecentFiles(next);
         return next;
       });
       setPinnedFiles((prev) => {
         const next = removeFileNodesWithinPath(prev, deleteTarget.path);
-        localStorage.setItem("pinnedFiles", JSON.stringify(next));
+        persistPinnedFiles(next);
         return next;
       });
 
-      setSelectedSources(prev =>
-        prev.filter((source) => !isSameOrDescendantPath(source.path, deleteTarget.path))
+      setSelectedSources((prev) =>
+        prev.filter((source) => !isSameOrDescendantPath(source.path, deleteTarget.path)),
       );
 
       toast.success("Deleted successfully.");
@@ -799,51 +828,65 @@ export default function App() {
     } finally {
       setDeleteTarget(null);
     }
-  }, [activeFile, deleteTarget, fs, liveFilePaths, resetFileState, resetSecondPaneState, secondActiveFile, toast]);
+  }, [
+    activeFile,
+    deleteTarget,
+    fs,
+    liveFilePaths,
+    resetFileState,
+    resetSecondPaneState,
+    secondActiveFile,
+    toast,
+  ]);
 
-  const handleMoveRequest = useCallback(async (node: FileNode) => {
-    try {
-      const selectedThemeFolder = await open({
-        directory: true,
-        multiple: false,
-        title: "Select Destination Folder",
-        defaultPath: fs.rootPath ?? undefined
-      });
+  const handleMoveRequest = useCallback(
+    async (node: FileNode) => {
+      try {
+        const selectedThemeFolder = await open({
+          directory: true,
+          multiple: false,
+          title: "Select Destination Folder",
+          defaultPath: fs.rootPath ?? undefined,
+        });
 
-      if (!selectedThemeFolder || typeof selectedThemeFolder !== "string") {
-        return; // Cancelled
+        if (!selectedThemeFolder || typeof selectedThemeFolder !== "string") {
+          return; // Cancelled
+        }
+
+        if (node.is_dir && isSameOrDescendantPath(selectedThemeFolder, node.path)) {
+          toast.error("Cannot move a folder into itself.");
+          return;
+        }
+
+        const newPath = joinPath(selectedThemeFolder, node.name);
+        if (newPath === node.path) {
+          toast.info("Item is already in that folder.");
+          return;
+        }
+
+        await fs.renameEntry(node.path, newPath);
+        await fs.refreshTree();
+        remapWorkspaceState(node.path, newPath, node.name);
+        toast.success("Moved successfully.");
+      } catch (e) {
+        toast.error(`Move failed: ${e}`);
       }
+    },
+    [fs, remapWorkspaceState, toast],
+  );
 
-      if (node.is_dir && isSameOrDescendantPath(selectedThemeFolder, node.path)) {
-         toast.error("Cannot move a folder into itself.");
-         return;
+  const handleCopyPath = useCallback(
+    async (node: FileNode) => {
+      try {
+        await navigator.clipboard.writeText(node.path);
+        toast.success(`${node.is_dir ? "Folder" : "File"} path copied.`);
+      } catch (error) {
+        console.error("Failed to copy path:", error);
+        toast.error("Failed to copy path.");
       }
-
-      const newPath = joinPath(selectedThemeFolder, node.name);
-      if (newPath === node.path) {
-        toast.info("Item is already in that folder.");
-        return;
-      }
-      
-      await fs.renameEntry(node.path, newPath);
-      await fs.refreshTree();
-      remapWorkspaceState(node.path, newPath, node.name);
-      toast.success("Moved successfully.");
-
-    } catch (e) {
-      toast.error(`Move failed: ${e}`);
-    }
-  }, [fs, remapWorkspaceState, toast]);
-
-  const handleCopyPath = useCallback(async (node: FileNode) => {
-    try {
-      await navigator.clipboard.writeText(node.path);
-      toast.success(`${node.is_dir ? "Folder" : "File"} path copied.`);
-    } catch (error) {
-      console.error("Failed to copy path:", error);
-      toast.error("Failed to copy path.");
-    }
-  }, [toast]);
+    },
+    [toast],
+  );
 
   const handleCreateRootNote = useCallback(() => {
     if (fs.rootPath) {
@@ -871,18 +914,18 @@ export default function App() {
 
   const collectFilePaths = useCallback((node: FileNode): string[] => {
     const paths: string[] = [];
-    
+
     const traverse = (current: FileNode) => {
-        if (current.is_dir && current.children) {
-            for (const child of current.children) {
-                traverse(child);
-            }
-        } else if (!current.is_dir) {
-            const ft = getFileType(current.extension);
-            if (ft === "markdown" || ft === "text" || ft === "pdf") {
-                paths.push(current.path);
-            }
+      if (current.is_dir && current.children) {
+        for (const child of current.children) {
+          traverse(child);
         }
+      } else if (!current.is_dir) {
+        const ft = getFileType(current.extension);
+        if (ft === "markdown" || ft === "text" || ft === "pdf") {
+          paths.push(current.path);
+        }
+      }
     };
 
     traverse(node);
@@ -901,13 +944,19 @@ export default function App() {
         const summaryPath = joinPath(resolveCreationDirectory(node), "summary.md");
         await fs.writeFile(summaryPath, summary);
         await fs.refreshTree();
-        handleFileSelect({ name: "summary.md", path: summaryPath, is_dir: false, extension: "md", children: null });
+        handleFileSelect({
+          name: "summary.md",
+          path: summaryPath,
+          is_dir: false,
+          extension: "md",
+          children: null,
+        });
       } catch (e) {
         console.error("Failed to generate summary:", e);
         toast.error("Failed to generate summary.");
       }
     },
-    [ai, fs, collectFilePaths, handleFileSelect, toast]
+    [ai, fs, collectFilePaths, handleFileSelect, toast],
   );
 
   const handleCreateStudyGuide = useCallback(
@@ -922,20 +971,26 @@ export default function App() {
         const guidePath = joinPath(resolveCreationDirectory(node), "study_guide.md");
         await fs.writeFile(guidePath, guide);
         await fs.refreshTree();
-        handleFileSelect({ name: "study_guide.md", path: guidePath, is_dir: false, extension: "md", children: null });
+        handleFileSelect({
+          name: "study_guide.md",
+          path: guidePath,
+          is_dir: false,
+          extension: "md",
+          children: null,
+        });
       } catch (e) {
         console.error("Failed to create study guide:", e);
         toast.error("Failed to create study guide.");
       }
     },
-    [ai, fs, collectFilePaths, handleFileSelect, toast]
+    [ai, fs, collectFilePaths, handleFileSelect, toast],
   );
 
   const handleSummarizeCurrentFile = useCallback(() => {
     if (activeFile && fileContent) {
       ai.sendMessage(
         "Please provide a concise summary of this file highlighting the key concepts.",
-        fileContent
+        fileContent,
       );
     }
   }, [activeFile, fileContent, ai]);
@@ -953,20 +1008,22 @@ export default function App() {
       ${fileContent}`;
 
     try {
-        const response = await ai.sendMessage(prompt, "You are a specialized quiz engine. Return ONLY JSON. No explanations.");
-        if (!response) {
-          toast.error("Failed to generate quiz.");
-          return;
-        }
+      const response = await ai.sendMessage(
+        prompt,
+        "You are a specialized quiz engine. Return ONLY JSON. No explanations.",
+      );
+      if (!response) {
+        toast.error("Failed to generate quiz.");
+        return;
+      }
 
-        const questions = parseQuizResponse(response);
-        setQuizSession({ isOpen: true, questions });
+      const questions = parseQuizResponse(response);
+      setQuizSession({ isOpen: true, questions });
     } catch (e) {
-        console.error("Quiz error:", e);
-        toast.error("Failed to parse quiz response. AI might have returned invalid JSON.");
+      console.error("Quiz error:", e);
+      toast.error("Failed to parse quiz response. AI might have returned invalid JSON.");
     }
   }, [activeFile, fileContent, ai, toast]);
-
 
   const handleSendChatMessage = useCallback(
     async (message: string) => {
@@ -998,17 +1055,19 @@ export default function App() {
               console.error(`Failed to read selected source ${source.path}:`, error);
               return null;
             }
-          })
+          }),
       );
 
       const context = buildChatContext([
         ...contextSections,
-        ...additionalSources.filter((source): source is NonNullable<typeof source> => source !== null),
+        ...additionalSources.filter(
+          (source): source is NonNullable<typeof source> => source !== null,
+        ),
       ]);
 
       await ai.sendMessageStreaming(message, context);
     },
-    [activeFile, fileContent, selectedSources, fs, ai]
+    [activeFile, fileContent, selectedSources, fs, ai],
   );
 
   const globalCommands: CommandItem[] = [
@@ -1048,7 +1107,7 @@ export default function App() {
       category: "View",
       icon: <SidebarIcon size={16} />,
       shortcut: "Ctrl+B",
-      onSelect: () => setSidebarWidth(prev => (prev === 0 ? DEFAULT_SIDEBAR_WIDTH : 0)),
+      onSelect: () => setSidebarWidth((prev) => (prev === 0 ? DEFAULT_SIDEBAR_WIDTH : 0)),
     },
     {
       id: "toggle-chat",
@@ -1056,7 +1115,7 @@ export default function App() {
       category: "View",
       icon: <MessageSquare size={16} />,
       shortcut: "Ctrl+J",
-      onSelect: () => setShowChatPanel(prev => !prev),
+      onSelect: () => setShowChatPanel((prev) => !prev),
     },
     {
       id: "open-workspace",
@@ -1086,7 +1145,10 @@ export default function App() {
       label: "Clear Recent Files",
       category: "Files",
       icon: <Trash2 size={16} />,
-      description: recentFiles.length > 0 ? "Reset the current workspace recent list" : "No recent files to clear",
+      description:
+        recentFiles.length > 0
+          ? "Reset the current workspace recent list"
+          : "No recent files to clear",
       disabled: recentFiles.length === 0,
       onSelect: handleClearRecentFiles,
     },
@@ -1095,7 +1157,9 @@ export default function App() {
       label: "Summarize Active File",
       category: "AI",
       icon: <Sparkles size={16} />,
-      description: canSummarizeActiveFile ? "Send the open file to the AI assistant" : "Open a text file first",
+      description: canSummarizeActiveFile
+        ? "Send the open file to the AI assistant"
+        : "Open a text file first",
       disabled: !canSummarizeActiveFile,
       onSelect: () => {
         if (canSummarizeActiveFile) {
@@ -1119,53 +1183,53 @@ export default function App() {
       label: `Switch to ${theme === "dark" ? "Light" : "Dark"} Mode`,
       category: "View",
       icon: theme === "dark" ? <Sun size={16} /> : <Moon size={16} />,
-      onSelect: () => setTheme(prev => prev === "dark" ? "light" : "dark"),
-    }
+      onSelect: () => setTheme((prev) => (prev === "dark" ? "light" : "dark")),
+    },
   ];
 
   return (
     <div className="h-screen w-screen flex bg-shell-bg overflow-hidden relative text-shell-text select-none">
       {sidebarWidth > 0 && (
-          <div 
-            className="flex-shrink-0 z-10 relative group h-full border-r border-shell-border bg-shell-surface overflow-hidden"
-            style={{ width: sidebarWidth }}
-          >
-            <Sidebar
-              rootPath={fs.rootPath}
-              fileTree={fs.fileTree}
-              directoryStats={fs.directoryStats}
-              loading={fs.loading}
-              statsLoading={fs.statsLoading}
-              error={fs.error}
-              activeFilePath={activeFile?.path || null}
-              selectedSourcePaths={selectedSources.map(s => s.path)}
-              recentFiles={recentFiles}
-              pinnedFiles={pinnedFiles}
-              onTogglePin={handleTogglePinFile}
-              onClearRecentFiles={handleClearRecentFiles}
-              onSelectRoot={fs.selectRootFolder}
-              onRefresh={() => fs.refreshTree()}
-              onFileSelect={handleFileSelect}
-              onContextMenu={handleContextMenu}
-              onToggleSource={handleToggleSource}
-              onCreateRootNote={handleCreateRootNote}
-              onCreateRootFolder={handleCreateRootFolder}
-              onCollapse={() => setSidebarWidth(0)}
-              onSearch={fs.searchFiles}
-            />
-            <div 
-              onMouseDown={() => {
-                  const handleMove = (e: MouseEvent) => setSidebarWidth(clampSidebarWidth(e.clientX));
-                  const handleUp = () => {
-                      window.removeEventListener("mousemove", handleMove);
-                      window.removeEventListener("mouseup", handleUp);
-                  };
-                  window.addEventListener("mousemove", handleMove);
-                  window.addEventListener("mouseup", handleUp);
-              }}
-              className="absolute right-0 top-0 bottom-0 w-1 hover:bg-shell-accent/40 cursor-col-resize transition-colors z-50"
-            />
-          </div>
+        <div
+          className="flex-shrink-0 z-10 relative group h-full border-r border-shell-border bg-shell-surface overflow-hidden"
+          style={{ width: sidebarWidth }}
+        >
+          <Sidebar
+            rootPath={fs.rootPath}
+            fileTree={fs.fileTree}
+            directoryStats={fs.directoryStats}
+            loading={fs.loading}
+            statsLoading={fs.statsLoading}
+            error={fs.error}
+            activeFilePath={activeFile?.path || null}
+            selectedSourcePaths={selectedSources.map((s) => s.path)}
+            recentFiles={recentFiles}
+            pinnedFiles={pinnedFiles}
+            onTogglePin={handleTogglePinFile}
+            onClearRecentFiles={handleClearRecentFiles}
+            onSelectRoot={fs.selectRootFolder}
+            onRefresh={() => fs.refreshTree()}
+            onFileSelect={handleFileSelect}
+            onContextMenu={handleContextMenu}
+            onToggleSource={handleToggleSource}
+            onCreateRootNote={handleCreateRootNote}
+            onCreateRootFolder={handleCreateRootFolder}
+            onCollapse={() => setSidebarWidth(0)}
+            onSearch={fs.searchFiles}
+          />
+          <div
+            onMouseDown={() => {
+              const handleMove = (e: MouseEvent) => setSidebarWidth(clampSidebarWidth(e.clientX));
+              const handleUp = () => {
+                window.removeEventListener("mousemove", handleMove);
+                window.removeEventListener("mouseup", handleUp);
+              };
+              window.addEventListener("mousemove", handleMove);
+              window.addEventListener("mouseup", handleUp);
+            }}
+            className="absolute right-0 top-0 bottom-0 w-1 hover:bg-shell-accent/40 cursor-col-resize transition-colors z-50"
+          />
+        </div>
       )}
 
       <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden bg-shell-bg relative">
@@ -1215,8 +1279,8 @@ export default function App() {
             fileTree={fs.fileTree}
             ai={ai}
             onCloseSecondPane={() => {
-                setIsSplit(false);
-                resetSecondPaneState();
+              setIsSplit(false);
+              resetSecondPaneState();
             }}
           />
         </div>
@@ -1224,23 +1288,23 @@ export default function App() {
 
       {/* AI Assistant Side Panel */}
       {showChatPanel && (
-        <div 
+        <div
           className="flex-shrink-0 z-10 relative group h-full border-l border-shell-border bg-shell-surface overflow-hidden"
           style={{ width: chatWidth }}
         >
           {/* Chat Resize Handle */}
-          <div 
+          <div
             onMouseDown={() => {
-                const handleMove = (e: MouseEvent) => {
-                    const newW = window.innerWidth - e.clientX;
-                    setChatWidth(clampChatWidth(newW));
-                };
-                const handleUp = () => {
-                    window.removeEventListener("mousemove", handleMove);
-                    window.removeEventListener("mouseup", handleUp);
-                };
-                window.addEventListener("mousemove", handleMove);
-                window.addEventListener("mouseup", handleUp);
+              const handleMove = (e: MouseEvent) => {
+                const newW = window.innerWidth - e.clientX;
+                setChatWidth(clampChatWidth(newW));
+              };
+              const handleUp = () => {
+                window.removeEventListener("mousemove", handleMove);
+                window.removeEventListener("mouseup", handleUp);
+              };
+              window.addEventListener("mousemove", handleMove);
+              window.addEventListener("mouseup", handleUp);
             }}
             className="absolute left-0 top-0 bottom-0 w-1 hover:bg-shell-accent/40 cursor-col-resize transition-colors z-50"
           />
@@ -1261,7 +1325,11 @@ export default function App() {
             canClearChat={canClearChat}
             onSummarizeCurrentFile={handleSummarizeCurrentFile}
             onGenerateFlashcards={handleGenerateFlashcards}
-            onRemoveSource={(path: string) => setSelectedSources(prev => normalizeSelectedSources(prev.filter(s => s.path !== path)))}
+            onRemoveSource={(path: string) =>
+              setSelectedSources((prev) =>
+                normalizeSelectedSources(prev.filter((s) => s.path !== path)),
+              )
+            }
             onClearSources={() => setSelectedSources([])}
             onCollapse={() => setShowChatPanel(false)}
           />
@@ -1297,14 +1365,14 @@ export default function App() {
             const node = fsa.creationModal.targetNode;
             if (!node) return;
             fsa.handleConfirmRename(name, async (oldPath, newPath) => {
-                await fs.refreshTree();
-                remapWorkspaceState(oldPath, newPath, getPathBaseName(newPath));
+              await fs.refreshTree();
+              remapWorkspaceState(oldPath, newPath, getPathBaseName(newPath));
             });
           } else {
             fsa.handleConfirmCreation(name);
           }
         }}
-        onCancel={() => fsa.setCreationModal(prev => ({ ...prev, isOpen: false }))}
+        onCancel={() => fsa.setCreationModal((prev) => ({ ...prev, isOpen: false }))}
       />
 
       <ConfirmDialog
@@ -1321,9 +1389,9 @@ export default function App() {
         onCancel={() => setDeleteTarget(null)}
       />
       <Suspense fallback={null}>
-        <CommandPalette 
-          isOpen={isCommandPaletteOpen} 
-          onClose={() => setIsCommandPaletteOpen(false)} 
+        <CommandPalette
+          isOpen={isCommandPaletteOpen}
+          onClose={() => setIsCommandPaletteOpen(false)}
           commands={globalCommands}
         />
       </Suspense>
@@ -1346,7 +1414,7 @@ export default function App() {
           />
         )}
 
-        <ShortcutsModal 
+        <ShortcutsModal
           isOpen={isShortcutsModalOpen}
           onClose={() => setIsShortcutsModalOpen(false)}
         />

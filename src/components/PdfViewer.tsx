@@ -38,7 +38,12 @@ interface PdfViewerProps {
   onUpdateAnnotations: (annotations: PdfAnnotationData) => void;
 }
 
-export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpdateAnnotations }: PdfViewerProps) {
+export default function PdfViewer({
+  pdfData,
+  filePath,
+  initialAnnotations,
+  onUpdateAnnotations,
+}: PdfViewerProps) {
   const fs = useFileSystem();
   const toast = useToast();
   const [numPages, setNumPages] = useState<number>(0);
@@ -52,16 +57,21 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
   const [tool, setTool] = useState<"pen" | "highlighter" | "eraser" | "select" | "text">("select");
   const [color, setColor] = useState("#6c8aff");
   const [brushWidth] = useState(2);
-  const [pageDimensions, setPageDimensions] = useState<Record<number, { width: number; height: number }>>({});
+  const [pageDimensions, setPageDimensions] = useState<
+    Record<number, { width: number; height: number }>
+  >({});
 
   // Use the memory-synced annotations from props
-  const annotations = useMemo(() => initialAnnotations || { version: 1, pages: {} }, [initialAnnotations]);
+  const annotations = useMemo(
+    () => initialAnnotations || { version: 1, pages: {} },
+    [initialAnnotations],
+  );
 
   const pdfBase64 = useMemo(() => {
     let binary = "";
     const len = pdfData.byteLength;
     for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(pdfData[i]);
+      binary += String.fromCharCode(pdfData[i]);
     }
     return `data:application/pdf;base64,${btoa(binary)}`;
   }, [pdfData]);
@@ -159,7 +169,7 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
 
           page.drawText(tb.content, {
             x: tb.x,
-            y: height - tb.y - (tb.fontSize * 0.8),
+            y: height - tb.y - tb.fontSize * 0.8,
             size: tb.fontSize,
             font: helveticaFont,
             color: rgb(r, g, b),
@@ -183,9 +193,9 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
 
   const handlePageRenderSuccess = useCallback((page: PDFPageProxy) => {
     const viewport = page.getViewport({ scale: 1 });
-    setPageDimensions(prev => ({
-        ...prev,
-        [page.pageNumber]: { width: viewport.width, height: viewport.height }
+    setPageDimensions((prev) => ({
+      ...prev,
+      [page.pageNumber]: { width: viewport.width, height: viewport.height },
     }));
   }, []);
 
@@ -257,12 +267,18 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
   return (
     <div className="h-full flex flex-col bg-shell-bg overflow-hidden relative">
       {/* Premium Toolbar */}
-      <div className="flex-shrink-0 flex items-center justify-between px-4 py-2
-        border-b border-shell-border bg-shell-surface z-50">
+      <div
+        className="flex-shrink-0 flex items-center justify-between px-4 py-2
+        border-b border-shell-border bg-shell-surface z-50"
+      >
         <div className="flex items-center gap-2">
           {/* Navigation */}
           <div className="flex items-center gap-1 bg-shell-bg rounded-lg border border-shell-border px-1.5 py-1">
-            <button onClick={goToPrev} disabled={pageNumber <= 1} className="p-1 rounded hover:bg-shell-surface-hover text-shell-text-muted disabled:opacity-20 flex-shrink-0 cursor-pointer">
+            <button
+              onClick={goToPrev}
+              disabled={pageNumber <= 1}
+              className="p-1 rounded hover:bg-shell-surface-hover text-shell-text-muted disabled:opacity-20 flex-shrink-0 cursor-pointer"
+            >
               <ChevronLeft size={14} />
             </button>
             <div className="flex items-center gap-1 text-[11px] font-medium text-shell-text-muted">
@@ -288,7 +304,11 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
               />
               <span>/ {numPages}</span>
             </div>
-            <button onClick={goToNext} disabled={pageNumber >= numPages} className="p-1 rounded hover:bg-shell-surface-hover text-shell-text-muted disabled:opacity-20 flex-shrink-0 cursor-pointer">
+            <button
+              onClick={goToNext}
+              disabled={pageNumber >= numPages}
+              className="p-1 rounded hover:bg-shell-surface-hover text-shell-text-muted disabled:opacity-20 flex-shrink-0 cursor-pointer"
+            >
               <ChevronRight size={14} />
             </button>
           </div>
@@ -297,11 +317,36 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
 
           {/* Tools */}
           <div className="flex items-center gap-1">
-            <ToolButton active={tool === "select"} onClick={() => setTool("select")} icon={<MousePointer2 size={13} />} label="Select" />
-            <ToolButton active={tool === "pen"} onClick={() => setTool("pen")} icon={<PenTool size={13} />} label="Ink" />
-            <ToolButton active={tool === "highlighter"} onClick={() => setTool("highlighter")} icon={<Highlighter size={13} />} label="Highlight" />
-            <ToolButton active={tool === "text"} onClick={() => setTool("text")} icon={<Type size={13} />} label="Text" />
-            <ToolButton active={tool === "eraser"} onClick={() => setTool("eraser")} icon={<Eraser size={13} />} label="Erase" />
+            <ToolButton
+              active={tool === "select"}
+              onClick={() => setTool("select")}
+              icon={<MousePointer2 size={13} />}
+              label="Select"
+            />
+            <ToolButton
+              active={tool === "pen"}
+              onClick={() => setTool("pen")}
+              icon={<PenTool size={13} />}
+              label="Ink"
+            />
+            <ToolButton
+              active={tool === "highlighter"}
+              onClick={() => setTool("highlighter")}
+              icon={<Highlighter size={13} />}
+              label="Highlight"
+            />
+            <ToolButton
+              active={tool === "text"}
+              onClick={() => setTool("text")}
+              icon={<Type size={13} />}
+              label="Text"
+            />
+            <ToolButton
+              active={tool === "eraser"}
+              onClick={() => setTool("eraser")}
+              icon={<Eraser size={13} />}
+              label="Erase"
+            />
           </div>
 
           {(tool === "pen" || tool === "highlighter" || tool === "text") && (
@@ -311,7 +356,9 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
                   key={c}
                   onClick={() => setColor(c)}
                   className={`w-4 h-4 rounded-full border-2 transition-transform cursor-pointer ${
-                    color === c ? "scale-125 border-white" : "border-transparent opacity-50 hover:opacity-100"
+                    color === c
+                      ? "scale-125 border-white"
+                      : "border-transparent opacity-50 hover:opacity-100"
                   }`}
                   style={{ backgroundColor: c }}
                 />
@@ -322,30 +369,64 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
 
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
-            <button onClick={() => setScale((currentScale) => getNextPdfScale(currentScale, -1))} className="p-1.5 text-shell-text-muted hover:text-shell-text cursor-pointer" title="Zoom out (-)"><ZoomOut size={14} /></button>
-            <span className="text-[10px] text-shell-text-muted w-10 text-center">{Math.round(scale * 100)}%</span>
-            <button onClick={() => setScale((currentScale) => getNextPdfScale(currentScale, 1))} className="p-1.5 text-shell-text-muted hover:text-shell-text cursor-pointer" title="Zoom in (+)"><ZoomIn size={14} /></button>
-            <button onClick={() => setScale(DEFAULT_PDF_SCALE)} className="rounded border border-shell-border px-2 py-1 text-[11px] text-shell-text-muted hover:text-shell-text cursor-pointer" title="Reset zoom (0)">100%</button>
+            <button
+              onClick={() => setScale((currentScale) => getNextPdfScale(currentScale, -1))}
+              className="p-1.5 text-shell-text-muted hover:text-shell-text cursor-pointer"
+              title="Zoom out (-)"
+            >
+              <ZoomOut size={14} />
+            </button>
+            <span className="text-[10px] text-shell-text-muted w-10 text-center">
+              {Math.round(scale * 100)}%
+            </span>
+            <button
+              onClick={() => setScale((currentScale) => getNextPdfScale(currentScale, 1))}
+              className="p-1.5 text-shell-text-muted hover:text-shell-text cursor-pointer"
+              title="Zoom in (+)"
+            >
+              <ZoomIn size={14} />
+            </button>
+            <button
+              onClick={() => setScale(DEFAULT_PDF_SCALE)}
+              className="rounded border border-shell-border px-2 py-1 text-[11px] text-shell-text-muted hover:text-shell-text cursor-pointer"
+              title="Reset zoom (0)"
+            >
+              100%
+            </button>
           </div>
           <div className="h-4 w-px bg-shell-border" />
-          
-          <button onClick={saveAndOverwrite} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-[11px] font-medium hover:bg-emerald-700 transition-colors cursor-pointer" title="Save annotated PDF">
+
+          <button
+            onClick={saveAndOverwrite}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-emerald-600 text-white text-[11px] font-medium hover:bg-emerald-700 transition-colors cursor-pointer"
+            title="Save annotated PDF"
+          >
             <Save size={13} /> Save Changes
           </button>
 
-          <button onClick={exportCopy} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-shell-accent text-white text-[11px] font-medium hover:bg-shell-accent-hover transition-colors cursor-pointer" title="Export annotated copy">
+          <button
+            onClick={exportCopy}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-shell-accent text-white text-[11px] font-medium hover:bg-shell-accent-hover transition-colors cursor-pointer"
+            title="Export annotated copy"
+          >
             <Download size={13} /> Export Copy
           </button>
-          
-          <button onClick={clearAllAnnotations} className="p-1.5 rounded-md text-shell-error hover:bg-shell-error/10 transition-colors cursor-pointer" title="Clear All Drawings">
+
+          <button
+            onClick={clearAllAnnotations}
+            className="p-1.5 rounded-md text-shell-error hover:bg-shell-error/10 transition-colors cursor-pointer"
+            title="Clear All Drawings"
+          >
             <Trash2 size={13} />
           </button>
         </div>
       </div>
 
-      <div className={`flex-1 overflow-auto bg-shell-bg custom-scrollbar p-8 ${
-        tool === "select" ? "select-mode" : "drawing-active"
-      }`}>
+      <div
+        className={`flex-1 overflow-auto bg-shell-bg custom-scrollbar p-8 ${
+          tool === "select" ? "select-mode" : "drawing-active"
+        }`}
+      >
         <div className="flex flex-col items-center gap-8 pb-20">
           {error ? (
             <div className="text-shell-error text-sm">{error}</div>
@@ -360,7 +441,10 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
                 const pageNum = index + 1;
                 const dims = pageDimensions[pageNum];
                 return (
-                  <div key={pageNum} className="relative shadow-2xl shadow-black/80 rounded-lg overflow-hidden border border-white/5 bg-white">
+                  <div
+                    key={pageNum}
+                    className="relative shadow-2xl shadow-black/80 rounded-lg overflow-hidden border border-white/5 bg-white"
+                  >
                     <Page
                       pageNumber={pageNum}
                       scale={scale}
@@ -378,7 +462,14 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
                         brushWidth={brushWidth}
                         color={color}
                         tool={tool}
-                        annotations={annotations.pages[pageNum] || { ink: [], highlights: [], notes: [], textboxes: [] }}
+                        annotations={
+                          annotations.pages[pageNum] || {
+                            ink: [],
+                            highlights: [],
+                            notes: [],
+                            textboxes: [],
+                          }
+                        }
                         onUpdateAnnotations={handleUpdateAnnotations}
                       />
                     )}
@@ -389,7 +480,7 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
           )}
         </div>
       </div>
-      
+
       <ConfirmDialog
         isOpen={showClearConfirm}
         title="Clear All Annotations"
@@ -399,12 +490,21 @@ export default function PdfViewer({ pdfData, filePath, initialAnnotations, onUpd
         onConfirm={handleConfirmClear}
         onCancel={() => setShowClearConfirm(false)}
       />
-
     </div>
   );
 }
 
-function ToolButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+function ToolButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
   return (
     <button
       onClick={onClick}

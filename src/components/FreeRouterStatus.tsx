@@ -43,11 +43,7 @@ export default function FreeRouterStatus({
           className="flex-shrink-0 p-1 rounded text-shell-text-muted hover:text-shell-text hover:bg-shell-surface-hover transition-colors cursor-pointer"
           title="Refresh status"
         >
-          {checking ? (
-            <Loader2 size={12} className="animate-spin" />
-          ) : (
-            <RefreshCw size={12} />
-          )}
+          {checking ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
         </button>
       )}
       {!connected && !checking && (

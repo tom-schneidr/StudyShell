@@ -28,7 +28,11 @@ import {
   buildPastedImageFilename,
   insertTextAtSelection,
 } from "../utils/markdownAssets";
-import { getMarkdownHeadingOffset, parseMarkdownHeadings, type MarkdownHeading } from "../utils/markdownHeadings";
+import {
+  getMarkdownHeadingOffset,
+  parseMarkdownHeadings,
+  type MarkdownHeading,
+} from "../utils/markdownHeadings";
 
 interface MarkdownEditorProps {
   content: string;
@@ -46,27 +50,26 @@ marked.setOptions({
 
 // Post-parse LaTeX rendering for Markdown
 const renderMath = (text: string) => {
-    // Replace display math $$ ... $$
-    let processed = text.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => {
-        try {
-            return `<div class="katex-display">${katex.renderToString(math, { displayMode: true, throwOnError: false })}</div>`;
-        } catch (e) {
-            return `<div class="katex-error">${math}</div>`;
-        }
-    });
+  // Replace display math $$ ... $$
+  let processed = text.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => {
+    try {
+      return `<div class="katex-display">${katex.renderToString(math, { displayMode: true, throwOnError: false })}</div>`;
+    } catch (e) {
+      return `<div class="katex-error">${math}</div>`;
+    }
+  });
 
-    // Replace inline math $ ... $
-    processed = processed.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
-        try {
-            return katex.renderToString(math, { displayMode: false, throwOnError: false });
-        } catch (e) {
-            return `<span class="katex-error">${math}</span>`;
-        }
-    });
+  // Replace inline math $ ... $
+  processed = processed.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
+    try {
+      return katex.renderToString(math, { displayMode: false, throwOnError: false });
+    } catch (e) {
+      return `<span class="katex-error">${math}</span>`;
+    }
+  });
 
-    return processed;
+  return processed;
 };
-
 
 export default function MarkdownEditor({
   content,
@@ -104,15 +107,15 @@ export default function MarkdownEditor({
 
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
-    
+
     // Only show if selection is within the editor
     if (previewContainerRef.current?.contains(selection.anchorNode)) {
-        setSelectionInfo({
-            text: selection.toString().trim(),
-            x: rect.left + rect.width / 2,
-            y: rect.top - 10,
-            visible: true,
-        });
+      setSelectionInfo({
+        text: selection.toString().trim(),
+        x: rect.left + rect.width / 2,
+        y: rect.top - 10,
+        visible: true,
+      });
     }
   }, []);
 
@@ -134,10 +137,12 @@ export default function MarkdownEditor({
   const handleExplainSelection = () => {
     if (!selectionInfo.text) return;
     // Dispatch a custom event or use a global command to trigger AI
-    window.dispatchEvent(new CustomEvent("studyshell:explain", { 
-        detail: { text: selectionInfo.text } 
-    }));
-    setSelectionInfo(prev => ({ ...prev, visible: false }));
+    window.dispatchEvent(
+      new CustomEvent("studyshell:explain", {
+        detail: { text: selectionInfo.text },
+      }),
+    );
+    setSelectionInfo((prev) => ({ ...prev, visible: false }));
   };
 
   const editor = useEditor({
@@ -203,7 +208,8 @@ export default function MarkdownEditor({
     }
 
     const frameId = window.requestAnimationFrame(() => {
-      const headingElements = previewContainerRef.current?.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6");
+      const headingElements =
+        previewContainerRef.current?.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6");
       if (!headingElements) {
         return;
       }
@@ -231,91 +237,103 @@ export default function MarkdownEditor({
     };
   }, []);
 
-  const scheduleSave = useCallback((value: string) => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    saveTimeoutRef.current = setTimeout(() => {
-      if (value !== lastSavedRef.current) {
-        lastSavedRef.current = value;
-        onSave(value);
+  const scheduleSave = useCallback(
+    (value: string) => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
       }
-    }, 1000);
-  }, [onSave]);
+
+      saveTimeoutRef.current = setTimeout(() => {
+        if (value !== lastSavedRef.current) {
+          lastSavedRef.current = value;
+          onSave(value);
+        }
+      }, 1000);
+    },
+    [onSave],
+  );
 
   // Handle raw markdown edits
-  const handleRawChange = useCallback((value: string) => {
-    setRawContent(value);
-    scheduleSave(value);
-  }, [scheduleSave]);
+  const handleRawChange = useCallback(
+    (value: string) => {
+      setRawContent(value);
+      scheduleSave(value);
+    },
+    [scheduleSave],
+  );
 
-  const handlePaste = useCallback(async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    if (!onSaveAsset || !isMarkdown || !isEditMode) return;
+  const handlePaste = useCallback(
+    async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      if (!onSaveAsset || !isMarkdown || !isEditMode) return;
 
-    const imageItem = Array.from(e.clipboardData.items).find((item) =>
-      item.type.startsWith("image/"),
-    );
-    if (!imageItem) return;
+      const imageItem = Array.from(e.clipboardData.items).find((item) =>
+        item.type.startsWith("image/"),
+      );
+      if (!imageItem) return;
 
-    const file = imageItem.getAsFile();
-    if (!file) return;
+      const file = imageItem.getAsFile();
+      if (!file) return;
 
-    e.preventDefault();
+      e.preventDefault();
 
-    const textarea = e.currentTarget;
-    const selectionStart = textarea.selectionStart;
-    const selectionEnd = textarea.selectionEnd;
-    const filename = buildPastedImageFilename(file.type);
+      const textarea = e.currentTarget;
+      const selectionStart = textarea.selectionStart;
+      const selectionEnd = textarea.selectionEnd;
+      const filename = buildPastedImageFilename(file.type);
 
-    try {
-      const base64 = await readFileAsDataUrl(file);
-      const relativePath = await onSaveAsset(filePath, filename, base64);
-      const markdownLink = buildMarkdownImageTag(filename, relativePath);
-      const nextCaretPosition = selectionStart + markdownLink.length;
+      try {
+        const base64 = await readFileAsDataUrl(file);
+        const relativePath = await onSaveAsset(filePath, filename, base64);
+        const markdownLink = buildMarkdownImageTag(filename, relativePath);
+        const nextCaretPosition = selectionStart + markdownLink.length;
 
-      setRawContent((previousContent) => {
-        const nextValue = insertTextAtSelection(
-          previousContent,
-          selectionStart,
-          selectionEnd,
-          markdownLink,
-        );
-        scheduleSave(nextValue);
-        return nextValue;
-      });
+        setRawContent((previousContent) => {
+          const nextValue = insertTextAtSelection(
+            previousContent,
+            selectionStart,
+            selectionEnd,
+            markdownLink,
+          );
+          scheduleSave(nextValue);
+          return nextValue;
+        });
 
-      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          textarea.focus();
+          textarea.setSelectionRange(nextCaretPosition, nextCaretPosition);
+        });
+
+        toast.success("Image pasted into note.");
+      } catch (error) {
+        console.error("Paste failed:", error);
+        toast.error(error instanceof Error ? error.message : "Failed to paste image.");
+      }
+    },
+    [filePath, isEditMode, isMarkdown, onSaveAsset, scheduleSave, toast],
+  );
+
+  const handleHeadingSelect = useCallback(
+    (line: number, headingId: string) => {
+      if (isEditMode) {
+        const textarea = textareaRef.current;
+        if (!textarea) {
+          return;
+        }
+
+        const offset = getMarkdownHeadingOffset(rawContent, line);
+        const lineHeight = Number.parseFloat(window.getComputedStyle(textarea).lineHeight || "24");
+
         textarea.focus();
-        textarea.setSelectionRange(nextCaretPosition, nextCaretPosition);
-      });
-
-      toast.success("Image pasted into note.");
-    } catch (error) {
-      console.error("Paste failed:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to paste image.");
-    }
-  }, [filePath, isEditMode, isMarkdown, onSaveAsset, scheduleSave, toast]);
-
-  const handleHeadingSelect = useCallback((line: number, headingId: string) => {
-    if (isEditMode) {
-      const textarea = textareaRef.current;
-      if (!textarea) {
+        textarea.setSelectionRange(offset, offset);
+        textarea.scrollTop = Math.max((line - 1) * lineHeight - textarea.clientHeight / 3, 0);
         return;
       }
 
-      const offset = getMarkdownHeadingOffset(rawContent, line);
-      const lineHeight = Number.parseFloat(window.getComputedStyle(textarea).lineHeight || "24");
-
-      textarea.focus();
-      textarea.setSelectionRange(offset, offset);
-      textarea.scrollTop = Math.max((line - 1) * lineHeight - textarea.clientHeight / 3, 0);
-      return;
-    }
-
-    const target = previewContainerRef.current?.querySelector<HTMLElement>(`#${headingId}`);
-    target?.scrollIntoView({ block: "start", behavior: "smooth" });
-  }, [isEditMode, rawContent]);
+      const target = previewContainerRef.current?.querySelector<HTMLElement>(`#${headingId}`);
+      target?.scrollIntoView({ block: "start", behavior: "smooth" });
+    },
+    [isEditMode, rawContent],
+  );
 
   const toggleMode = () => {
     if (isEditMode && isMarkdown) {
@@ -356,9 +374,10 @@ export default function MarkdownEditor({
   return (
     <div className="h-full flex flex-col tiptap-editor">
       {/* Toolbar */}
-      <div className="flex-shrink-0 flex items-center gap-0.5 px-4 py-2 border-b border-shell-border
-        bg-shell-surface">
-
+      <div
+        className="flex-shrink-0 flex items-center gap-0.5 px-4 py-2 border-b border-shell-border
+        bg-shell-surface"
+      >
         {/* Show formatting toolbar only for non-markdown edit mode */}
         {isEditMode && !isMarkdown && (
           <>
@@ -380,27 +399,21 @@ export default function MarkdownEditor({
             <div className="w-px h-4 bg-shell-border mx-1" />
 
             <ToolbarButton
-              onClick={() =>
-                editor.chain().focus().toggleHeading({ level: 1 }).run()
-              }
+              onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
               active={editor.isActive("heading", { level: 1 })}
               title="Heading 1"
             >
               <Heading1 size={14} />
             </ToolbarButton>
             <ToolbarButton
-              onClick={() =>
-                editor.chain().focus().toggleHeading({ level: 2 }).run()
-              }
+              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
               active={editor.isActive("heading", { level: 2 })}
               title="Heading 2"
             >
               <Heading2 size={14} />
             </ToolbarButton>
             <ToolbarButton
-              onClick={() =>
-                editor.chain().focus().toggleHeading({ level: 3 }).run()
-              }
+              onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
               active={editor.isActive("heading", { level: 3 })}
               title="Heading 3"
             >
@@ -540,24 +553,24 @@ export default function MarkdownEditor({
 
       {/* Floating Explain Popover */}
       {selectionInfo.visible && !isEditMode && (
-        <div 
-            className="fixed z-50 -translate-x-1/2 -translate-y-full mb-2 bg-shell-accent px-1 py-1 rounded-lg shadow-xl flex items-center gap-0.5 animate-in fade-in slide-in-from-bottom-2 duration-200"
-            style={{ left: selectionInfo.x, top: selectionInfo.y }}
+        <div
+          className="fixed z-50 -translate-x-1/2 -translate-y-full mb-2 bg-shell-accent px-1 py-1 rounded-lg shadow-xl flex items-center gap-0.5 animate-in fade-in slide-in-from-bottom-2 duration-200"
+          style={{ left: selectionInfo.x, top: selectionInfo.y }}
         >
-            <button
-                onClick={handleExplainSelection}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-white/10 rounded-md transition-colors cursor-pointer"
-            >
-                <MessageSquareShare size={14} />
-                Explain
-            </button>
-            <div className="w-px h-4 bg-white/20 mx-0.5" />
-            <button
-                onClick={() => setSelectionInfo(prev => ({ ...prev, visible: false }))}
-                className="p-1.5 text-white/70 hover:text-white rounded-md transition-colors cursor-pointer"
-            >
-                <X size={14} />
-            </button>
+          <button
+            onClick={handleExplainSelection}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-white/10 rounded-md transition-colors cursor-pointer"
+          >
+            <MessageSquareShare size={14} />
+            Explain
+          </button>
+          <div className="w-px h-4 bg-white/20 mx-0.5" />
+          <button
+            onClick={() => setSelectionInfo((prev) => ({ ...prev, visible: false }))}
+            className="p-1.5 text-white/70 hover:text-white rounded-md transition-colors cursor-pointer"
+          >
+            <X size={14} />
+          </button>
         </div>
       )}
     </div>

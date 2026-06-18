@@ -63,7 +63,7 @@ export default function SettingsView({
             onClick={onClose}
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           />
-          
+
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -90,79 +90,88 @@ export default function SettingsView({
 
             {/* Content Container */}
             <div className="flex-1 flex overflow-hidden">
-                {/* Sidebar */}
-                <div className="w-48 bg-shell-bg/20 border-r border-shell-border p-3 flex flex-col gap-1">
-                    <SidebarItem icon={<Sparkles size={16} />} label="FreeRouter" active />
-                    <SidebarItem icon={<Layout size={16} />} label="Interface" />
-                    <SidebarItem icon={<Globe size={16} />} label="Network" />
-                    <SidebarItem icon={<Shield size={16} />} label="Privacy" />
-                </div>
+              {/* Sidebar */}
+              <div className="w-48 bg-shell-bg/20 border-r border-shell-border p-3 flex flex-col gap-1">
+                <SidebarItem icon={<Sparkles size={16} />} label="FreeRouter" active />
+                <SidebarItem icon={<Layout size={16} />} label="Interface" />
+                <SidebarItem icon={<Globe size={16} />} label="Network" />
+                <SidebarItem icon={<Shield size={16} />} label="Privacy" />
+              </div>
 
-                {/* Main Settings Area */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
-                    {/* section: AI */}
-                    <section className="space-y-4">
-                        <div className="flex items-center gap-2">
-                             <Sparkles size={16} className="text-shell-accent" />
-                             <h3 className="text-sm font-medium text-shell-text">{FREEROUTER_PRODUCT_NAME}</h3>
-                        </div>
+              {/* Main Settings Area */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+                {/* section: AI */}
+                <section className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={16} className="text-shell-accent" />
+                    <h3 className="text-sm font-medium text-shell-text">
+                      {FREEROUTER_PRODUCT_NAME}
+                    </h3>
+                  </div>
 
-                        <FreeRouterStatus
-                          aiStatus={aiStatus}
-                          isConfigured={isAiConfigured}
-                          onRefresh={onRefreshAiStatus}
-                        />
+                  <FreeRouterStatus
+                    aiStatus={aiStatus}
+                    isConfigured={isAiConfigured}
+                    onRefresh={onRefreshAiStatus}
+                  />
 
-                        <p className="text-[11px] text-shell-text-muted leading-relaxed">
-                          StudyShell sends all AI requests to your local {FREEROUTER_PRODUCT_NAME} gateway using the{" "}
-                          <code className="text-shell-accent">{FREEROUTER_MODEL}</code> model. Provider API keys and routing
-                          are configured in FreeRouter, not here. {aiConfigGuidance}
-                        </p>
-                        
-                        <div className="space-y-2 pt-2">
-                            <label className="text-[13px] text-shell-text-secondary font-medium">System prompt</label>
-                            <label className="text-[13px] text-shell-text-secondary font-medium">System Role / Instructions</label>
-                            <textarea
-                                value={localPrompt}
-                                onChange={(e) => setLocalPrompt(e.target.value)}
-                                className="w-full h-32 p-3 rounded-xl bg-shell-bg border border-shell-border text-[13px] text-shell-text placeholder:text-shell-text-muted outline-none focus:border-shell-accent/40 resize-none leading-relaxed"
-                                placeholder="e.g. You are a helpful professor specializing in Chemistry..."
-                            />
-                            <p className="text-[11px] text-shell-text-muted italic">
-                                This prompt defines the AI's persona and logic globally.
-                            </p>
-                        </div>
-                    </section>
+                  <p className="text-[11px] text-shell-text-muted leading-relaxed">
+                    StudyShell sends all AI requests to your local {FREEROUTER_PRODUCT_NAME} gateway
+                    using the <code className="text-shell-accent">{FREEROUTER_MODEL}</code> model.
+                    Provider API keys and routing are configured in FreeRouter, not here.{" "}
+                    {aiConfigGuidance}
+                  </p>
 
-                    {/* section: Appearance */}
-                    <section className="space-y-4">
-                         <div className="flex items-center gap-2">
-                             <Layout size={16} className="text-shell-accent" />
-                             <h3 className="text-sm font-medium text-shell-text">Appearance</h3>
-                        </div>
-                        
-                        <div className="flex items-center justify-between p-4 rounded-xl bg-shell-bg/40 border border-shell-border">
-                            <div className="space-y-1">
-                                <p className="text-[13px] font-bold text-shell-text">Dark / Light Mode</p>
-                                <p className="text-[11px] text-shell-text-muted">Choose your preferred visual theme</p>
-                            </div>
-                            <div className="flex gap-1 p-1 rounded-lg bg-shell-surface border border-shell-border">
-                                <button
-                                    onClick={() => setLocalTheme("dark")}
-                                    className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all ${localTheme === "dark" ? "bg-shell-accent text-white shadow-sm" : "text-shell-text-muted hover:text-shell-text"}`}
-                                >
-                                    DARK
-                                </button>
-                                <button
-                                    onClick={() => setLocalTheme("light")}
-                                    className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all ${localTheme === "light" ? "bg-shell-accent text-white shadow-sm" : "text-shell-text-muted hover:text-shell-text"}`}
-                                >
-                                    LIGHT
-                                </button>
-                            </div>
-                        </div>
-                    </section>
-                </div>
+                  <div className="space-y-2 pt-2">
+                    <label className="text-[13px] text-shell-text-secondary font-medium">
+                      System prompt
+                    </label>
+                    <label className="text-[13px] text-shell-text-secondary font-medium">
+                      System Role / Instructions
+                    </label>
+                    <textarea
+                      value={localPrompt}
+                      onChange={(e) => setLocalPrompt(e.target.value)}
+                      className="w-full h-32 p-3 rounded-xl bg-shell-bg border border-shell-border text-[13px] text-shell-text placeholder:text-shell-text-muted outline-none focus:border-shell-accent/40 resize-none leading-relaxed"
+                      placeholder="e.g. You are a helpful professor specializing in Chemistry..."
+                    />
+                    <p className="text-[11px] text-shell-text-muted italic">
+                      This prompt defines the AI's persona and logic globally.
+                    </p>
+                  </div>
+                </section>
+
+                {/* section: Appearance */}
+                <section className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Layout size={16} className="text-shell-accent" />
+                    <h3 className="text-sm font-medium text-shell-text">Appearance</h3>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-shell-bg/40 border border-shell-border">
+                    <div className="space-y-1">
+                      <p className="text-[13px] font-bold text-shell-text">Dark / Light Mode</p>
+                      <p className="text-[11px] text-shell-text-muted">
+                        Choose your preferred visual theme
+                      </p>
+                    </div>
+                    <div className="flex gap-1 p-1 rounded-lg bg-shell-surface border border-shell-border">
+                      <button
+                        onClick={() => setLocalTheme("dark")}
+                        className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all ${localTheme === "dark" ? "bg-shell-accent text-white shadow-sm" : "text-shell-text-muted hover:text-shell-text"}`}
+                      >
+                        DARK
+                      </button>
+                      <button
+                        onClick={() => setLocalTheme("light")}
+                        className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all ${localTheme === "light" ? "bg-shell-accent text-white shadow-sm" : "text-shell-text-muted hover:text-shell-text"}`}
+                      >
+                        LIGHT
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              </div>
             </div>
 
             {/* Footer */}
@@ -195,11 +204,21 @@ export default function SettingsView({
   );
 }
 
-function SidebarItem({ icon, label, active = false }: { icon: React.ReactNode; label: string; active?: boolean }) {
-    return (
-        <button className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-colors cursor-pointer ${active ? "bg-shell-accent/10 text-shell-accent shadow-sm" : "text-shell-text-muted hover:bg-shell-surface-hover hover:text-shell-text"}`}>
-             {icon}
-             <span>{label}</span>
-        </button>
-    );
+function SidebarItem({
+  icon,
+  label,
+  active = false,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active?: boolean;
+}) {
+  return (
+    <button
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-colors cursor-pointer ${active ? "bg-shell-accent/10 text-shell-accent shadow-sm" : "text-shell-text-muted hover:bg-shell-surface-hover hover:text-shell-text"}`}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
 }

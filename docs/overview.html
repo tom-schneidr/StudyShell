@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StudyShell Overview</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <p class="eyebrow">StudyShell</p>
+      <h1>A local-first desktop workspace for serious study sessions.</h1>
+      <p class="lede">
+        StudyShell brings notes, code, PDFs, notebooks, media previews, search, flashcards, quizzes,
+        and FreeRouter-backed AI assistance into one Tauri desktop app.
+      </p>
+
+      <section class="grid">
+        <article>
+          <h2>What Works Today</h2>
+          <ul>
+            <li>Workspace file browser with live refresh and native filesystem access.</li>
+            <li>Markdown, plain text, and CodeMirror-backed code editing.</li>
+            <li>PDF viewing, annotation sidecars, image/media previews, and notebook rendering.</li>
+            <li>AI chat, summarization, flashcards, and quizzes through local FreeRouter.</li>
+            <li>
+              Recent files, pinned files, command palette, search, split view, and study timer.
+            </li>
+          </ul>
+        </article>
+
+        <article>
+          <h2>Quick Start</h2>
+          <pre><code>npm install
+npm run tauri:dev</code></pre>
+          <p>
+            AI features expect FreeRouter at <code>http://127.0.0.1:8000/v1</code>. Configure
+            provider keys in FreeRouter, not inside StudyShell.
+          </p>
+        </article>
+      </section>
+
+      <section>
+        <h2>Verification</h2>
+        <pre><code>npm run verify</code></pre>
+        <p>
+          The full release check also includes <code>npm run build</code> and
+          <code>npm run tauri:build</code>.
+        </p>
+      </section>
+
+      <nav class="links">
+        <a href="./architecture.html">Architecture</a>
+        <a href="./roadmap.html">Roadmap</a>
+        <a href="../CONTRIBUTING.html">Contributing</a>
+      </nav>
+    </main>
+  </body>
+</html>

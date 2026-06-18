@@ -28,7 +28,7 @@ export default function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps)
             onClick={onClose}
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           />
-          
+
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -40,7 +40,9 @@ export default function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps)
                 <div className="p-2 rounded-lg bg-shell-accent/10 text-shell-accent">
                   <Keyboard size={20} />
                 </div>
-                <h2 className="text-lg font-bold text-shell-text tracking-tight">Keyboard Shortcuts</h2>
+                <h2 className="text-lg font-bold text-shell-text tracking-tight">
+                  Keyboard Shortcuts
+                </h2>
               </div>
               <button
                 onClick={onClose}
@@ -53,7 +55,7 @@ export default function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps)
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-1 gap-2">
                 {shortcuts.map((s, idx) => (
-                  <div 
+                  <div
                     key={idx}
                     className="flex items-center justify-between p-3 rounded-xl bg-shell-bg/40 border border-shell-border/40 hover:border-shell-accent/20 transition-all group"
                   >
@@ -66,7 +68,9 @@ export default function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps)
                           <kbd className="min-w-[24px] px-1.5 py-1 rounded bg-shell-surface border border-shell-border text-[10px] font-bold text-shell-text-muted shadow-sm capitalize">
                             {key}
                           </kbd>
-                          {kIdx < s.keys.length - 1 && <span className="text-[10px] text-shell-text-muted font-bold">+</span>}
+                          {kIdx < s.keys.length - 1 && (
+                            <span className="text-[10px] text-shell-text-muted font-bold">+</span>
+                          )}
                         </div>
                       ))}
                     </div>

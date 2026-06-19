@@ -186,7 +186,7 @@ export default function MarkdownEditor({
     }
     // Reset to preview for markdown, edit for others
     setIsEditMode(!isMarkdown);
-  }, [filePath]);
+  }, [content, editor, filePath, isMarkdown]);
 
   // Toggle between edit & preview for markdown
   useEffect(() => {
@@ -200,7 +200,7 @@ export default function MarkdownEditor({
       editor.commands.setContent(html);
       editor.setEditable(false);
     }
-  }, [isEditMode]);
+  }, [editor, isEditMode, isMarkdown, rawContent]);
 
   useEffect(() => {
     if (!isMarkdown || isEditMode || !previewContainerRef.current) {

@@ -17,36 +17,6 @@ export function useFileSystem() {
   const unlistenRef = useRef<(() => void) | null>(null);
   const initialRootPathRef = useRef(rootPath);
 
-  // Select a root folder using the native dialog
-  const selectRootFolder = useCallback(async () => {
-    try {
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: "Select your study root folder",
-      });
-
-      if (selected && typeof selected === "string") {
-        await invoke("stop_watching");
-        setRootPath(selected);
-        await refreshTree(selected);
-        // Start watching the directory
-        await invoke("start_watching", { path: selected });
-      }
-    } catch (e) {
-      setError(`Failed to select folder: ${e}`);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (rootPath) {
-      window.localStorage.setItem(STORAGE_KEYS.rootPath, rootPath);
-      return;
-    }
-
-    window.localStorage.removeItem(STORAGE_KEYS.rootPath);
-  }, [rootPath]);
-
   // Refresh the file tree from a given root
   const refreshTree = useCallback(
     async (path?: string) => {
@@ -77,6 +47,36 @@ export function useFileSystem() {
     },
     [rootPath],
   );
+
+  // Select a root folder using the native dialog
+  const selectRootFolder = useCallback(async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: "Select your study root folder",
+      });
+
+      if (selected && typeof selected === "string") {
+        await invoke("stop_watching");
+        setRootPath(selected);
+        await refreshTree(selected);
+        // Start watching the directory
+        await invoke("start_watching", { path: selected });
+      }
+    } catch (e) {
+      setError(`Failed to select folder: ${e}`);
+    }
+  }, [refreshTree]);
+
+  useEffect(() => {
+    if (rootPath) {
+      window.localStorage.setItem(STORAGE_KEYS.rootPath, rootPath);
+      return;
+    }
+
+    window.localStorage.removeItem(STORAGE_KEYS.rootPath);
+  }, [rootPath]);
 
   // Read a file's content
   const readFile = useCallback(async (path: string): Promise<string> => {

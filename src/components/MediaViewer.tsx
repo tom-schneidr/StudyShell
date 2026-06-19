@@ -12,7 +12,7 @@ export default function MediaViewer({ data, mimeType, type, fileName }: MediaVie
   // Create binary blob URL for the native player
   const blobUrl = useMemo(() => {
     // We create the Blob directly from the data buffer to avoid detachment issues
-    const blob = new Blob([data as any], { type: mimeType });
+    const blob = new Blob([new Uint8Array(data)], { type: mimeType });
     return URL.createObjectURL(blob);
   }, [data, mimeType]);
 
@@ -48,17 +48,23 @@ export default function MediaViewer({ data, mimeType, type, fileName }: MediaVie
           ${type === "audio" ? "max-w-[400px]" : "aspect-video"}`}
         >
           {type === "video" ? (
-            <video
-              src={blobUrl}
-              controls
-              className="w-full h-full object-contain"
-              autoPlay={false}
-            />
+            <>
+              {/* Local user media does not include caption sidecars in the workspace viewer. */}
+              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+              <video
+                src={blobUrl}
+                controls
+                className="w-full h-full object-contain"
+                autoPlay={false}
+              />
+            </>
           ) : (
             <div className="p-8 pb-10 flex flex-col items-center justify-center gap-4 bg-shell-surface">
               <div className="w-full h-1 bg-shell-border rounded-full overflow-hidden relative">
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 animate-pulse-subtle" />
               </div>
+              {/* Local user media does not include caption sidecars in the workspace viewer. */}
+              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
               <audio src={blobUrl} controls className="w-full max-w-xs h-12" autoPlay={false} />
             </div>
           )}

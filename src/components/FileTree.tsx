@@ -50,16 +50,33 @@ function TreeNode({
     }
   }, [node, onFileSelect, forceExpandAll]);
 
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+
+      event.preventDefault();
+      handleClick();
+    },
+    [handleClick],
+  );
+
   return (
     <div>
       <div
-        className={`group flex items-center gap-1 py-1 pr-2 cursor-pointer select-none rounded-md mx-1 ${
+        role="treeitem"
+        tabIndex={0}
+        aria-expanded={node.is_dir ? isExpanded : undefined}
+        aria-selected={isActive}
+        className={`group flex items-center gap-1 py-1 pr-2 cursor-pointer select-none rounded-md mx-1 outline-none focus-visible:ring-2 focus-visible:ring-shell-accent/40 ${
           isActive
             ? "bg-shell-accent/10 text-shell-accent"
             : "text-shell-text-secondary hover:bg-shell-surface-hover hover:text-shell-text"
         }`}
         style={{ paddingLeft: `${depth * 14 + 8}px` }}
         onClick={handleClick}
+        onKeyDown={handleKeyDown}
         onContextMenu={(e) => {
           e.preventDefault();
           onContextMenu(e, node);

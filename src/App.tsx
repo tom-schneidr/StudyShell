@@ -76,6 +76,10 @@ import {
   clampChatWidth,
   clampSidebarWidth,
   DEFAULT_SIDEBAR_WIDTH,
+  MAX_CHAT_WIDTH,
+  MAX_SIDEBAR_WIDTH,
+  MIN_CHAT_WIDTH,
+  MIN_SIDEBAR_WIDTH,
 } from "./utils/layoutPreferences";
 
 const CommandPalette = lazy(() => import("./components/CommandPalette"));
@@ -83,6 +87,8 @@ const FlashcardDeck = lazy(() => import("./components/FlashcardDeck"));
 const QuizView = lazy(() => import("./components/QuizView"));
 const ShortcutsModal = lazy(() => import("./components/ShortcutsModal"));
 const SettingsView = lazy(() => import("./components/SettingsView"));
+
+const RESIZE_KEY_STEP = 24;
 
 function findFileNodeByPath(nodes: FileNode[], targetPath: string): FileNode | null {
   for (const node of nodes) {
@@ -259,7 +265,7 @@ export default function App() {
     setSecondBinaryLoading(false);
     setSecondNotebookData(null);
     setRestoredSecondPanePath(null);
-  }, []);
+  }, [setRestoredSecondPanePath]);
 
   const liveFilePaths = useMemo(() => collectWorkspaceFilePaths(fs.fileTree), [fs.fileTree]);
 
@@ -356,7 +362,7 @@ export default function App() {
         }
       }
     },
-    [fs, liveFilePaths, resetFileState],
+    [fs, liveFilePaths, persistRecentFiles, resetFileState, setOpenTabs, setRecentFiles],
   );
 
   const fsa = useFileSystemActions(fs, (node) => handleFileSelect(node));
@@ -394,7 +400,15 @@ export default function App() {
         newPath,
       );
     },
-    [activeFile, secondActiveFile],
+    [
+      activeFile,
+      persistPinnedFiles,
+      persistRecentFiles,
+      secondActiveFile,
+      setOpenTabs,
+      setPinnedFiles,
+      setRecentFiles,
+    ],
   );
 
   const handleToggleSplit = useCallback(() => {
@@ -426,6 +440,7 @@ export default function App() {
     notebookData,
     resetSecondPaneState,
     secondActiveFile,
+    setIsSplit,
   ]);
 
   const handleSelectSecondFile = useCallback(
@@ -468,7 +483,7 @@ export default function App() {
         setSecondBinaryLoading(false);
       }
     },
-    [fs, resetSecondPaneState],
+    [fs, resetSecondPaneState, setIsSplit, setRestoredSecondPanePath],
   );
 
   const handleSaveFile = useCallback(
@@ -510,13 +525,13 @@ export default function App() {
         return filtered;
       });
     },
-    [activeFile, handleFileSelect, resetFileState],
+    [activeFile, handleFileSelect, resetFileState, setOpenTabs],
   );
 
   const handleClearRecentFiles = useCallback(() => {
     setRecentFiles([]);
     persistRecentFiles([]);
-  }, [persistRecentFiles]);
+  }, [persistRecentFiles, setRecentFiles]);
 
   const handleGenerateFlashcards = useCallback(async () => {
     if (!activeFile || !fileContent) return;
@@ -608,7 +623,7 @@ export default function App() {
                   : fs.rootPath;
               await fs.importFiles(paths, targetDir);
               toast.success(`Imported ${paths.length} items.`);
-              fs.refreshTree();
+              void fs.refreshTree();
             } catch (err) {
               toast.error(`Import failed: ${err}`);
             }
@@ -617,23 +632,22 @@ export default function App() {
       );
     };
 
-    setupDnd();
-
-    const handleExplain = (e: Event) => {
-      const text = (e as CustomEvent<StudyShellExplainEventDetail>).detail?.text;
-      if (text) {
-        setShowChatPanel(true);
-        void handleSendChatMessage(`Explain this content in detail:\n\n> ${text}`);
-      }
-    };
-    window.addEventListener("studyshell:explain", handleExplain);
+    void setupDnd();
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("studyshell:explain", handleExplain);
       unlistenFuncs.forEach((fn) => fn());
     };
-  }, [activeFile, handleCloseTab, fs, toast, showChatPanel, sidebarWidth]);
+  }, [
+    activeFile,
+    handleCloseTab,
+    fs,
+    toast,
+    showChatPanel,
+    sidebarWidth,
+    setShowChatPanel,
+    setSidebarWidth,
+  ]);
 
   useEffect(() => {
     if (activeFile && !liveFilePaths.has(activeFile.path)) {
@@ -676,9 +690,15 @@ export default function App() {
     activeFile,
     fs.rootPath,
     liveFilePaths,
+    persistPinnedFiles,
+    persistRecentFiles,
     resetFileState,
     resetSecondPaneState,
     secondActiveFile,
+    setIsSplit,
+    setOpenTabs,
+    setPinnedFiles,
+    setRecentFiles,
   ]);
 
   useEffect(() => {
@@ -706,6 +726,7 @@ export default function App() {
     liveFilePaths,
     restoredSecondPanePath,
     secondActiveFile,
+    setRestoredSecondPanePath,
   ]);
 
   useEffect(() => {
@@ -737,6 +758,7 @@ export default function App() {
   const canSummarizeActiveFile = Boolean(activeFile && fileContent);
   const canGenerateQuiz = Boolean(activeFile && fileContent);
   const canClearChat = !ai.loading && ai.messages.length > 0;
+  const writeFile = fs.writeFile;
 
   useEffect(() => {
     const annotationEntries = Object.entries(pdfAnnotations);
@@ -753,7 +775,7 @@ export default function App() {
           }
 
           try {
-            await fs.writeFile(buildPdfAnnotationSidecarPath(path), serialized);
+            await writeFile(buildPdfAnnotationSidecarPath(path), serialized);
             lastPersistedPdfAnnotationsRef.current[path] = serialized;
           } catch (error) {
             console.error(`Failed to persist PDF annotations for ${path}:`, error);
@@ -763,7 +785,7 @@ export default function App() {
     }, 500);
 
     return () => window.clearTimeout(timer);
-  }, [pdfAnnotations, fs.writeFile]);
+  }, [pdfAnnotations, writeFile]);
 
   const handleUpdatePdfAnnotations = useCallback((path: string, annotations: PdfAnnotationData) => {
     setPdfAnnotations((prev) => ({
@@ -833,9 +855,15 @@ export default function App() {
     deleteTarget,
     fs,
     liveFilePaths,
+    persistPinnedFiles,
+    persistRecentFiles,
     resetFileState,
     resetSecondPaneState,
     secondActiveFile,
+    setIsSplit,
+    setOpenTabs,
+    setPinnedFiles,
+    setRecentFiles,
     toast,
   ]);
 
@@ -1070,6 +1098,20 @@ export default function App() {
     [activeFile, fileContent, selectedSources, fs, ai],
   );
 
+  useEffect(() => {
+    const handleExplain = (event: Event) => {
+      const text = (event as CustomEvent<StudyShellExplainEventDetail>).detail?.text;
+      if (!text) {
+        return;
+      }
+
+      setShowChatPanel(true);
+      void handleSendChatMessage(`Explain this content in detail:\n\n> ${text}`);
+    };
+
+    window.addEventListener("studyshell:explain", handleExplain);
+    return () => window.removeEventListener("studyshell:explain", handleExplain);
+  }, [handleSendChatMessage, setShowChatPanel]);
   const globalCommands: CommandItem[] = [
     {
       id: "new-note",
@@ -1217,7 +1259,24 @@ export default function App() {
             onCollapse={() => setSidebarWidth(0)}
             onSearch={fs.searchFiles}
           />
-          <div
+          <button
+            type="button"
+            aria-label="Resize sidebar with arrow keys"
+            onKeyDown={(event) => {
+              if (event.key === "ArrowLeft") {
+                event.preventDefault();
+                setSidebarWidth((prev) => clampSidebarWidth(prev - RESIZE_KEY_STEP));
+              } else if (event.key === "ArrowRight") {
+                event.preventDefault();
+                setSidebarWidth((prev) => clampSidebarWidth(prev + RESIZE_KEY_STEP));
+              } else if (event.key === "Home") {
+                event.preventDefault();
+                setSidebarWidth(MIN_SIDEBAR_WIDTH);
+              } else if (event.key === "End") {
+                event.preventDefault();
+                setSidebarWidth(MAX_SIDEBAR_WIDTH);
+              }
+            }}
             onMouseDown={() => {
               const handleMove = (e: MouseEvent) => setSidebarWidth(clampSidebarWidth(e.clientX));
               const handleUp = () => {
@@ -1227,7 +1286,7 @@ export default function App() {
               window.addEventListener("mousemove", handleMove);
               window.addEventListener("mouseup", handleUp);
             }}
-            className="absolute right-0 top-0 bottom-0 w-1 hover:bg-shell-accent/40 cursor-col-resize transition-colors z-50"
+            className="absolute right-0 top-0 bottom-0 w-1 hover:bg-shell-accent/40 focus:bg-shell-accent/40 focus:outline-none cursor-col-resize transition-colors z-50 border-0 p-0"
           />
         </div>
       )}
@@ -1293,7 +1352,24 @@ export default function App() {
           style={{ width: chatWidth }}
         >
           {/* Chat Resize Handle */}
-          <div
+          <button
+            type="button"
+            aria-label="Resize chat panel with arrow keys"
+            onKeyDown={(event) => {
+              if (event.key === "ArrowLeft") {
+                event.preventDefault();
+                setChatWidth((prev) => clampChatWidth(prev + RESIZE_KEY_STEP));
+              } else if (event.key === "ArrowRight") {
+                event.preventDefault();
+                setChatWidth((prev) => clampChatWidth(prev - RESIZE_KEY_STEP));
+              } else if (event.key === "Home") {
+                event.preventDefault();
+                setChatWidth(MIN_CHAT_WIDTH);
+              } else if (event.key === "End") {
+                event.preventDefault();
+                setChatWidth(MAX_CHAT_WIDTH);
+              }
+            }}
             onMouseDown={() => {
               const handleMove = (e: MouseEvent) => {
                 const newW = window.innerWidth - e.clientX;
@@ -1306,7 +1382,7 @@ export default function App() {
               window.addEventListener("mousemove", handleMove);
               window.addEventListener("mouseup", handleUp);
             }}
-            className="absolute left-0 top-0 bottom-0 w-1 hover:bg-shell-accent/40 cursor-col-resize transition-colors z-50"
+            className="absolute left-0 top-0 bottom-0 w-1 hover:bg-shell-accent/40 focus:bg-shell-accent/40 focus:outline-none cursor-col-resize transition-colors z-50 border-0 p-0"
           />
           <ChatPanel
             messages={ai.messages}

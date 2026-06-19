@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, Plus, Trash2, Sparkles, BookOpen, Check, Edit3, Lightbulb } from "lucide-react";
 import type { StudyAI } from "../hooks/useStudyAI";
@@ -40,6 +40,16 @@ export default function FlashcardStudio({
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingField, setEditingField] = useState<"front" | "back" | null>(null);
   const [editText, setEditText] = useState("");
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (editingIndex === null || editingField === null) {
+      return;
+    }
+
+    editTextareaRef.current?.focus();
+    editTextareaRef.current?.select();
+  }, [editingField, editingIndex]);
 
   const fileName = useMemo(() => getPathBaseName(filePath), [filePath]);
   const dirPath = useMemo(() => getParentPath(filePath), [filePath]);
@@ -270,10 +280,14 @@ export default function FlashcardStudio({
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-shell-text-secondary uppercase tracking-widest pl-1">
+                  <label
+                    htmlFor="flashcard-new-front"
+                    className="text-[10px] font-bold text-shell-text-secondary uppercase tracking-widest pl-1"
+                  >
                     Front (Question or Term)
                   </label>
                   <textarea
+                    id="flashcard-new-front"
                     rows={2}
                     value={newFront}
                     onChange={(e) => setNewFront(e.target.value)}
@@ -282,10 +296,14 @@ export default function FlashcardStudio({
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-shell-text-secondary uppercase tracking-widest pl-1">
+                  <label
+                    htmlFor="flashcard-new-back"
+                    className="text-[10px] font-bold text-shell-text-secondary uppercase tracking-widest pl-1"
+                  >
                     Back (Answer or Definition)
                   </label>
                   <textarea
+                    id="flashcard-new-back"
                     rows={2}
                     value={newBack}
                     onChange={(e) => setNewBack(e.target.value)}
@@ -346,22 +364,24 @@ export default function FlashcardStudio({
                             submitEdit();
                           }
                         }}
-                        autoFocus
+                        ref={editTextareaRef}
                         rows={2}
                         className="w-full text-xs text-shell-text bg-shell-bg/70 border border-shell-accent/40 rounded-xl px-3 py-2 outline-none resize-none font-medium leading-relaxed"
                       />
                     ) : (
-                      <p
+                      <button
+                        type="button"
                         onClick={() => startEditing(i, "front", card.front)}
-                        className="text-xs text-shell-text font-bold leading-relaxed cursor-edit flex items-start gap-1 group/text"
+                        className="text-left w-full text-xs text-shell-text font-bold leading-relaxed cursor-edit flex items-start gap-1 group/text"
                         title="Click to edit Front"
+                        aria-label={`Edit front of card ${i + 1}`}
                       >
                         <span className="flex-1 truncate-3-lines">{card.front}</span>
                         <Edit3
                           size={11}
                           className="text-shell-text-muted opacity-0 group-hover/text:opacity-100 transition-opacity ml-1.5 mt-0.5"
                         />
-                      </p>
+                      </button>
                     )}
                   </div>
 
@@ -385,22 +405,24 @@ export default function FlashcardStudio({
                             submitEdit();
                           }
                         }}
-                        autoFocus
+                        ref={editTextareaRef}
                         rows={2}
                         className="w-full text-xs text-shell-text bg-shell-bg/70 border border-shell-accent/40 rounded-xl px-3 py-2 outline-none resize-none font-medium leading-relaxed"
                       />
                     ) : (
-                      <p
+                      <button
+                        type="button"
                         onClick={() => startEditing(i, "back", card.back)}
-                        className="text-xs text-shell-text-secondary leading-relaxed cursor-edit flex items-start gap-1 group/text"
+                        className="text-left w-full text-xs text-shell-text-secondary leading-relaxed cursor-edit flex items-start gap-1 group/text"
                         title="Click to edit Back"
+                        aria-label={`Edit back of card ${i + 1}`}
                       >
                         <span className="flex-1 truncate-3-lines">{card.back}</span>
                         <Edit3
                           size={11}
                           className="text-shell-text-muted opacity-0 group-hover/text:opacity-100 transition-opacity ml-1.5 mt-0.5"
                         />
-                      </p>
+                      </button>
                     )}
                   </div>
                 </div>

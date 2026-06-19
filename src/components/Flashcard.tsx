@@ -22,13 +22,16 @@ export default function Flashcard({
     if (onFlip) {
       onFlip();
     } else {
-      setInternalFlipped(!internalFlipped);
+      setInternalFlipped((prev) => !prev);
     }
   };
 
   return (
-    <div
-      className="perspective-1000 w-full max-w-[500px] aspect-[1.6/1] cursor-pointer group"
+    <button
+      type="button"
+      aria-pressed={isFlipped}
+      aria-label={isFlipped ? "Show flashcard question" : "Show flashcard answer"}
+      className="perspective-1000 w-full max-w-[500px] aspect-[1.6/1] cursor-pointer group border-0 bg-transparent p-0 text-left"
       onClick={handleFlip}
     >
       <motion.div
@@ -62,6 +65,6 @@ export default function Flashcard({
           </p>
         </div>
       </motion.div>
-    </div>
+    </button>
   );
 }

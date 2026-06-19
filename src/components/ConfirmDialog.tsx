@@ -30,19 +30,25 @@ export default function ConfirmDialog({
     }
   }, [isOpen]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      onCancel();
+  useEffect(() => {
+    if (!isOpen) {
+      return;
     }
-  };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onCancel();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onCancel]);
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-          onKeyDown={handleKeyDown}
-        >
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -59,6 +65,9 @@ export default function ConfirmDialog({
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ type: "spring", duration: 0.4, bounce: 0.3 }}
             className="relative w-full max-w-sm glass-layer-2 overflow-hidden rounded-2xl shadow-2xl border border-shell-border"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-dialog-title"
           >
             <div className="bg-glow opacity-30 h-32" />
             <div className="relative p-6">
@@ -68,9 +77,16 @@ export default function ConfirmDialog({
                   <div className="p-2 rounded-xl bg-shell-error/10 text-shell-error">
                     <AlertTriangle size={20} />
                   </div>
-                  <h2 className="text-lg font-bold text-shell-text tracking-tight">{title}</h2>
+                  <h2
+                    id="confirm-dialog-title"
+                    className="text-lg font-bold text-shell-text tracking-tight"
+                  >
+                    {title}
+                  </h2>
                 </div>
                 <button
+                  type="button"
+                  aria-label="Close confirmation dialog"
                   onClick={onCancel}
                   className="p-1.5 rounded-lg text-shell-text-muted hover:text-shell-text hover:bg-shell-surface-hover transition-colors cursor-pointer"
                 >

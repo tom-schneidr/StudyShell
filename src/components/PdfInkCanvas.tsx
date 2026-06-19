@@ -266,8 +266,20 @@ export default function PdfInkCanvas({
       {(annotations.textboxes || []).map((t) => (
         <div
           key={t.id}
+          role="button"
+          aria-roledescription="text annotation"
+          tabIndex={tool === "select" ? 0 : -1}
+          aria-label={"Text annotation: " + t.content}
           onDoubleClick={(e) => {
             e.stopPropagation();
+            handleTbDoubleClick(t);
+          }}
+          onKeyDown={(e) => {
+            if (tool !== "select" || (e.key !== "Enter" && e.key !== " ")) {
+              return;
+            }
+
+            e.preventDefault();
             handleTbDoubleClick(t);
           }}
           onMouseDown={(e) => {
@@ -309,6 +321,8 @@ export default function PdfInkCanvas({
             <>
               {/* Trash Button - Small and premium */}
               <button
+                type="button"
+                aria-label="Delete text annotation"
                 onMouseDown={(e) => deleteTb(e, t.id)}
                 className="absolute -top-3 -right-3 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center 
                 shadow-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-red-600 scale-75 group-hover:scale-100 cursor-pointer"
@@ -317,7 +331,9 @@ export default function PdfInkCanvas({
               </button>
 
               {/* Resize Handle */}
-              <div
+              <button
+                type="button"
+                aria-label="Resize text annotation"
                 onMouseDown={(e) => {
                   e.stopPropagation();
                   const rect = canvasRef.current!.getBoundingClientRect();
@@ -332,10 +348,10 @@ export default function PdfInkCanvas({
                   };
                   setActiveResizingId(t.id);
                 }}
-                className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-shell-accent rounded-sm cursor-nwse-resize shadow-md flex items-center justify-center hover:scale-125 transition-transform z-50"
+                className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-shell-accent rounded-sm cursor-nwse-resize shadow-md flex items-center justify-center hover:scale-125 transition-transform z-50 border-0 p-0"
               >
                 <div className="w-1.5 h-1.5 border-r-2 border-b-2 border-white opacity-90" />
-              </div>
+              </button>
             </>
           )}
         </div>

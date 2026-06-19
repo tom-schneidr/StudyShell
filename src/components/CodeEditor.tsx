@@ -39,6 +39,11 @@ export default function CodeEditor({ content, onSave, filePath, language }: Code
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestContentRef = useRef(content);
   const lastSavedRef = useRef(content);
+  const documentForPathRef = useRef({ filePath, content });
+
+  if (documentForPathRef.current.filePath !== filePath) {
+    documentForPathRef.current = { filePath, content };
+  }
 
   const getLanguageExtension = (lang?: string, path?: string) => {
     const ext = resolveCodeLanguage(lang, path);
@@ -84,7 +89,7 @@ export default function CodeEditor({ content, onSave, filePath, language }: Code
     if (!containerRef.current) return;
 
     const state = EditorState.create({
-      doc: content,
+      doc: documentForPathRef.current.content,
       extensions: [
         lineNumbers(),
         highlightActiveLine(),

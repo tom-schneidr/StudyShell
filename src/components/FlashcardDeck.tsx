@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, X, Trophy, RefreshCcw } from "lucide-react";
 import Flashcard from "./Flashcard";
@@ -23,27 +23,27 @@ export default function FlashcardDeck({
   const [isFlipped, setIsFlipped] = useState(false);
   const [completed, setCompleted] = useState(false);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (currentIndex < cards.length - 1) {
       setIsFlipped(false);
       setTimeout(() => setCurrentIndex(currentIndex + 1), 100);
     } else {
       setCompleted(true);
     }
-  };
+  }, [cards.length, currentIndex]);
 
-  const handlePrev = () => {
+  const handlePrev = useCallback(() => {
     if (currentIndex > 0) {
       setIsFlipped(false);
       setTimeout(() => setCurrentIndex(currentIndex - 1), 100);
     }
-  };
+  }, [currentIndex]);
 
-  const reset = () => {
+  const reset = useCallback(() => {
     setCurrentIndex(0);
     setIsFlipped(false);
     setCompleted(false);
-  };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -80,7 +80,7 @@ export default function FlashcardDeck({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [completed, onClose, currentIndex, cards.length]);
+  }, [completed, handleNext, handlePrev, onClose, reset]);
 
   if (cards.length === 0) {
     return (

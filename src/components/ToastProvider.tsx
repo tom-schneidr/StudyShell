@@ -30,32 +30,35 @@ export function useToast() {
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const addToast = useCallback((type: ToastType, message: string) => {
-    const id = Date.now().toString() + Math.random().toString(36).substring(2);
-    const nextToast = { id, type, message };
-    let shouldScheduleRemoval = false;
-
-    setToasts((prev) => {
-      if (hasDuplicateToast(prev, nextToast)) {
-        return prev;
-      }
-
-      shouldScheduleRemoval = true;
-      return [...prev, nextToast];
-    });
-
-    if (!shouldScheduleRemoval) {
-      return;
-    }
-
-    setTimeout(() => {
-      removeToast(id);
-    }, 4000);
-  }, []);
-
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
+
+  const addToast = useCallback(
+    (type: ToastType, message: string) => {
+      const id = Date.now().toString() + Math.random().toString(36).substring(2);
+      const nextToast = { id, type, message };
+      let shouldScheduleRemoval = false;
+
+      setToasts((prev) => {
+        if (hasDuplicateToast(prev, nextToast)) {
+          return prev;
+        }
+
+        shouldScheduleRemoval = true;
+        return [...prev, nextToast];
+      });
+
+      if (!shouldScheduleRemoval) {
+        return;
+      }
+
+      setTimeout(() => {
+        removeToast(id);
+      }, 4000);
+    },
+    [removeToast],
+  );
 
   const success = useCallback((msg: string) => addToast("success", msg), [addToast]);
   const error = useCallback((msg: string) => addToast("error", msg), [addToast]);

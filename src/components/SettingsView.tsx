@@ -123,13 +123,14 @@ export default function SettingsView({
                   </p>
 
                   <div className="space-y-2 pt-2">
-                    <label className="text-[13px] text-shell-text-secondary font-medium">
-                      System prompt
-                    </label>
-                    <label className="text-[13px] text-shell-text-secondary font-medium">
+                    <label
+                      htmlFor="settings-system-prompt"
+                      className="text-[13px] text-shell-text-secondary font-medium"
+                    >
                       System Role / Instructions
                     </label>
                     <textarea
+                      id="settings-system-prompt"
                       value={localPrompt}
                       onChange={(e) => setLocalPrompt(e.target.value)}
                       className="w-full h-32 p-3 rounded-xl bg-shell-bg border border-shell-border text-[13px] text-shell-text placeholder:text-shell-text-muted outline-none focus:border-shell-accent/40 resize-none leading-relaxed"

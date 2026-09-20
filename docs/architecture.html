@@ -30,8 +30,9 @@
         <article>
           <h2>AI Boundary</h2>
           <p>
-            StudyShell sends OpenAI-compatible requests to a local FreeRouter gateway. Provider keys
-            stay outside the WebView and outside this repository.
+            StudyShell sends OpenAI-compatible requests to the configured FreeRouter gateway.
+            Provider keys stay outside the WebView and outside this repository; selected document
+            content can leave the machine when AI or web search is enabled.
           </p>
         </article>
         <article>
@@ -57,6 +58,11 @@
           </li>
         </ul>
       </section>
+
+      <p class="lede">
+        See <a href="../SECURITY.md">Security and data handling</a> for the filesystem trust model,
+        AI data flow, and current limitations.
+      </p>
     </main>
   </body>
 </html>

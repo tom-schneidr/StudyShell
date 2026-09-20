@@ -9,10 +9,10 @@
   <body>
     <main class="page">
       <p class="eyebrow">StudyShell</p>
-      <h1>A local-first desktop workspace for serious study sessions.</h1>
+      <h1>A local-first desktop workspace for course material as files.</h1>
       <p class="lede">
         StudyShell brings notes, code, PDFs, notebooks, media previews, search, flashcards, quizzes,
-        and FreeRouter-backed AI assistance into one Tauri desktop app.
+        and optional FreeRouter-backed AI assistance into one Tauri desktop app.
       </p>
 
       <section class="grid">
@@ -31,7 +31,7 @@
 
         <article>
           <h2>Quick Start</h2>
-          <pre><code>npm install
+          <pre><code>npm ci
 npm run tauri:dev</code></pre>
           <p>
             AI features expect FreeRouter at <code>http://127.0.0.1:8000/v1</code>. Configure
@@ -42,16 +42,20 @@ npm run tauri:dev</code></pre>
 
       <section>
         <h2>Verification</h2>
-        <pre><code>npm run verify</code></pre>
+        <pre><code>npm run verify:frontend
+npm run verify:rust
+npm run build
+npm audit --omit=dev --audit-level=high</code></pre>
         <p>
-          The full release check also includes <code>npm run build</code> and
-          <code>npm run tauri:build</code>.
+          <code>npm run tauri:build</code> creates a platform-specific installer locally. It is not
+          run in the Linux CI job.
         </p>
       </section>
 
       <nav class="links">
         <a href="./architecture.html">Architecture</a>
         <a href="./roadmap.html">Roadmap</a>
+        <a href="../SECURITY.md">Security and data handling</a>
         <a href="../CONTRIBUTING.html">Contributing</a>
       </nav>
     </main>

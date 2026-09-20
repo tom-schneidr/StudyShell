@@ -14,6 +14,28 @@ fn require_non_empty_path(path: &str, label: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_asset_filename(filename: &str) -> Result<&str, String> {
+    let trimmed = filename.trim();
+    if trimmed.is_empty() {
+        return Err("Asset filename cannot be empty".to_string());
+    }
+
+    let has_path_component = trimmed == "."
+        || trimmed == ".."
+        || trimmed.contains(['/', '\\'])
+        || trimmed.chars().any(|character| {
+            character == '\0'
+                || character.is_control()
+                || matches!(character, ':' | '*' | '?' | '<' | '>' | '|')
+        });
+
+    if has_path_component || Path::new(trimmed).components().count() != 1 {
+        return Err("Asset filename must be a single safe filename".to_string());
+    }
+
+    Ok(trimmed)
+}
+
 /// Represents a node in the file tree (file or directory with children)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileNode {
@@ -417,9 +439,7 @@ pub fn save_base64_asset(
     use std::fs;
 
     require_non_empty_path(&document_path, "Document")?;
-    if filename.trim().is_empty() {
-        return Err("Asset filename cannot be empty".to_string());
-    }
+    let filename = validate_asset_filename(&filename)?;
 
     let document = Path::new(&document_path);
     let document_dir = document
@@ -432,7 +452,7 @@ pub fn save_base64_asset(
             .map_err(|e| format!("Failed to create assets directory: {}", e))?;
     }
 
-    let file_path = resolve_unique_destination_path(&assets_dir.join(&filename));
+    let file_path = resolve_unique_destination_path(&assets_dir.join(filename));
 
     // Decode base64. Handle potential header (e.g. "data:image/png;base64,")
     let clean_data = if base64_data.contains(",") {
@@ -748,6 +768,33 @@ mod tests {
             fs::read(assets_dir.join("pasted-image-1-2.png")).unwrap(),
             b"hello"
         );
+    }
+
+    #[test]
+    fn save_base64_asset_rejects_path_components() {
+        let temp = TestDir::new("asset-paths");
+        let document = temp.child("course/notes.md");
+        fs::create_dir_all(document.parent().unwrap()).unwrap();
+        fs::write(&document, "# Notes").unwrap();
+
+        for filename in [
+            "../escape.png",
+            r"..\escape.png",
+            r"C:\escape.png",
+            ".",
+            "..",
+        ] {
+            let error = save_base64_asset(
+                document.to_string_lossy().to_string(),
+                filename.to_string(),
+                "aGVsbG8=".to_string(),
+            )
+            .unwrap_err();
+            assert_eq!(error, "Asset filename must be a single safe filename");
+        }
+
+        assert!(!temp.child("escape.png").exists());
+        assert!(!temp.child("course/escape.png").exists());
     }
 
     #[test]

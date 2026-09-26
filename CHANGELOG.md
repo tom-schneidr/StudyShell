@@ -5,6 +5,7 @@
 ### Added
 
 - **Clean baseline tooling**: ESLint, Prettier, Node version guidance, split frontend/Rust verification scripts, and CI alignment with local checks.
+- **Cross-platform verification**: Prettier accepts the checkout's native line endings while Cargo checks stay locked to `Cargo.lock`.
 - **Reader-facing HTML docs**: overview, architecture, roadmap, and contribution pages for a more polished project presentation.
 - **Focused persistence hooks**: layout, theme, split-view, and file-list persistence now live outside the main app component.
 - **Filesystem hardening tests**: Rust coverage now includes blank-path rejection, large search-file skips, and capped search results.

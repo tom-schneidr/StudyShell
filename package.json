@@ -20,7 +20,7 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "verify:frontend": "npm run format:check && npm run lint && npm run typecheck && npm run test",
-    "verify:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --target-dir scratch/cargo-target --lib -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --target-dir scratch/cargo-target --lib",
+    "verify:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --locked --manifest-path src-tauri/Cargo.toml --target-dir scratch/cargo-target --lib -- -D warnings && cargo test --locked --manifest-path src-tauri/Cargo.toml --target-dir scratch/cargo-target --lib",
     "verify": "npm run verify:frontend && npm run verify:rust"
   },
   "engines": {
